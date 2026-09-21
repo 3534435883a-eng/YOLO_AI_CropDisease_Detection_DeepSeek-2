@@ -668,7 +668,8 @@ public class AgentRunService {
                                            Map<String, BigDecimal> reservedResources, String code,
                                            BigDecimal amount) {
         AgentJdbcRepository.ResourceRow resource = findResource(resources, code);
-        if (resource == null || amount == null || resource.availableQuantity == null) {
+        if (resource == null || amount == null || amount.signum() <= 0 || resource.availableQuantity == null
+                || resource.availableQuantity.signum() < 0) {
             return false;
         }
         BigDecimal reserved = reservedResources.get(code);
@@ -679,8 +680,9 @@ public class AgentRunService {
     private void consumeResource(List<AgentJdbcRepository.ResourceRow> resources, String code, BigDecimal amount,
                                  Long runId, Long actionId, String reason, LocalDateTime now) {
         AgentJdbcRepository.ResourceRow resource = findResource(resources, code);
-        if (resource == null || amount == null) {
-            return;
+        if (resource == null || amount == null || amount.signum() <= 0 || resource.availableQuantity == null
+                || resource.availableQuantity.compareTo(amount) < 0) {
+            throw new IllegalStateException("资源扣减校验失败: " + code);
         }
         resource.availableQuantity = resource.availableQuantity.subtract(amount);
         resource.updatedAt = now;
