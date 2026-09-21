@@ -2,6 +2,12 @@
 	<div class="chat-container">
 	  <div class="chat-header">
 		<h3 class="chat-title">智能助手 DeepSeek Chat</h3>
+		<div class="agent-chat-context">
+		  <span>番茄温室模拟上下文</span>
+		  <el-tag size="small" effect="plain" :type="agentRunStatusType">{{ agentRunStatusLabel }}</el-tag>
+		  <span class="agent-context-snapshot">{{ agentContextSnapshot }}</span>
+		  <el-tag size="small" effect="plain" type="info">规则解读</el-tag>
+		</div>
 	  </div>
 	  
 	  <div class="chat-messages" ref="messageContainer">
@@ -58,9 +64,13 @@
   
   <script>
   import { requestAiChat } from '/@/services/ai'
+  import { useAgentRunStore } from '/@/stores/agentRun'
   
   export default {
 	name: 'SmartChat',
+	setup() {
+	  return { agentStore: useAgentRunStore() }
+	},
 	data() {
 	  return {
 		messages: [{
@@ -80,6 +90,41 @@
 		]
 	  }
 	},
+	computed: {
+	  agentRunStatus() {
+		const summary = this.agentStore.summary || {}
+		return String(this.agentStore.activeRun?.status || summary.status || 'READY').toUpperCase()
+	  },
+	  agentRunStatusLabel() {
+		return {
+		  RUNNING: '自动推演中',
+		  PAUSED: '模拟已暂停',
+		  COMPLETED: '本轮完成',
+		  READY: '等待创建'
+		}[this.agentRunStatus] || '模拟待命'
+	  },
+	  agentRunStatusType() {
+		if (this.agentRunStatus === 'RUNNING') return 'success'
+		if (this.agentRunStatus === 'PAUSED') return 'warning'
+		return 'info'
+	  },
+	  agentContextSnapshot() {
+		if (!this.agentStore.hasActiveRun) return '尚未创建 8号温室番茄模拟'
+		const summary = this.agentStore.summary || {}
+		const state = summary.currentState || summary.state || {}
+		const temperature = Number(state.temperatureC ?? state.temperature_c ?? state.temperature)
+		const humidity = Number(state.airHumidityPct ?? state.air_humidity_pct ?? state.airHumidity)
+		const risk = state.riskLevel || state.risk_level
+		const parts = []
+		if (Number.isFinite(temperature)) parts.push(`温度 ${temperature.toFixed(1)} C`)
+		if (Number.isFinite(humidity)) parts.push(`湿度 ${humidity.toFixed(1)}%`)
+		if (risk) parts.push(`风险 ${risk}`)
+		return parts.length ? parts.join(' · ') : '等待首个虚拟步'
+	  }
+	},
+	created() {
+	  if (!this.agentStore.loading) this.agentStore.loadActiveRun()
+	},
 	methods: {
 	  selectQuestion(question) {
 		this.userInput = question
@@ -95,13 +140,26 @@
 		})
 		
 		this.userInput = ''
+		if (this.isDirectDeviceControlRequest(userMessage)) {
+		  this.messages.push({
+			role: 'assistant',
+			content: '设备执行只允许由智能体指挥中心的规则流程或人工接管处理。我可以基于当前模拟状态解释风险、预期影响和需要确认的条件。'
+		  })
+		  this.$nextTick(() => {
+			this.scrollToBottom()
+		  })
+		  return
+		}
 		this.loading = true
   
 		try {
-		  const result = await requestAiChat(this.messages.map(msg => ({
+		  const result = await requestAiChat([
+			{ role: 'system', content: this.buildRunContext() },
+			...this.messages.map(msg => ({
 			role: msg.role,
 			content: msg.content
-		  })))
+			}))
+		  ])
   
 		  this.messages.push({
 			role: 'assistant',
@@ -116,6 +174,25 @@
 			this.scrollToBottom()
 		  })
 		}
+	  },
+	  buildRunContext() {
+		const summary = this.agentStore.summary || {}
+		const activeRun = this.agentStore.activeRun || {}
+		const state = summary.currentState || summary.state || {}
+		const strategy = summary.strategySummary || summary.strategy || '等待第一步规则推演。'
+		const temperature = state.temperatureC ?? state.temperature_c ?? state.temperature ?? '--'
+		const humidity = state.airHumidityPct ?? state.air_humidity_pct ?? state.airHumidity ?? '--'
+		const risk = state.riskLevel ?? state.risk_level ?? '--'
+		return [
+		  '你是农业策略解释助手。以下是只读的番茄温室仿真上下文，不是实际传感器数据。',
+		  `运行状态：${activeRun.status || summary.status || '尚未创建'}；温室：8号温室；作物：番茄。`,
+		  `当前模拟值：温度 ${temperature}，空气湿度 ${humidity}，风险 ${risk}。`,
+		  `已保存策略结论：${strategy}`,
+		  '只解释已保存的规则结论、预期影响、风险和不确定性。不得输出设备开关、持续时长、绕过人工接管或可执行的控制命令；需要执行时提示用户到智能体指挥中心确认。'
+		].join('\n')
+	  },
+	  isDirectDeviceControlRequest(message) {
+		return /(打开|关闭|启动|停止|开启|关掉|执行|控制|调节|调高|调低).{0,20}(灌溉|通风|补光|遮阳|二氧化碳|co2|水帘|设备)/i.test(message)
 	  },
 	  scrollToBottom() {
 		const container = this.$refs.messageContainer
@@ -140,6 +217,8 @@
 	box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 	display: flex;
+	flex-direction: column;
+	gap: 8px;
 	justify-content: center;
 	align-items: center;
   }
@@ -150,6 +229,25 @@
 	font-size: 1.5rem;
 	font-weight: 550;
 	text-align: center;
+  }
+
+  .agent-chat-context {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	max-width: 100%;
+	color: #68766d;
+	font-size: 12px;
+	text-align: center;
+	flex-wrap: wrap;
+  }
+
+  .agent-context-snapshot {
+	max-width: min(560px, 90vw);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
   }
   
   .chat-messages {

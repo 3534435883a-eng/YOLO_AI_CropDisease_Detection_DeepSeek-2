@@ -1,8 +1,11 @@
-# 部署进度
+# 实施进度
 
-## 2026-09-19
+## 2026-09-21
 
-- 已完成目录盘点，确认项目由 Flask、Spring Boot、Vue 和 MySQL 组成。
-- 已加载文档处理运行时，准备读取 DOCX 教程。
-- 已读取部署教程：要求 Python 3.12 + PyTorch/ultralytics/Flask/SocketIO、FFmpeg、MySQL 8+、Java/Spring Boot、Node/Vue。
-- 已确认 E 盘 Python 与项目内 FFmpeg/模型权重位置；Java/Maven/MySQL/npm 仍需定位或确认缺失。
+- 用户已明确批准《番茄温室智能体一体化系统》实现方案。
+- Git 基线为 `38a7e54`（标签 `baseline-2026-09-21`）；设计和实施计划已在 `950aa67` 提交。
+- 已确认当前未提交内容包含新迁移、后端 `agent` 包、前端 API/store/指挥中心和部分视图联动。
+- 已恢复实施上下文，正在等待后端运行服务收尾，同时并行接入其余既有 Vue 页面。
+- 已完成后端 `agent` 运行服务、控制器、定时推进、视觉导入、结构化解释、人工接管与故障状态接口。
+- Maven 后端测试通过：18 个测试全部通过；Vue Vite 生产构建通过。
+- 仍需部署前执行独立 SQL 迁移；未连接真实传感器、MQTT、灭火器或负责人通知。

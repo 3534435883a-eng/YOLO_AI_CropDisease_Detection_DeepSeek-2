@@ -1,8 +1,42 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import * as echarts from 'echarts'
 import { ElCard } from 'element-plus'
 import 'element-plus/dist/index.css'
+import { useRouter } from 'vue-router'
+import { useAgentRunStore } from '/@/stores/agentRun'
+
+const router = useRouter()
+const agentStore = useAgentRunStore()
+
+const asRecord = (value: unknown): Record<string, unknown> => {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+const agentState = computed(() => asRecord(agentStore.summary?.currentState || agentStore.summary?.state))
+const agentStatus = computed(() => String(agentStore.activeRun?.status || agentStore.summary?.status || 'READY').toUpperCase())
+const agentStatusLabel = computed(() => ({
+  RUNNING: '自动推演中',
+  PAUSED: '模拟已暂停',
+  COMPLETED: '本轮完成',
+  READY: '等待创建',
+}[agentStatus.value] || '模拟待命'))
+const agentStatusType = computed(() => {
+  if (agentStatus.value === 'RUNNING') return 'success'
+  if (agentStatus.value === 'PAUSED') return 'warning'
+  return 'info'
+})
+const readAgentMetric = (keys: string[], digits: number, unit: string) => {
+  for (const key of keys) {
+    const numericValue = Number(agentState.value[key])
+    if (Number.isFinite(numericValue)) return `${numericValue.toFixed(digits)} ${unit}`
+  }
+  return '--'
+}
+const agentTemperature = computed(() => readAgentMetric(['temperatureC', 'temperature_c', 'temperature'], 1, 'C'))
+const agentHumidity = computed(() => readAgentMetric(['airHumidityPct', 'air_humidity_pct', 'airHumidity'], 1, '%'))
+const agentRisk = computed(() => String(agentState.value.riskLevel || agentState.value.risk_level || '--'))
+const agentStep = computed(() => Number(agentStore.activeRun?.currentStep || agentStore.activeRun?.progress || 0))
 
 // 统计数据
 const statistics = ref({
@@ -83,6 +117,7 @@ const fetchWeatherData = async () => {
 
 onMounted(() => {
   fetchWeatherData() // 获取天气数据
+  if (!agentStore.loading) agentStore.loadActiveRun()
 })
 
 </script>
@@ -205,6 +240,22 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <section class="agent-overview" aria-label="8号温室番茄智能体模拟状态">
+      <div class="agent-overview-copy">
+        <div class="agent-overview-title">
+          <span>8号温室番茄智能体</span>
+          <el-tag size="small" effect="plain" :type="agentStatusType">{{ agentStatusLabel }}</el-tag>
+        </div>
+        <p>开花坐果期 · 数据来源：仿真生成 · 第 {{ agentStep }} 个虚拟步</p>
+      </div>
+      <div class="agent-overview-metrics">
+        <span>温度 {{ agentTemperature }}</span>
+        <span>湿度 {{ agentHumidity }}</span>
+        <span>风险 {{ agentRisk }}</span>
+      </div>
+      <el-button type="primary" plain @click="router.push('/agentCenter')">进入指挥中心</el-button>
+    </section>
 
     <!-- 图表区域 -->
     <div class="charts-container">
@@ -436,6 +487,47 @@ onMounted(() => {
     }
   }
 
+  .agent-overview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid #d7e7da;
+    border-radius: 4px;
+    background: #ffffff;
+
+    .agent-overview-copy {
+      min-width: 220px;
+    }
+
+    .agent-overview-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #2d4234;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    p {
+      margin: 6px 0 0;
+      color: #728076;
+      font-size: 12px;
+    }
+
+    .agent-overview-metrics {
+      display: flex;
+      flex: 1;
+      justify-content: flex-end;
+      gap: 18px;
+      color: #526158;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+  }
+
   .charts-container {
     .content-row {
       display: grid;
@@ -559,6 +651,24 @@ onMounted(() => {
             color: #409EFF;
           }
         }
+      }
+    }
+  }
+
+  @media (max-width: 760px) {
+    .statistics-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .agent-overview {
+      align-items: flex-start;
+      flex-direction: column;
+
+      .agent-overview-metrics {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 8px 14px;
+        white-space: normal;
       }
     }
   }

@@ -108,6 +108,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				path: '/agentCenter',
+				name: 'agentCenter',
+				component: () => import('/@/views/agentCenter/index.vue'),
+				meta: {
+					title: '智能体指挥中心',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-znws',
+				},
+			},
+			{
 				path: '/diseaseDetection',
 				name: 'diseaseDetection',
 				component: () => import('/@/layout/routerView/parent.vue'),

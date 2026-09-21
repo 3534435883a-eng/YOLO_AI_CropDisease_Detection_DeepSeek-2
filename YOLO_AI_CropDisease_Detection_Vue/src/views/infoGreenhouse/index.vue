@@ -36,10 +36,20 @@
 				<el-table-column prop="irrigation" label="灌溉状态" width="80" align="center" /> -->
 				<el-table-column prop="manager" label="负责人" show-overflow-tooltip width="80" align="center" />
 				<el-table-column prop="recordTime" label="记录时间" width="160" align="center" />
-				<el-table-column label="操作" width="150" fixed="right" align="center">
+				<el-table-column label="智能体状态" width="130" align="center">
+					<template #default="scope">
+						<template v-if="isTomatoSimulationTarget(scope.row)">
+							<el-tag size="small" effect="plain" :type="agentStatusType">{{ agentStatusLabel }}</el-tag>
+							<span class="agent-simulation-label">模拟</span>
+						</template>
+						<span v-else class="agent-simulation-empty">--</span>
+					</template>
+				</el-table-column>
+				<el-table-column label="操作" width="220" fixed="right" align="center">
 					<template #default="scope">
 						<el-button size="small" text type="primary" @click="onOpenEditGreenhouse('edit', scope.row)">修改</el-button>
 						<el-button size="small" text type="primary" @click="onRowDel(scope.row)">删除</el-button>
+						<el-button v-if="isTomatoSimulationTarget(scope.row)" size="small" text type="success" @click="router.push('/agentCenter')">指挥中心</el-button>
 					</template>
 				</el-table-column>
 			</el-table>
@@ -62,9 +72,17 @@
 </template>
 
 <script setup lang="ts" name="systemRole">
-import { defineAsyncComponent, reactive, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, reactive, onMounted, ref } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
 import request from '/@/utils/request';
+import { useAgentRunStore } from '/@/stores/agentRun';
+
+const router = useRouter();
+const agentStore = useAgentRunStore();
+const agentStatus = computed(() => String(agentStore.activeRun?.status || agentStore.summary?.status || 'READY').toUpperCase());
+const agentStatusLabel = computed(() => ({ RUNNING: '推演中', PAUSED: '已暂停', COMPLETED: '已完成', READY: '待创建' }[agentStatus.value] || '待命'));
+const agentStatusType = computed(() => agentStatus.value === 'RUNNING' ? 'success' : agentStatus.value === 'PAUSED' ? 'warning' : 'info');
 
 // 引入组件
 const GreenhouseDialog = defineAsyncComponent(() => import('./dialog.vue'));
@@ -87,6 +105,12 @@ const state = reactive({
 		},
 	},
 });
+
+const isTomatoSimulationTarget = (row: Record<string, unknown>) => {
+	const greenhouseName = String(row.greenhouseName || '');
+	const cropType = String(row.cropType || '');
+	return cropType.includes('番茄') && (greenhouseName.includes('8号') || String(row.id || '') === '77');
+};
 
 // 获取表格数据
 const getTableData = () => {
@@ -168,6 +192,7 @@ const onHandleCurrentChange = (val: number) => {
 // 页面加载时
 onMounted(() => {
 	getTableData();
+	if (!agentStore.loading) agentStore.loadActiveRun();
 });
 </script>
 
@@ -177,6 +202,15 @@ onMounted(() => {
 		padding: 15px;
 		.el-table {
 			flex: 1;
+		}
+		.agent-simulation-label {
+			display: block;
+			margin-top: 3px;
+			color: #84918a;
+			font-size: 11px;
+		}
+		.agent-simulation-empty {
+			color: #a8b0aa;
 		}
 	}
 }

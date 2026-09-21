@@ -1,6 +1,14 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<div class="agent-resource-strip mb15">
+				<div>
+					<el-tag size="small" effect="plain" type="info">运行内虚拟资源</el-tag>
+					<span>{{ agentResourceSummary }}</span>
+					<small>虚拟耗材流水与旧采购记录隔离，不会写入本页采购数据。</small>
+				</div>
+				<el-button link type="primary" @click="router.push('/agentCenter')">查看指挥中心</el-button>
+			</div>
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入产品名称" style="max-width: 180px"> </el-input>
 				<el-input v-model="state.tableData.param.supplier" size="default" placeholder="请输入供货商" class="ml10" style="max-width: 180px"> </el-input>
@@ -55,9 +63,34 @@
 </template>
 
 <script setup lang="ts" name="systemRole">
-import { defineAsyncComponent, reactive, onMounted, ref } from 'vue';
+import { computed, defineAsyncComponent, reactive, onMounted, ref } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
 import request from '/@/utils/request';
+import { useAgentRunStore } from '/@/stores/agentRun';
+
+const router = useRouter();
+const agentStore = useAgentRunStore();
+
+const asResourceItems = (value: unknown): Record<string, unknown>[] => {
+	if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'));
+	if (!value || typeof value !== 'object') return [];
+	return Object.entries(value as Record<string, unknown>).map(([name, resource]) => {
+		if (resource && typeof resource === 'object') return { name, ...(resource as Record<string, unknown>) };
+		return { name, value: resource };
+	});
+};
+
+const agentResourceSummary = computed(() => {
+	if (!agentStore.hasActiveRun) return '8号温室番茄模拟尚未创建';
+	const resources = asResourceItems(agentStore.summary?.resources);
+	if (!resources.length) return '资源账本等待首个虚拟步';
+	return resources.slice(0, 3).map((resource) => {
+		const name = String(resource.name || resource.label || resource.code || '资源');
+		const value = resource.value ?? resource.availableQuantity ?? '--';
+		return `${name} ${value}${resource.unit || ''}`;
+	}).join(' · ');
+});
 
 // 引入组件
 const PurchaseDialog = defineAsyncComponent(() => import('./dialog.vue'));
@@ -160,6 +193,7 @@ const onHandleCurrentChange = (val: number) => {
 // 页面加载时
 onMounted(() => {
 	getTableData();
+	if (!agentStore.loading) agentStore.loadActiveRun();
 });
 </script>
 
@@ -167,9 +201,43 @@ onMounted(() => {
 .system-role-container {
 	.system-role-padding {
 		padding: 15px;
+		.agent-resource-strip {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 9px 12px;
+			border: 1px solid #d9e6db;
+			border-radius: 4px;
+			background: #f8fbf8;
+			color: #536257;
+			font-size: 13px;
+
+			.el-tag {
+				margin-right: 8px;
+			}
+
+			small {
+				margin-left: 8px;
+				color: #84918a;
+				font-size: 11px;
+			}
+		}
 		.el-table {
 			flex: 1;
 		}
 	}
 }
-</style> 
+
+@media (max-width: 700px) {
+	.system-role-padding .agent-resource-strip {
+		align-items: flex-start;
+		flex-direction: column;
+
+		small {
+			display: block;
+			margin: 4px 0 0;
+		}
+	}
+}
+</style>

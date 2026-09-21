@@ -1,5 +1,6 @@
 <template>
 	<component :is="layouts[themeConfig.layout]" />
+	<AgentRunIndicator />
 </template>
 
 <script setup lang="ts" name="layout">
@@ -8,6 +9,7 @@ import { storeToRefs } from 'pinia';
 import { useThemeConfig } from '/@/stores/themeConfig';
 import { Local } from '/@/utils/storage';
 import mittBus from '/@/utils/mitt';
+import AgentRunIndicator from '/@/components/agentRunIndicator/index.vue';
 
 // 引入组件
 const layouts: any = {
