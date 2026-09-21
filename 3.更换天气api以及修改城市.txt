@@ -1,0 +1,11 @@
+天气api免费调用次数有限，机会用完更换教程如下：
+
+申请网址：
+http://www.tianqiapi.com/index
+https://blog.csdn.net/m0_73185602/article/details/139380200
+注册申请一个即可
+
+修改代码：
+在 YOLO_AI_Disaster Detection_Vue\src\views\homePage\index.vue的64行
+修改为自己的APPID和APPSecret
+修改城市：cityid改为你的城市编码

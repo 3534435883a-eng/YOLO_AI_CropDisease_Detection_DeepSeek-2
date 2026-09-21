@@ -1,0 +1,29 @@
+# IDE and OS metadata
+**/.idea/
+**/.vscode/
+.DS_Store
+Thumbs.db
+
+# Python caches and generated inference output
+**/__pycache__/
+**/*.py[cod]
+YOLO_AI_CropDisease_Detection_Flask/runs/
+
+# Java build and runtime uploads
+YOLO_AI_CropDisease_Detection_SpringBoot/target/
+YOLO_AI_CropDisease_Detection_SpringBoot/files/
+
+# Frontend dependencies and build output
+YOLO_AI_CropDisease_Detection_Vue/node_modules/
+YOLO_AI_CropDisease_Detection_Vue/dist/
+
+# Bundled third-party runtime; restore separately from its official distribution
+ffmpeg-7.1-full_build/
+
+# Logs and local-only environment overrides
+*.log
+*.tmp
+*.temp
+*.local
+.env.local
+.env.*.local
