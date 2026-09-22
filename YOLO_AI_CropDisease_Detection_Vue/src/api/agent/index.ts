@@ -184,6 +184,30 @@ export const importAgentVisionEvent = async (runId: AgentRunId, payload: { sourc
 	return unwrap<AgentRunSummary>(await request.post(`${runPath(runId)}/vision-events`, payload));
 };
 
+/** 识别事件（含后端按已核验映射表给出的知识库结论）。 */
+export interface AgentVisionEvent {
+	sourceRecordId?: AgentRunId;
+	cropType?: string;
+	detectedLabel?: string;
+	confidence?: string;
+	diseaseId?: number | null;
+	/** 映射到的知识库病害条目；为 null 表示没有可核对的对应条目。 */
+	kbDiseaseName?: string | null;
+	/** V1/V2/V3/KB_TEXT/EXTERNAL/NONE/HEALTHY。 */
+	mappingRule?: string | null;
+	explainable?: boolean;
+	severity?: string;
+	reviewStatus?: string;
+	evidenceUrl?: string | null;
+	observedAt?: string;
+}
+
+/** 读取最近的识别事件（含知识库映射结论），用于展示与"附带识别结果"进对话。 */
+export const getAgentVisionEvents = async (runId: AgentRunId, limit = 5): Promise<AgentVisionEvent[]> => {
+	const events = unwrap<AgentVisionEvent[]>(await request.get(`${runPath(runId)}/vision-events?limit=${limit}`));
+	return Array.isArray(events) ? events : [];
+};
+
 export const explainAgentRun = async (runId: AgentRunId, question?: string) => {
 	return unwrap<{ content: string; source?: string; runId?: string }>(await request.post(`${runPath(runId)}/explanation`, { question }));
 };

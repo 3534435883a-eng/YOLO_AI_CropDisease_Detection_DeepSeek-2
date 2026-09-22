@@ -439,6 +439,10 @@ public class AgentJdbcRepository {
             row.sourceType = rs.getString("source_type");
             row.sourceRecordId = rs.getLong("source_record_id");
             row.observedAt = localDateTime(rs, "observed_at");
+            // crop_type / disease_id 原先没被映射，导致"识别结果的作物与知识库对应条目"读不出来（表里其实有这两列）。
+            row.cropType = rs.getString("crop_type");
+            Object diseaseId = rs.getObject("disease_id");
+            row.diseaseId = diseaseId == null ? null : Long.valueOf(rs.getLong("disease_id"));
             row.detectedLabel = rs.getString("detected_label");
             row.confidence = rs.getBigDecimal("confidence");
             row.severity = rs.getString("severity");
@@ -583,6 +587,8 @@ public class AgentJdbcRepository {
         public String sourceType;
         public Long sourceRecordId;
         public LocalDateTime observedAt;
+        public String cropType;
+        public Long diseaseId;
         public String detectedLabel;
         public BigDecimal confidence;
         public String severity;

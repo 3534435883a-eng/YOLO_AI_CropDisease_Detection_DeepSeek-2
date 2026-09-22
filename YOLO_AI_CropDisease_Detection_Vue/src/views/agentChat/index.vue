@@ -37,6 +37,10 @@
 							<span class="question-label">提问</span>
 							<p>{{ turn.question }}</p>
 							<span v-if="turn.crop" class="question-crop">{{ turn.crop }}</span>
+							<span v-if="turn.detection" class="question-vision">
+								📷 {{ turn.detection.cropType }} · {{ turn.detection.detectedLabel }} →
+								{{ turn.detection.explainable ? turn.detection.kbDiseaseName : "知识库暂无对应条目" }}
+							</span>
 						</div>
 
 						<div v-if="turn.steps.length || turn.status === 'running'" class="steps">
@@ -90,6 +94,21 @@
 							</p>
 						</div>
 					</article>
+				</div>
+
+				<div class="vision-bar">
+					<span class="vision-icon">📷</span>
+					<template v-if="latestVision">
+						<span class="vision-text">
+							{{ latestVision.cropType }} · {{ latestVision.detectedLabel }} · 置信度 {{ latestVision.confidence }}
+							<template v-if="latestVision.explainable"> → 知识库《{{ latestVision.kbDiseaseName }}》（{{ latestVision.mappingRule }}）</template>
+							<template v-else> → <b class="vision-gap">知识库暂无对应条目</b></template>
+						</span>
+						<el-switch v-model="attachVision" size="small" active-text="附带进对话" />
+					</template>
+					<span v-else class="vision-text vision-empty">当前运行还没有导入识别结果</span>
+					<el-button link type="primary" :loading="visionLoading" @click="loadVision">刷新</el-button>
+					<el-button link type="primary" :disabled="!latestVision || isRunning" @click="askVision">解释这次识别结果</el-button>
 				</div>
 
 				<footer class="composer">
@@ -171,9 +190,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { AgentVisionEvent, getActiveAgentRun, getAgentVisionEvents } from '/@/api/agent';
 import {
 	AgentCitation,
 	AgentStepEvent,
@@ -203,6 +223,8 @@ interface StepView {
 type TurnStatus = 'running' | 'done' | 'refused' | 'error';
 
 interface Turn {
+	/** 本轮附带进对话的识别结果（若有），用于在提问气泡里显示来源。 */
+	detection?: AgentVisionEvent | null;
 	id: string;
 	question: string;
 	crop: string;
@@ -240,6 +262,11 @@ const presetGroups = [
 ];
 
 const crop = ref('番茄');
+/** 当前运行最近一条识别结果；null 表示还没导入。 */
+const latestVision = ref<AgentVisionEvent | null>(null);
+const visionLoading = ref(false);
+/** 是否把识别结果附带进对话。默认关闭——否则用户问别的问题也会被识别结果带偏。 */
+const attachVision = ref(false);
 const draft = ref('');
 const turns = ref<Turn[]>([]);
 const streamRef = ref<HTMLElement | null>(null);
@@ -401,16 +428,68 @@ function goCenter(): void {
 
 const goCoverage = () => router.push('/visionCoverage');
 
+/**
+ * 读取当前运行最近一条识别结果（含后端按已核验映射表给出的知识库结论）。
+ * 只展示、不自动附带：附带与否由用户显式决定。
+ */
+async function loadVision(): Promise<void> {
+	visionLoading.value = true;
+	try {
+		const run = await getActiveAgentRun();
+		if (!run || run.id === undefined || run.id === null) {
+			latestVision.value = null;
+			return;
+		}
+		const events = await getAgentVisionEvents(run.id, 1);
+		latestVision.value = events.length ? events[0] : null;
+		attachVision.value = false;
+	} catch {
+		latestVision.value = null;
+	} finally {
+		visionLoading.value = false;
+	}
+}
+
+/** 把识别结果拼进提问：写明作物、类别、置信度，以及知识库能否解释（不能就是不能）。 */
+function buildVisionQuestion(userQuestion: string, detection: AgentVisionEvent): string {
+	const mapping = detection.explainable
+		? `知识库已核验对应条目《${detection.kbDiseaseName}》（依据：${detection.mappingRule}）`
+		: '知识库中暂无该类别可核对的对应条目';
+	return [
+		'【本次会话附带识别结果】',
+		`作物：${detection.cropType || '未知'}；检测类别：${detection.detectedLabel}；置信度：${detection.confidence ?? '未提供'}；${mapping}。`,
+		'',
+		`用户问题：${userQuestion}`,
+	].join('\n');
+}
+
+/** 一键解释最近一次识别结果：打开附带并发送。 */
+function askVision(): void {
+	if (!latestVision.value) {
+		ElMessage.info('当前运行还没有导入识别结果');
+		return;
+	}
+	attachVision.value = true;
+	draft.value = '请解释这次识别结果，并给出有依据的处置建议。';
+	void send();
+}
+
 async function send(): Promise<void> {
 	const question = draft.value.trim();
 	if (!question || isRunning.value) return;
 	draft.value = '';
 	activeCitation.value = undefined;
 
+	const detection = attachVision.value ? latestVision.value : null;
+	// 附带识别结果时：作物用检测结果的作物（避免歧义），提问里写明检测类别与知识库映射结论。
+	const requestCrop = detection?.cropType || crop.value;
+	const requestQuestion = detection ? buildVisionQuestion(question, detection) : question;
+
 	const turn: Turn = {
 		id: `t-${Date.now()}`,
+		detection,
 		question,
-		crop: crop.value,
+		crop: requestCrop,
 		steps: [],
 		status: 'running',
 		answer: '',
@@ -440,7 +519,7 @@ async function send(): Promise<void> {
 
 	try {
 		await streamAgentChat(
-			{ question, crop: active.crop, sessionId: sessionId.value },
+			{ question: requestQuestion, crop: active.crop, sessionId: sessionId.value },
 			{
 				onEvent: (event) => {
 					if (event.type === 'step') {
@@ -510,6 +589,10 @@ function stop(): void {
 	if (controller.value) controller.value.abort();
 	controller.value = null;
 }
+
+onMounted(() => {
+	void loadVision();
+});
 
 onUnmounted(() => {
 	if (ticker.value !== undefined) window.clearInterval(ticker.value);
@@ -824,6 +907,29 @@ h3 {
 	flex: none;
 	gap: 8px;
 	padding-bottom: 2px;
+}
+.vision-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 9px 14px;
+	border-top: 1px solid #e6efe9;
+	background: #f7fbf8;
+	font-size: 12px;
+}
+.vision-icon { font-size: 14px; }
+.vision-text { flex: 1; color: #4c5f54; line-height: 1.6; }
+.vision-text.vision-empty { color: #93a29a; }
+.vision-gap { color: #b07316; }
+.question-vision {
+	display: block;
+	margin-top: 6px;
+	padding: 5px 8px;
+	border-radius: 6px;
+	background: #f0f7f2;
+	color: #3f6b52;
+	font-size: 12px;
+	line-height: 1.55;
 }
 .chat-aside {
 	display: grid;

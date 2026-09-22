@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -91,6 +92,13 @@ public class AgentController {
     @PostMapping("/runs/{runId}/vision-events")
     public Result<?> importVision(@PathVariable Long runId, @RequestBody VisionImportRequest request) {
         return Result.success(agentRunService.importVision(runId, request));
+    }
+
+    /** 读取最近的识别事件（含知识库映射结论），供前端展示与"附带识别结果"进对话使用。 */
+    @GetMapping("/runs/{runId}/vision-events")
+    public Result<?> visionEvents(@PathVariable Long runId,
+                                  @RequestParam(value = "limit", required = false, defaultValue = "5") int limit) {
+        return Result.success(agentRunService.listVisionEvents(runId, limit));
     }
 
     @PostMapping("/runs/{runId}/explanation")

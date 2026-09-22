@@ -380,6 +380,37 @@ public class AgentRunService {
         return builder.toString();
     }
 
+    /**
+     * 读取最近的识别事件，并附带知识库映射结果。
+     *
+     * <p>用途：前端据此展示"摄像头刚检出了什么、知识库能不能解释"，并支持把该结果**附带进对话**，
+     * 让用户不必手打类别标签。映射结论来自已核验的类别映射表，未映射的 {@code explainable=false}。</p>
+     */
+    public List<Map<String, Object>> listVisionEvents(Long runId, int limit) {
+        requireRun(runId, false);
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
+        for (AgentJdbcRepository.VisionEventRow row : repository.findVisionEvents(runId, limit)) {
+            Map<String, Object> mapping = visionClassMapRepository.findByClassLabel(row.detectedLabel, row.cropType);
+            String diseaseName = mapping == null || mapping.get("kbDiseaseName") == null
+                    ? null : String.valueOf(mapping.get("kbDiseaseName"));
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("sourceRecordId", row.sourceRecordId);
+            item.put("cropType", row.cropType);
+            item.put("detectedLabel", row.detectedLabel);
+            item.put("confidence", row.confidence == null ? null : row.confidence.toPlainString());
+            item.put("diseaseId", row.diseaseId);
+            item.put("kbDiseaseName", diseaseName);
+            item.put("mappingRule", mapping == null ? null : mapping.get("matchRule"));
+            item.put("explainable", Boolean.valueOf(diseaseName != null));
+            item.put("severity", row.severity);
+            item.put("reviewStatus", row.reviewStatus);
+            item.put("evidenceUrl", row.evidenceUrl);
+            item.put("observedAt", row.observedAt == null ? null : row.observedAt.toString());
+            result.add(item);
+        }
+        return result;
+    }
+
     public AgentExplanationResponse explain(Long runId, AgentExplanationRequest request) {
         AgentRunSummaryResponse summary = getSummary(runId);
         AgentRunResponse run = summary.getRun();
