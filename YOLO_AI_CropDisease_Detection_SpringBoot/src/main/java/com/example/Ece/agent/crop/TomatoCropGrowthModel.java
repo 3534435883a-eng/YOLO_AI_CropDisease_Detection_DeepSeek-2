@@ -136,6 +136,17 @@ public class TomatoCropGrowthModel {
      * @return 推进后的作物状态
      */
     public TomatoCropState advance(TomatoCropState current, SimulationState environment, int minutes) {
+        return advance(current, environment, minutes, 1.0);
+    }
+
+    /**
+     * 带外部胁迫因子的推进：把土壤养分供应因子与病害损失因子耦合进干物质累积
+     * （spec §22.2、§22.3）。{@code externalStressFactor} 取 1.0 表示无额外胁迫。
+     *
+     * @param externalStressFactor 养分因子 × 病害损失因子的乘积，限幅 {@code [0,1]}
+     */
+    public TomatoCropState advance(TomatoCropState current, SimulationState environment, int minutes,
+                                   double externalStressFactor) {
         if (current == null) {
             return initial();
         }
@@ -161,8 +172,9 @@ public class TomatoCropGrowthModel {
         double temperatureFactor = temperatureFactor(temperatureC);
         double co2Factor = co2Factor(co2Ppm);
         double waterFactor = waterFactor(soilMoisturePct);
+        double stressFactor = clamp(externalStressFactor, 0.0, 1.0);
         double dW = TomatoGrowthParameters.RUE_G_PER_MJ * iAbsorbed
-                * temperatureFactor * co2Factor * waterFactor;
+                * temperatureFactor * co2Factor * waterFactor * stressFactor;
 
         // 3) 物候阶段：由累积 GDD 推导，且只进不退
         CropStage stage = resolveStage(gdd, current.getStage());

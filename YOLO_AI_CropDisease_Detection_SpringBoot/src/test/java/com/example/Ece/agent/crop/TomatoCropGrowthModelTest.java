@@ -63,4 +63,21 @@ class TomatoCropGrowthModelTest {
         assertTrue(dry.getWTotal() < wet.getWTotal());
         assertTrue(dry.getWFruit() <= dry.getWTotal() + 1e-9);
     }
+
+    @Test
+    void lowExternalStressReducesDryMatterButNotThermalTime() {
+        TomatoCropGrowthModel growth = new TomatoCropGrowthModel();
+        TomatoSimulationEngine sim = new TomatoSimulationEngine();
+        SimulationState env = sim.evaluate(java.time.LocalDateTime.of(2026, 9, 21, 12, 0),
+                24.0, 70.0, 60.0, 800.0, 600.0, 6.2);
+        TomatoCropState unstressed = growth.initial();
+        TomatoCropState stressed = growth.initial();
+        for (int i = 0; i < 480; i++) {
+            unstressed = growth.advance(unstressed, env, 15, 1.0);
+            stressed = growth.advance(stressed, env, 15, 0.4);
+        }
+        assertEquals(unstressed.getGdd(), stressed.getGdd(), 1e-9);
+        assertTrue(stressed.getWTotal() < unstressed.getWTotal());
+        assertTrue(stressed.getWTotal() > 0.0);
+    }
 }
