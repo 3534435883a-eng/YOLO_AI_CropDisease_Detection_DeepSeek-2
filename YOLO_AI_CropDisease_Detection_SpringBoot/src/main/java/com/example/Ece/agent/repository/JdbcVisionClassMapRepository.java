@@ -1,10 +1,12 @@
 package com.example.Ece.agent.repository;
 
+import com.example.Ece.agent.vision.VisionLabels;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -44,6 +46,48 @@ public class JdbcVisionClassMapRepository {
             row.put("explainable", Boolean.valueOf(rs.getString("kb_disease_name") != null));
             return row;
         });
+    }
+
+    /**
+     * 按类别标签查映射（标签做归一化：去引号/空白、全角括号转半角、忽略大小写）。
+     * 给了作物则优先取该作物的行；返回 null 表示该标签不在 56 个已登记类别内。
+     */
+    public Map<String, Object> findByClassLabel(String classLabel, String crop) {
+        if (classLabel == null || classLabel.trim().isEmpty()) {
+            return null;
+        }
+        String target = VisionLabels.normalizeLabel(classLabel).toLowerCase(Locale.ROOT);
+        // 记录里的标签常写成"En(中文)"，而映射表里中文存在 label_zh；额外按中文部分比对一次，
+        // 避免英文大小写/括号风格差异导致漏配（实测玉米记录就是这样没配上）。
+        String targetZh = zhPartOf(target);
+        Map<String, Object> fallback = null;
+        for (Map<String, Object> row : findAll()) {
+            String label = VisionLabels.normalizeLabel(String.valueOf(row.get("classLabel"))).toLowerCase(Locale.ROOT);
+            String zh = VisionLabels.normalizeLabel(String.valueOf(row.get("labelZh"))).toLowerCase(Locale.ROOT);
+            String en = VisionLabels.normalizeLabel(String.valueOf(row.get("labelEn"))).toLowerCase(Locale.ROOT);
+            boolean hit = target.equals(label) || (!zh.isEmpty() && target.equals(zh)) || (!en.isEmpty() && target.equals(en))
+                    || (!targetZh.isEmpty() && !zh.isEmpty() && targetZh.equals(zh));
+            if (!hit) {
+                continue;
+            }
+            if (crop != null && crop.equals(row.get("cropType"))) {
+                return row;
+            }
+            if (fallback == null) {
+                fallback = row;
+            }
+        }
+        return fallback;
+    }
+
+    /** 取"En(中文)"里的中文部分；没有括号则返回空串。 */
+    private String zhPartOf(String normalizedLabel) {
+        int open = normalizedLabel.indexOf('(');
+        int close = normalizedLabel.lastIndexOf(')');
+        if (open < 0 || close <= open + 1) {
+            return "";
+        }
+        return normalizedLabel.substring(open + 1, close).trim();
     }
 
     /** 统计：可检出类别总数、其中知识库能解释的、不能解释的（用于展示覆盖缺口）。 */

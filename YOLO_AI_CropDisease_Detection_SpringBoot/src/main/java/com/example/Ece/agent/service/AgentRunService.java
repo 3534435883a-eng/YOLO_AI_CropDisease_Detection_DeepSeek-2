@@ -16,6 +16,9 @@ import com.example.Ece.agent.model.DecisionPlan;
 import com.example.Ece.agent.model.DeviceCommand;
 import com.example.Ece.agent.model.SimulationState;
 import com.example.Ece.agent.repository.AgentJdbcRepository;
+import com.example.Ece.agent.repository.JdbcKnowledgeChunkRepository;
+import com.example.Ece.agent.repository.JdbcVisionClassMapRepository;
+import com.example.Ece.agent.vision.VisionLabels;
 import com.example.Ece.entity.ImgRecords;
 import com.example.Ece.mapper.ImgRecordsMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -57,17 +60,24 @@ public class AgentRunService {
     private final TomatoDecisionPolicy decisionPolicy;
     private final ObjectMapper objectMapper;
     private final ImgRecordsMapper imgRecordsMapper;
+    /** 识别类别 → 知识库条目 的映射：让导入的视觉事件自带"能否被解释"。 */
+    private final JdbcVisionClassMapRepository visionClassMapRepository;
+    private final JdbcKnowledgeChunkRepository knowledgeChunkRepository;
 
     public AgentRunService(AgentJdbcRepository repository,
                            TomatoSimulationEngine simulationEngine,
                            TomatoDecisionPolicy decisionPolicy,
                            ObjectMapper objectMapper,
-                           ImgRecordsMapper imgRecordsMapper) {
+                           ImgRecordsMapper imgRecordsMapper,
+                           JdbcVisionClassMapRepository visionClassMapRepository,
+                           JdbcKnowledgeChunkRepository knowledgeChunkRepository) {
         this.repository = repository;
         this.simulationEngine = simulationEngine;
         this.decisionPolicy = decisionPolicy;
         this.objectMapper = objectMapper;
         this.imgRecordsMapper = imgRecordsMapper;
+        this.visionClassMapRepository = visionClassMapRepository;
+        this.knowledgeChunkRepository = knowledgeChunkRepository;
     }
 
     @Transactional
@@ -289,23 +299,85 @@ public class AgentRunService {
         }
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime observedAt = parseLegacyTime(record.getStartTime(), now);
-        String label = blankToDefault(record.getLable(), "未校准标签");
-        BigDecimal confidence = parseConfidence(record.getConf(), record.getConfidence());
-        String rawPayload = safeJson(jsonMap("id", record.getId(), "kind", record.getKind(), "label", record.getLable(),
-                "confidence", record.getConfidence(), "conf", record.getConf(), "inputImg", record.getInputImg(),
-                "outImg", record.getOutImg(), "startTime", record.getStartTime()));
-        repository.upsertVisionEvent(runId, sourceType, request.getSourceRecordId(), observedAt, "TOMATO", null,
+
+        // 作物由识别记录的 kind（作物代码）判定，weight（模型文件名）兜底；都判定不出才用请求里的 crop。
+        // 旧实现把作物硬编码为 TOMATO，导致玉米/水稻等 8 种作物的识别结果会被记成番茄。
+        String crop = VisionLabels.cropOf(record.getKind(), record.getWeight());
+        if (crop == null) {
+            crop = blankToDefault(request.getCrop(), null);
+        }
+        if (crop == null) {
+            crop = "未识别作物";
+        }
+
+        // 一行识别记录可能含多个标签（实测有 ["Blight(枯萎病)","Rust(玉米锈病)"] 这类多标签，
+        // 也有重复标签）；表唯一键是 (run_id, source_type, source_record_id)，一条记录只能存一行，
+        // 因此取置信度最高的作为主检测，其余全部保留在 raw_payload 里，不丢信息。
+        List<VisionLabels.Detection> detections = VisionLabels.parse(record.getLable(), record.getConfidence());
+        if (detections.isEmpty()) {
+            detections = Collections.singletonList(new VisionLabels.Detection("未校准标签", null));
+        }
+        VisionLabels.Detection primary = VisionLabels.primary(detections);
+        String label = primary.getLabel();
+        BigDecimal confidence = primary.getConfidence();
+
+        // 把主检测映射到知识库条目：事件因此自带"能不能被解释"，供前端与编排层使用。
+        Map<String, Object> mapping = visionClassMapRepository.findByClassLabel(label, crop);
+        String diseaseName = mapping == null || mapping.get("kbDiseaseName") == null
+                ? null : String.valueOf(mapping.get("kbDiseaseName"));
+        Long diseaseId = diseaseName == null ? null : knowledgeChunkRepository.findDiseaseSourceId(diseaseName);
+        String labelSummary = summarizeDetections(detections);
+        String mappingNote = diseaseName == null
+                ? "；该类别在知识库中没有可核对的对应条目，暂无法解释"
+                : "；已对应知识库条目《" + diseaseName + "》";
+
+        // 注意：jsonMap(...) 返回的是**已序列化的 JSON 字符串**，这里要的是嵌套结构，故手工构建 Map。
+        List<Map<String, Object>> detectionPayload = new ArrayList<Map<String, Object>>();
+        for (VisionLabels.Detection detection : detections) {
+            Map<String, Object> item = new LinkedHashMap<String, Object>();
+            item.put("label", detection.getLabel());
+            item.put("confidence", detection.getConfidence() == null ? null : detection.getConfidence().toPlainString());
+            detectionPayload.add(item);
+        }
+        // 注意：jsonMap(...) 返回的**已经是序列化好的 JSON 字符串**，再套 safeJson 会变成"JSON 字符串里装 JSON"，
+        //      实测 JSON_TYPE 为 STRING、JSON_EXTRACT 取不到字段。这里直接用。
+        String rawPayload = jsonMap("id", record.getId(), "kind", record.getKind(), "weight", record.getWeight(),
+                "crop", crop, "detections", detectionPayload, "primaryLabel", label, "kbDiseaseName", diseaseName,
+                "mappingRule", mapping == null ? null : mapping.get("matchRule"), "conf", record.getConf(),
+                "confidenceRaw", record.getConfidence(), "inputImg", record.getInputImg(), "outImg", record.getOutImg(),
+                "startTime", record.getStartTime());
+
+        repository.upsertVisionEvent(runId, sourceType, request.getSourceRecordId(), observedAt, crop, diseaseId,
                 label, confidence, "REVIEW", blankToDefault(record.getOutImg(), record.getInputImg()), rawPayload,
                 "PENDING_REVIEW", now);
         AgentJdbcRepository.SnapshotRow snapshot = repository.findLatestSnapshot(runId);
         int step = snapshot == null ? 0 : snapshot.stepNo;
         Long snapshotId = snapshot == null ? null : snapshot.id;
         repository.upsertAlert(runId, snapshotId, step, "VISION_REVIEW_REQUIRED_" + request.getSourceRecordId(),
-                "VISION_REVIEW_REQUIRED", "MEDIUM", "视觉识别结果已导入，标签/置信度未校准，需人工核验",
-                jsonMap("sourceType", sourceType, "sourceRecordId", request.getSourceRecordId()), now);
+                "VISION_REVIEW_REQUIRED", "MEDIUM",
+                "视觉识别结果已导入（" + crop + "：" + labelSummary + "）" + mappingNote + "，标签/置信度未校准，需人工核验",
+                jsonMap("sourceType", sourceType, "sourceRecordId", request.getSourceRecordId(),
+                        "crop", crop, "detectedLabel", label, "kbDiseaseName", diseaseName), now);
         repository.insertAudit(runId, "VISION_IMPORTED", "VISION_EVENT", request.getSourceRecordId(), "operator",
                 UUID.randomUUID().toString(), null, rawPayload, now);
         return getSummary(runId);
+    }
+
+    /** 把多标签拼成 "标签(置信度%)" 的可读摘要，用于告警文案与前端展示。 */
+    private String summarizeDetections(List<VisionLabels.Detection> detections) {
+        StringBuilder builder = new StringBuilder();
+        for (VisionLabels.Detection detection : detections) {
+            if (builder.length() > 0) {
+                builder.append(" / ");
+            }
+            builder.append(detection.getLabel());
+            if (detection.getConfidence() != null) {
+                builder.append("(")
+                        .append(detection.getConfidence().multiply(new BigDecimal("100")).setScale(1, java.math.RoundingMode.HALF_UP))
+                        .append("%)");
+            }
+        }
+        return builder.toString();
     }
 
     public AgentExplanationResponse explain(Long runId, AgentExplanationRequest request) {

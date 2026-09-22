@@ -68,6 +68,18 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
         return removed;
     }
 
+    /** 按病害名取遗留 disease 表的记录 ID（用于把识别事件关联到具体病害条目）；查不到返回 null。 */
+    public Long findDiseaseSourceId(String diseaseName) {
+        if (diseaseName == null || diseaseName.trim().isEmpty()) {
+            return null;
+        }
+        List<Long> found = jdbcTemplate.queryForList(
+                "SELECT MIN(source_id) FROM agent_knowledge_chunk WHERE source_table = 'disease' AND disease_name = ?",
+                Long.class, diseaseName.trim());
+        Long value = found.isEmpty() ? null : found.get(0);
+        return value == null || value.longValue() <= 0L ? null : value;
+    }
+
     public List<KnowledgeChunk> loadAll() {
         return jdbcTemplate.query(SELECT_ALL, new org.springframework.jdbc.core.RowMapper<KnowledgeChunk>() {
             public KnowledgeChunk mapRow(ResultSet rs, int rowNum) throws SQLException {
