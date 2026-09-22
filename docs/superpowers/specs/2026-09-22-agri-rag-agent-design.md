@@ -72,7 +72,7 @@ MySQL（create-only 迁移 V20260922_01）
 | `PrescriptionService` | `agent/service` | 规则结果 → 结构化处方（做什么/何时/用量/注意/风险） | `TomatoDecisionPolicy` |
 | `GuardrailService` | `agent/guard` | 安全与合规校验（见 §9） | — |
 | `AgentStepTraceRepository` | `agent/repository` | 每步落库（审计与可观测） | MySQL |
-| `ReportExporter` | `agent/service` | 运行摘要+决策+处方+引用 → PDF | OpenPDF |
+| `ReportExporter` | `agent/service` | 运行摘要+决策+处方+引用 → **自包含 HTML**（浏览器打印为 PDF） | 无新依赖；中文零字体配置风险 |
 
 前端新增：`src/views/agentCenter` 内的对话面板（SSE 消费 + `[n]` 引用点击定位 + 步骤时间线）；`src/api/agent/chat.ts`。
 
@@ -132,7 +132,7 @@ MySQL（create-only 迁移 V20260922_01）
 | `greenhouse.state` | `runId` | 环境快照 + 风险等级（`SIMULATED`） | 只读 | 无运行→返回空并说明 |
 | `sim.simulate` | `runId`, `devicePlan` | 推演对比结果（风险/资源） | 只读（纯计算） | 无 |
 | `prescription.draft` | `disease?`, `state?`, `question` | 结构化处方草稿 + 风险提示 | 草稿 | 无 |
-| `report.export` | `runId`, `sessionId` | PDF 链接 | **写（需人工确认）** | 无 |
+| `report.export` | `runId`, `sessionId` | 自包含 HTML 报告链接 | **写（需人工确认）** | 无 |
 
 ## 10. 引用与答案格式
 
@@ -181,7 +181,7 @@ MySQL（create-only 迁移 V20260922_01）
 | POST | `/api/ai/agent/chat` | SSE 流式智能体会话（事件见 §9） |
 | GET | `/api/knowledge/search?q=&crop=&topN=` | 检索调试与评测（返回分数与定位） |
 | POST | `/api/knowledge/reindex` | 幂等重建索引（离线/维护用） |
-| GET | `/api/agent/runs/{runId}/report.pdf` | 报告导出 |
+| GET | `/api/agent/runs/{runId}/report.html` | 报告导出（自包含 HTML + 打印样式，前端提供"打印/另存为 PDF"） |
 | GET | `/api/knowledge/graph?name=&depth=2` | 子图查询（可视化用） |
 
 遗留接口 `/api/ai/chat`、`/agent/**` **保持不变**。
