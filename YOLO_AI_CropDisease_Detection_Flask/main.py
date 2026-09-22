@@ -34,6 +34,7 @@ class VideoProcessingApp:
         self.app.add_url_rule('/predictVideo', 'predictVideo', self.predictVideo)
         self.app.add_url_rule('/predictCamera', 'predictCamera', self.predictCamera)
         self.app.add_url_rule('/stopCamera', 'stopCamera', self.stopCamera, methods=['GET'])
+        self.app.add_url_rule('/embed', 'embed', self.embed, methods=['POST'])
 
         # 添加 WebSocket 事件
         @self.socketio.on('connect')
@@ -44,6 +45,24 @@ class VideoProcessingApp:
         @self.socketio.on('disconnect')
         def handle_disconnect():
             print("WebSocket disconnected!")
+
+    def embed(self):
+        """向量化接口：{"texts": [...]} -> {"vectors": [[...]], "model": ..., "dim": N}"""
+        payload = request.get_json(silent=True) or {}
+        texts = payload.get('texts')
+        if not isinstance(texts, list) or not texts:
+            return json.dumps({'error': 'EMPTY_INPUT'}), 400
+        try:
+            from predict.embedding import embed as embed_texts, model_name
+            vectors = embed_texts(texts)
+            return json.dumps({
+                'vectors': vectors,
+                'model': model_name(),
+                'dim': len(vectors[0]),
+            })
+        except Exception as exc:
+            return json.dumps({'error': 'EMBEDDING_UNAVAILABLE',
+                               'message': str(exc)[:200]}), 503
 
     def run(self):
         """启动 Flask 应用"""

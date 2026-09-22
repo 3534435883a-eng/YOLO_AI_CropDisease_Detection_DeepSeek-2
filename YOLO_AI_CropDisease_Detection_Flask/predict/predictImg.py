@@ -17,7 +17,7 @@ class ImagePredictor:
         :param conf: 置信度阈值
         """
         self.model = YOLO(weights_path)
-        self.conf = 0.1
+        self.conf = float(conf)  # 尊重入参：原硬编码 0.1 使前端与 main.py 传入的阈值失效
         self.img_path = img_path
         self.save_path = save_path
         self.kind = {
@@ -44,17 +44,13 @@ class ImagePredictor:
 
     def map_confidence(self, original_conf):
         """
-        将原始置信度（0-1）映射到90%-99.99%区间
+        保留原始置信度（不做展示性放大）
         :param original_conf: 原始置信度（0-1之间）
-        :return: 映射后的置信度（0.90-0.9999之间）
+        :return: 原始置信度（0.0-1.0）
         """
-        # 确保输入在0-1之间
-        original_conf = max(0, min(1, float(original_conf)))
-
-        # 线性映射到新区间
-        mapped_conf = 0.90 + (original_conf * 0.0999)
-
-        return mapped_conf
+        # 保留原始置信度：展示性放大（曾映射到 90%-99.99%）会误导使用者，
+        # 也与"识别结果为待复核证据"的定位相冲突。
+        return max(0.0, min(1.0, float(original_conf)))
 
     def predict(self):
         """
