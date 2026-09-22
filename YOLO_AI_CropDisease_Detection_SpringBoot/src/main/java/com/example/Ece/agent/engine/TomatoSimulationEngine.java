@@ -43,6 +43,32 @@ public class TomatoSimulationEngine {
 
     public SimulationState advance(SimulationState current, Map<String, Boolean> deviceStates,
                                    int tickMinutes, long seed) {
+        return advance(current, deviceStates, tickMinutes, seed, 0.0);
+    }
+
+    /**
+     * 带外界温度偏移的推进，用于模拟夏季高温期等天气情景（评测平台需要"热到必须干预"的场景，
+     * 否则通风设备永远不会被触发，风险维度也就没有区分度）。
+     *
+     * @param outsideTemperatureOffsetC 外界温度上浮量（℃），0 表示常年基准情景
+     */
+    public SimulationState advance(SimulationState current, Map<String, Boolean> deviceStates,
+                                   int tickMinutes, long seed, double outsideTemperatureOffsetC) {
+        return advance(current, deviceStates, tickMinutes, seed, outsideTemperatureOffsetC, 0.0);
+    }
+
+    /**
+     * 完整推进：同时接受外界温度偏移与**室内湿度源**（作物蒸腾）。
+     *
+     * <p>真实温室夜间湿度由作物蒸腾主导——闭棚一晚常达 90% 以上，这也是灰霉、晚疫等
+     * 高湿型病害的侵染前提。缺少这一项时室内湿度只能趋近外界湿度（约 84%），
+     * 病害子系统将永远不触发。</p>
+     *
+     * @param interiorHumidityOffsetPct 作物蒸腾带来的湿度抬升（%RH），叠加到湿度平衡目标上
+     */
+    public SimulationState advance(SimulationState current, Map<String, Boolean> deviceStates,
+                                   int tickMinutes, long seed, double outsideTemperatureOffsetC,
+                                   double interiorHumidityOffsetPct) {
         Map<String, Boolean> states = deviceStates == null ? Collections.<String, Boolean>emptyMap() : deviceStates;
         double factor = Math.max(1, tickMinutes) / 15.0;
         LocalDateTime nextAt = current.getSimulatedAt().plusMinutes(tickMinutes);
@@ -50,8 +76,8 @@ public class TomatoSimulationEngine {
         double phase = Math.floorMod(seed, 360L) * Math.PI / 180.0;
         double daylight = Math.max(0.0, Math.sin((clockHour - 6.0) * Math.PI / 12.0));
         double weatherBias = Math.sin(phase) * 1.2;
-        double outsideTemperature = 17.0 + 12.0 * daylight + weatherBias;
-        double outsideHumidity = 84.0 - 32.0 * daylight + Math.cos(phase) * 3.0;
+        double outsideTemperature = 17.0 + 12.0 * daylight + weatherBias + outsideTemperatureOffsetC;
+        double outsideHumidity = 84.0 - 32.0 * daylight + Math.cos(phase) * 3.0 + interiorHumidityOffsetPct;
         double outsideLight = 820.0 * daylight;
 
         double temperature = current.getTemperatureC() + (outsideTemperature - current.getTemperatureC()) * 0.12 * factor;
