@@ -334,6 +334,8 @@ pH       += f(肥料类型, 灌溉水)（缓冲，限定 [4.0, 8.5]）
 
 **输出**：`nutrientFactor ∈ [0.3, 1.0]` 与已有 `waterFactor`，共同约束 `TomatoCropGrowthModel.dW`。
 
+**耦合实现（2026-09-22 落地）**：`TomatoCropGrowthModel.advance(current, env, minutes, externalStressFactor)` 接受外部胁迫因子并乘进 `dW`；生态循环传入 `externalStressFactor = nutrientFactor × diseaseDamageFactor`（三参重载等价于 1.0，保持既有行为）。另：`NUTRIENT_HIGH` 定为 **90 kg/ha**，与 `initial()` 的初始氮量一致，使初始土壤的养分因子恰为 1.0——否则开局即吃 30% 养分惩罚，与"初始养分充足"的设计意图矛盾（已加零步推进一致性单测守住）。
+
 ### 22.3 子系统四：病虫害流行 `PestDiseaseEpidemicModel`（新增）
 
 **状态量**（每种病害一套，至少三种 + 一类虫害）：`inoculumLevel`（菌源 0–1）、`latentProgress`、`severityPct`、`infectionEvents`；虫害为 `pestPopulation`（logistic 增长）。
@@ -350,12 +352,14 @@ pH       += f(肥料类型, 灌溉水)（缓冲，限定 [4.0, 8.5]）
 
 ```
 infectionRate = fTemp(适宜度) × fMoisture(湿度或叶湿时长) × inoculumLevel × hostSusceptibility(stage)
-latentProgress += minutes / latentPeriodMinutes(温度相关)
+latentProgress += minutes × fMoisture / (latentPeriodMinutes / max(0.3, fTemp))   # 潜育进度必须受湿度门控
 若 latentProgress ≥ 1 → infectionEvents++；severityPct += severityGain×(1 − severityPct)
 severityPct → diseaseDamageFactor → 降低净光合与果实品质（反馈给 §20 作物模型）
 ```
 
 **必须标注**：界面与材料统一写"流行病学为**简化模型**，用于决策对比，不构成疫情预报"。
+
+> **规格修正（2026-09-22，实现后回填）**：原文只让温度驱动潜育进度，而 `fMoisture` 仅进入未被消费的 `infectionRate`；照字面实现会让 45% 湿度与 95% 湿度得到**完全相同**的严重度，三条分辨力测试无法通过。已改为湿度门控（干燥时潜育不推进），与"湿度不足则不侵染"的植保常识一致。
 
 ### 22.4 子系统五：管理与经济 `ManagementEconomicsModel`（新增）
 
