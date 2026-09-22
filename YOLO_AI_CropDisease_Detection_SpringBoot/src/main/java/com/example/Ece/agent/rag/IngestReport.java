@@ -12,6 +12,7 @@ public class IngestReport {
     private int rejected;
     private int chunksNewlyWritten;
     private int chunksSkipped;
+    private int chunksRemoved;
     private int chunksTotal;
     private boolean embeddingDegraded;
     private final List<String> rejectedReasons = new ArrayList<String>();
@@ -31,6 +32,10 @@ public class IngestReport {
     public void addNewlyWritten(int count) { chunksNewlyWritten += count; }
 
     public void addSkipped(int count) { chunksSkipped += count; }
+
+    public void addRemoved(int count) { chunksRemoved += count; }
+
+    public int getChunksRemoved() { return chunksRemoved; }
 
     public void markDegraded(String model) {
         this.embeddingDegraded = true;

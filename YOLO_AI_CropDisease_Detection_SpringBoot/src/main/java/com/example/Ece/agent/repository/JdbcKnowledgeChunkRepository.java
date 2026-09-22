@@ -18,6 +18,10 @@ import java.util.Set;
 @Repository
 public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
 
+    private static final String DELETE_CHUNKS_BY_SOURCE = "DELETE c FROM agent_knowledge_chunk c "
+            + "JOIN agent_knowledge_chunk_origin o ON o.content_hash = c.content_hash WHERE o.source_code = ?";
+    private static final String DELETE_ORIGIN_BY_SOURCE =
+            "DELETE FROM agent_knowledge_chunk_origin WHERE source_code = ?";
     private static final String SELECT_HASHES = "SELECT content_hash FROM agent_knowledge_chunk";
     private static final String SELECT_ALL = "SELECT source_table, source_id, crop_type, disease_name, field_type, "
             + "chunk_no, start_offset, content, content_hash FROM agent_knowledge_chunk ORDER BY id";
@@ -56,6 +60,12 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
             written++;
         }
         return written;
+    }
+
+    public int deleteBySourceCode(String sourceCode) {
+        int removed = jdbcTemplate.update(DELETE_CHUNKS_BY_SOURCE, sourceCode);
+        jdbcTemplate.update(DELETE_ORIGIN_BY_SOURCE, sourceCode);
+        return removed;
     }
 
     public List<KnowledgeChunk> loadAll() {

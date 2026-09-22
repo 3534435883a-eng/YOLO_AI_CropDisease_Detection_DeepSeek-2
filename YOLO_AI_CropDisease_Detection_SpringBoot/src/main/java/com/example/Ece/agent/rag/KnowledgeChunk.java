@@ -44,5 +44,24 @@ public class KnowledgeChunk {
 
     public String getContent() { return content; }
 
+    /**
+     * 去掉上下文头的正文。
+     *
+     * <p>检索的"证据共现"判据只看正文：头部里的作物名是**元数据而非证据**。
+     * 实测反例——"如何给番茄施肥"因每个块头部都含"番茄"，共现判据拿到 {番茄, 施肥} 2 个词而放行，
+     * 但知识库其实没有施肥知识。头部仍参与语料级覆盖率，因此病名类提问（如"番茄早疫病"）
+     * 依然能凭"疫病/早疫"这类稀有词通过覆盖率判据。</p>
+     */
+    public String getBodyText() {
+        if (content == null) {
+            return "";
+        }
+        if (!content.startsWith("作物：") && !content.startsWith("病害：") && !content.startsWith("字段：")) {
+            return content;
+        }
+        int end = content.indexOf('。');
+        return end < 0 ? content : content.substring(end + 1);
+    }
+
     public String getContentHash() { return contentHash; }
 }

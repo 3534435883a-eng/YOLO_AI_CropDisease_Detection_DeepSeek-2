@@ -8,13 +8,22 @@ import org.springframework.stereotype.Repository;
 import java.sql.Timestamp;
 import java.util.List;
 
-/** 知识来源登记的 JDBC 实现（表 agent_knowledge_source 为 create-only 迁移创建）。 */
+/**
+ * 知识来源登记的 JDBC 实现（表 agent_knowledge_source 为 create-only 迁移创建）。
+ *
+ * <p>{@link #save} 是**幂等 upsert**：表上 (source_code, version) 有唯一键，
+ * 纯 INSERT 会让同一来源的第二次 ingest 直接报唯一键冲突——实测 {@code /ai/knowledge/reingest}
+ * 就是这样返回 500 的。来源元数据（名称/层级/许可）以最后一次登记为准。</p>
+ */
 @Repository
 public class JdbcKnowledgeSourceRepository implements KnowledgeSourceRepository {
 
     private static final String INSERT_SQL = "INSERT INTO agent_knowledge_source "
             + "(source_code, source_name, source_type, authority_level, url, license_note, version, created_at) "
-            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            + "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+            + "ON DUPLICATE KEY UPDATE source_name = VALUES(source_name), source_type = VALUES(source_type), "
+            + "authority_level = VALUES(authority_level), url = VALUES(url), "
+            + "license_note = VALUES(license_note)";
 
     private final JdbcTemplate jdbcTemplate;
 

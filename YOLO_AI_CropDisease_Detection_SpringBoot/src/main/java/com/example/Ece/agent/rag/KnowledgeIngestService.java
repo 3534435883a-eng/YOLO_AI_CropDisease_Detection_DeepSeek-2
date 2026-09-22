@@ -39,6 +39,11 @@ public class KnowledgeIngestService {
         IngestReport report = new IngestReport(source.getSourceCode());
         sourceRepository.save(source);
 
+        // **全量替换语义**：先删掉该来源的旧块再重建。原实现按 content_hash 跳过已存在块，
+        // 结果是切块规则或内容一旦调整就永远无法生效（而块表的唯一键是「来源表|来源ID|字段|块号」，
+        // 直接改内容再插入会撞键）。删除后再取一次已存在哈希，用于**跨来源**去重。
+        report.addRemoved(chunkRepository.deleteBySourceCode(source.getSourceCode()));
+
         Set<String> existing = chunkRepository.existingContentHashes();
         List<KnowledgeChunk> pending = new ArrayList<KnowledgeChunk>();
         List<double[]> embeddings = new ArrayList<double[]>();
@@ -50,8 +55,8 @@ public class KnowledgeIngestService {
                     report.reject("空记录");
                     continue;
                 }
-                List<KnowledgeChunk> chunks = chunker.chunk(record.getSourceId(), record.getCropType(),
-                        record.getDiseaseName(), record.getFields());
+                List<KnowledgeChunk> chunks = chunker.chunk(record.getSourceTable(), record.getSourceId(),
+                        record.getCropType(), record.getDiseaseName(), record.getFields());
                 if (chunks.isEmpty()) {
                     report.reject("记录 " + record.getSourceId() + " 无有效文本");
                     continue;

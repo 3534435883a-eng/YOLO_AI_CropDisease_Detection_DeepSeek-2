@@ -25,11 +25,34 @@ class KnowledgeChunkerTest {
         return map;
     }
 
+    /**
+     * 剥掉上下文头，只留字段正文。头部的格式是「作物：…；病害：…；字段：…。」，
+     * 因此第一个"。"就是头部的结束符。
+     */
+    private static String body(KnowledgeChunk chunk) {
+        String content = chunk.getContent();
+        int index = content.indexOf('。');
+        return index >= 0 ? content.substring(index + 1) : content;
+    }
+
+    /** 每块都必须自带上下文头：没有它，用病名提问会整体失配（实测 Top-1 仅 52.5%）。 */
+    @Test
+    void everyChunkCarriesContextHeader() {
+        List<KnowledgeChunk> chunks = chunker.chunk(9L, "番茄", "早疫病", fields("叶片出现褐色轮纹斑。", "注意通风降湿。"));
+        assertEquals(2, chunks.size());
+        for (KnowledgeChunk chunk : chunks) {
+            assertTrue(chunk.getContent().startsWith("作物：番茄；病害：早疫病；字段："),
+                    "块内容必须以作物/病害/字段开头：" + chunk.getContent());
+        }
+        assertTrue(chunks.get(0).getContent().contains("字段：症状"));
+        assertTrue(chunks.get(1).getContent().contains("字段：防治"));
+    }
+
     @Test
     void shortTextBecomesSingleChunk() {
         List<KnowledgeChunk> chunks = chunker.chunk(1L, "番茄", "早疫病", fields("叶片出现褐色轮纹斑。", null));
         assertEquals(1, chunks.size());
-        assertEquals("叶片出现褐色轮纹斑。", chunks.get(0).getContent());
+        assertEquals("叶片出现褐色轮纹斑。", body(chunks.get(0)));
         assertEquals(0, chunks.get(0).getChunkNo());
         assertEquals(KnowledgeChunk.FieldType.SYMPTOM, chunks.get(0).getFieldType());
     }
@@ -42,9 +65,9 @@ class KnowledgeChunkerTest {
         }
         List<KnowledgeChunk> chunks = chunker.chunk(2L, "番茄", "晚疫病", fields(builder.toString(), null));
         assertEquals(3, chunks.size());
-        assertEquals(500, chunks.get(0).getContent().length());
-        assertEquals(500, chunks.get(1).getContent().length());
-        assertEquals(360, chunks.get(2).getContent().length());
+        assertEquals(500, body(chunks.get(0)).length(), "每块正文仍是 500 字，头部不计入切分");
+        assertEquals(500, body(chunks.get(1)).length());
+        assertEquals(360, body(chunks.get(2)).length());
         assertEquals(420, chunks.get(1).getStartOffset());
         assertEquals(840, chunks.get(2).getStartOffset());
     }

@@ -46,9 +46,10 @@ public class KnowledgeBootstrap implements ApplicationRunner {
                 LOGGER.info("知识库为空，开始从历史病害库 ingest（来源 {}，版本 {}）",
                         LegacyDiseaseKnowledgeReader.SOURCE_CODE, LegacyDiseaseKnowledgeReader.DATA_VERSION);
                 IngestReport report = ingestService.ingest(legacyReader.source(), legacyReader.readAll());
-                LOGGER.info("ingest 完成：accept={} reject={} 新写入={} 跳过重复={} 向量降级={}",
-                        report.getAccepted(), report.getRejected(), report.getChunksNewlyWritten(),
-                        report.getChunksSkipped(), report.isEmbeddingDegraded());
+                LOGGER.info("ingest 完成：accept={} reject={} 删除旧块={} 新写入={} 跳过重复={} 向量降级={}",
+                        report.getAccepted(), report.getRejected(), report.getChunksRemoved(),
+                        report.getChunksNewlyWritten(), report.getChunksSkipped(),
+                        report.isEmbeddingDegraded());
                 for (String reason : report.getRejectedReasons()) {
                     LOGGER.warn("ingest 拒绝记录：{}", reason);
                 }

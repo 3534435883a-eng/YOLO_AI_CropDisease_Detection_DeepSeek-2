@@ -96,7 +96,8 @@ public class Bm25Index {
         if (queryTerms.isEmpty() || chunk == null) {
             return 0;
         }
-        Set<String> chunkTerms = new HashSet<String>(tokenizer.tokenize(chunk.getContent()));
+        // 只看正文：头部（作物/病害/字段）是元数据，算进共现会让"如何给番茄施肥"这类问题被误放行。
+        Set<String> chunkTerms = new HashSet<String>(tokenizer.tokenize(chunk.getBodyText()));
         int hit = 0;
         for (String term : queryTerms) {
             if (chunkTerms.contains(term)) {

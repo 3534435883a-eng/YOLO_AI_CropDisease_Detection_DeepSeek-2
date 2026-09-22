@@ -144,6 +144,35 @@ class RetrievalEvalTest {
             }
         }
 
+        // 病名检索：直接用"作物+病名"提问（真实用户最常见的问法）。
+        // 若知识块内容里不含作物名与病名，这一步会整体失配——这是设计问题，不是调参问题。
+        int nameTop1 = 0;
+        int nameTop3 = 0;
+        int nameCount = 0;
+        int nameNoHit = 0;
+        int nameAnswered = 0;
+        List<String> nameMisses = new ArrayList<String>();
+        for (int i = 0; i < Math.min(PREFIX_QUESTIONS, usable.size()); i++) {
+            JSONObject record = usable.get(i);
+            String query = record.getString("crop") + record.getString("name");
+            nameCount++;
+            RetrievalResult outcome = retriever.retrieve(query, record.getString("crop"), 3);
+            if (outcome.getBm25HitCount() == 0) {
+                nameNoHit++;
+            }
+            if (!retriever.isLowScore(outcome)) {
+                nameAnswered++;
+            }
+            if (isHit(outcome.getItems(), 1, record.getString("name"))) {
+                nameTop1++;
+            } else {
+                nameMisses.add(query + " → " + describe(outcome.getItems()));
+            }
+            if (isHit(outcome.getItems(), 3, record.getString("name"))) {
+                nameTop3++;
+            }
+        }
+
         int colloquialTop3 = 0;
         int colloquialAnswered = 0;
         double colloquialMinCoverage = 1.0;
@@ -211,6 +240,14 @@ class RetrievalEvalTest {
         }
         System.out.println();
 
+        double nameTop1Rate = rate(nameTop1, Math.max(1, nameCount));
+        double nameAnsweredRate = rate(nameAnswered, Math.max(1, nameCount));
+        double nameTop3Rate = rate(nameTop3, Math.max(1, nameCount));
+        System.out.printf("  病名直检（%d 题）      Top-1 %.1f%%   Top-3 %.1f%%   未被误拒 %.1f%%   零命中 %d 题%n",
+                nameCount, nameTop1Rate * 100, nameTop3Rate * 100, nameAnsweredRate * 100, nameNoHit);
+        for (String miss : nameMisses.subList(0, Math.min(5, nameMisses.size()))) {
+            System.out.println("  [病名未命中] " + miss);
+        }
         double colloquialTop3Rate = rate(colloquialTop3, Math.max(1, colloquialExpected));
         double colloquialAnsweredRate = rate(colloquialAnswered, COLLOQUIAL.length);
         System.out.printf("  口语化检索（%d 题）    Top-3 命中率 %.1f%%   未误拒 %.1f%%（%d/%d）%n",
@@ -242,6 +279,9 @@ class RetrievalEvalTest {
         assertTrue(prefixTop1Rate >= 0.85, "症状前缀 Top-1 命中率过低：" + prefixTop1Rate);
         assertTrue(middleTop3Rate >= 0.80, "症状中段 Top-3 命中率过低：" + middleTop3Rate);
         assertTrue(refuseRate >= 0.90, "负样本拒答率过低：" + refuseRate);
+        // 病名提问是最自然的问法，必须既检得到、也不被拒答判据误杀。
+        assertTrue(nameTop1Rate >= 0.90, "病名直检 Top-1 命中率过低：" + nameTop1Rate);
+        assertTrue(nameAnsweredRate >= 0.90, "病名提问被拒答判据误杀：" + nameAnsweredRate);
         // 口语题护栏：既要检得到，也不能被拒答判据误杀。误拒率上升说明判据过激，
         // 必须先改判据而不是放宽断言（MIN_COVERAGE=0.30 的单一比值判据就曾误拒 18.8%）。
         assertTrue(colloquialTop3Rate >= 0.80, "口语化提问 Top-3 命中率过低：" + colloquialTop3Rate);

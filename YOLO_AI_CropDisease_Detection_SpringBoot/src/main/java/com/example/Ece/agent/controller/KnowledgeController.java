@@ -79,6 +79,7 @@ public class KnowledgeController {
         KnowledgeIndexService.KnowledgeLoadSummary summary = knowledgeIndexService.reload();
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("accepted", Integer.valueOf(report.getAccepted()));
+        payload.put("chunksRemoved", Integer.valueOf(report.getChunksRemoved()));
         payload.put("rejected", Integer.valueOf(report.getRejected()));
         payload.put("chunksNewlyWritten", Integer.valueOf(report.getChunksNewlyWritten()));
         payload.put("chunksSkipped", Integer.valueOf(report.getChunksSkipped()));

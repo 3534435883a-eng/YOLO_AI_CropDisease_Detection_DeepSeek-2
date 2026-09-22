@@ -29,6 +29,8 @@ public class LegacyDiseaseKnowledgeReader {
     public static final String SOURCE_CODE = "legacy-disease-db";
     /** spec §23.1 语料分层：E = 本项目旧库（现有 disease 表 100 条）。 */
     public static final String SOURCE_TIER = "E";
+    /** 来源表名：多来源知识库用它区分数据集。 */
+    public static final String SOURCE_TABLE = "disease";
     public static final String DATA_VERSION = "2026-09-23";
 
     private static final String SELECT_DISEASES =
@@ -55,7 +57,7 @@ public class LegacyDiseaseKnowledgeReader {
                 put(fields, KnowledgeChunk.FieldType.SYMPTOM, rs.getString("symptoms"));
                 put(fields, KnowledgeChunk.FieldType.CAUSE, rs.getString("causes"));
                 put(fields, KnowledgeChunk.FieldType.CONTROL, rs.getString("prevention"));
-                return new IngestRecord(rs.getLong("id"), rs.getString("crop_type"),
+                return new IngestRecord(SOURCE_TABLE, rs.getLong("id"), rs.getString("crop_type"),
                         rs.getString("name"), fields);
             }
         });
