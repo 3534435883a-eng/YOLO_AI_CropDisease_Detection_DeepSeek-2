@@ -148,4 +148,30 @@ class AgentOrchestratorTest {
         assertEquals(0, result.getSteps());
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
     }
+
+
+    @Test
+    void refusesAnswerThatClaimsAutomaticDeviceExecution() {
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                return "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"褐色轮纹斑\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return "已自动开启通风设备，棚内湿度已降低。[1]";
+            }
+        };
+        AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), llm);
+        AgentResult result = orchestrator.run("s5", "叶子有褐色轮纹斑", "番茄", null);
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentOrchestrator.REFUSAL_ANSWER, result.getAnswer());
+
+        String reason = null;
+        for (AgentStepEvent event : result.getEvents()) {
+            if ("final".equals(event.getType())) {
+                reason = String.valueOf(event.getPayload().get("reason"));
+            }
+        }
+        assertEquals("AUTO_EXECUTION_CLAIM", reason, "守门层必须拦下越权的设备执行声明");
+    }
 }

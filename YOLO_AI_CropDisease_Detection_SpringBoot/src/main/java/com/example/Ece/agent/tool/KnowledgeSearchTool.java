@@ -61,6 +61,7 @@ public class KnowledgeSearchTool implements AgentTool {
         RetrievalResult result = retriever.retrieve(query, crop, topN);
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         output.put("citations", citationFormatter.toCitations(result.getItems()));
+        output.put("items", result.getItems());
         output.put("promptBlock", citationFormatter.toPromptBlock(result.getItems()));
         output.put("degraded", Boolean.valueOf(result.isDegraded()));
         output.put("degradedReason", result.getDegradedReason());

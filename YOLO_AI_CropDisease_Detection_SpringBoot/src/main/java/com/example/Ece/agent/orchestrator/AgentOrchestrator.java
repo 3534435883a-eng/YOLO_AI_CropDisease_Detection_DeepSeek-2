@@ -2,10 +2,14 @@ package com.example.Ece.agent.orchestrator;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import com.example.Ece.agent.guard.GuardrailCheck;
+import com.example.Ece.agent.guard.GuardrailService;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.KnowledgeChunker;
+import com.example.Ece.agent.rag.ScoredChunk;
 import com.example.Ece.agent.tool.AgentTool;
 import com.example.Ece.agent.tool.AgentToolRegistry;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PreDestroy;
@@ -52,6 +56,7 @@ public class AgentOrchestrator {
     private final AgentToolRegistry registry;
     private final LlmClient llmClient;
     private final CitationFormatter citationFormatter = new CitationFormatter();
+    private final GuardrailService guardrailService;
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
         private final AtomicInteger counter = new AtomicInteger();
 
@@ -62,9 +67,16 @@ public class AgentOrchestrator {
         }
     });
 
-    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient) {
+    @Autowired
+    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient, GuardrailService guardrailService) {
         this.registry = registry;
         this.llmClient = llmClient;
+        this.guardrailService = guardrailService;
+    }
+
+    /** 便于单元测试：使用默认守门实现。 */
+    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient) {
+        this(registry, llmClient, new GuardrailService());
     }
 
     @PreDestroy
@@ -82,7 +94,9 @@ public class AgentOrchestrator {
         Map<String, Integer> toolCalls = new HashMap<String, Integer>();
         Set<String> seenDigests = new HashSet<String>();
         List<Map<String, Object>> citations = new ArrayList<Map<String, Object>>();
+        List<ScoredChunk> evidenceChunks = new ArrayList<ScoredChunk>();
         boolean reliableEvidence = false;
+        boolean degradedSeen = false;
         String blockReason = null;
         long startedAt = System.currentTimeMillis();
         int planSteps = 0;
@@ -140,6 +154,13 @@ public class AgentOrchestrator {
             if (rawCitations instanceof List) {
                 stepCitations.addAll((List<Map<String, Object>>) rawCitations);
             }
+            if (Boolean.TRUE.equals(output.get("degraded"))) {
+                degradedSeen = true;
+            }
+            Object rawItems = output.get("items");
+            if (rawItems instanceof List && !lowScore && output.get("error") == null) {
+                evidenceChunks.addAll((List<ScoredChunk>) rawItems);
+            }
             if (!stepCitations.isEmpty() && !lowScore && output.get("error") == null) {
                 citations = citationFormatter.merge(citations, stepCitations);
                 reliableEvidence = true;
@@ -181,7 +202,13 @@ public class AgentOrchestrator {
         if (answer == null || answer.trim().isEmpty()) {
             answer = REFUSAL_ANSWER;
         }
-        return finish(events, sink, citations, executed, answer, AgentResult.Status.DONE, blockReason, null);
+        GuardrailCheck guardrail = guardrailService.check(answer, evidenceChunks, degradedSeen);
+        if (!guardrail.isAllowed()) {
+            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                    AgentResult.Status.REFUSED, guardrail.getReason(), REFUSAL_ANSWER);
+        }
+        return finish(events, sink, citations, executed, guardrail.getRewrittenAnswer(),
+                AgentResult.Status.DONE, blockReason, null);
     }
 
     private Map<String, Object> executeWithTimeout(final AgentTool tool, final Map<String, Object> input) {
