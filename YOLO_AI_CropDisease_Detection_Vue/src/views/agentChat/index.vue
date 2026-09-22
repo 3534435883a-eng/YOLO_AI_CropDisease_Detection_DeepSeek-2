@@ -421,6 +421,10 @@ async function send(): Promise<void> {
 		degraded: false,
 	};
 	turns.value.push(turn);
+	// **必须通过数组代理再读一次**：push 进去的是原始对象，直接改原始对象不会触发渲染。
+	// 之前所有状态都改在原始对象上，界面只靠 100ms 计时器顺带重渲染；计时器一停（流结束）
+	// 最后一批状态就渲染不出来——实测表现为右侧"可核对来源"证据面板空白。
+	const active = turns.value[turns.value.length - 1];
 	scrollToBottom();
 
 	controller.value = new AbortController();
@@ -433,57 +437,57 @@ async function send(): Promise<void> {
 
 	try {
 		await streamAgentChat(
-			{ question, crop: turn.crop, sessionId: sessionId.value },
+			{ question, crop: active.crop, sessionId: sessionId.value },
 			{
 				onEvent: (event) => {
 					if (event.type === 'step') {
-						turn.steps.push(describeStep(event));
-						turn.stepCount = turn.steps.length;
-						if (turn.steps[turn.steps.length - 1]?.degraded) turn.degraded = true;
+						active.steps.push(describeStep(event));
+						active.stepCount = active.steps.length;
+						if (active.steps[active.steps.length - 1]?.degraded) active.degraded = true;
 						const cumulative = (event.data?.citations as AgentCitation[]) || [];
-						turn.citations = cumulative.length
+						active.citations = cumulative.length
 							? cumulative
-							: mergeCitations(turn.citations, readStepCitations(event));
-						turn.stage = '已获得观测，规划下一步…';
+							: mergeCitations(active.citations, readStepCitations(event));
+						active.stage = '已获得观测，规划下一步…';
 						scrollToBottom();
 						return;
 					}
 					if (event.type === 'final') {
 						const data = event.data || {};
 						const status = String(data.status || 'DONE').toUpperCase();
-						turn.answer = event.message || '';
-						turn.segments = buildSegments(turn.answer);
-						turn.reason = String(data.reason || '');
+						active.answer = event.message || '';
+						active.segments = buildSegments(active.answer);
+						active.reason = String(data.reason || '');
 						const finalCitations = readFinalCitations(event);
-						if (finalCitations.length) turn.citations = finalCitations;
+						if (finalCitations.length) active.citations = finalCitations;
 						const reportedCount = Number(data.citationCount);
-						turn.stepCount = Number.isFinite(Number(data.steps)) ? Number(data.steps) : turn.stepCount;
-						if (!turn.citations.length && Number.isFinite(reportedCount) && reportedCount === 0) {
-							turn.citations = [];
+						active.stepCount = Number.isFinite(Number(data.steps)) ? Number(data.steps) : active.stepCount;
+						if (!active.citations.length && Number.isFinite(reportedCount) && reportedCount === 0) {
+							active.citations = [];
 						}
-						turn.status = status === 'REFUSED' ? 'refused' : status === 'ERROR' ? 'error' : 'done';
-						turn.elapsedMs = Date.now() - turn.startedAt;
-						turn.stage = '';
+						active.status = status === 'REFUSED' ? 'refused' : status === 'ERROR' ? 'error' : 'done';
+						active.elapsedMs = Date.now() - active.startedAt;
+						active.stage = '';
 						scrollToBottom();
 					}
 				},
 				onFatal: (message) => {
-					turn.status = 'error';
-					turn.answer = message;
-					turn.segments = buildSegments(message);
-					turn.reason = 'STREAM_ERROR';
-					turn.elapsedMs = Date.now() - turn.startedAt;
+					active.status = 'error';
+					active.answer = message;
+					active.segments = buildSegments(message);
+					active.reason = 'STREAM_ERROR';
+					active.elapsedMs = Date.now() - active.startedAt;
 					ElMessage.error(message);
 				},
 				onClosed: () => {
-					turn.elapsedMs = Date.now() - turn.startedAt;
-					if (turn.status === 'running') {
+					active.elapsedMs = Date.now() - active.startedAt;
+					if (active.status === 'running') {
 						// 连接正常结束但没收到 final：如实标记为失败，不假装成功。
-						turn.status = turn.answer ? 'done' : 'error';
-						if (!turn.answer) {
-							turn.answer = '连接已结束但没有收到结论，请重试或查看后端日志。';
-							turn.segments = buildSegments(turn.answer);
-							turn.reason = 'STREAM_ERROR';
+						active.status = active.answer ? 'done' : 'error';
+						if (!active.answer) {
+							active.answer = '连接已结束但没有收到结论，请重试或查看后端日志。';
+							active.segments = buildSegments(active.answer);
+							active.reason = 'STREAM_ERROR';
 						}
 					}
 					scrollToBottom();
@@ -821,6 +825,8 @@ h3 {
 .chat-aside {
 	display: grid;
 	gap: 14px;
+	// 给右下角既有全局浮窗（"番茄智能体"状态卡）让出空间，否则会压住示例问题列表底部条目。
+	padding-bottom: 104px;
 }
 .aside-panel {
 	padding: 16px;
