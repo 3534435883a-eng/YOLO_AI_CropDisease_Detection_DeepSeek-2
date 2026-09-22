@@ -89,7 +89,7 @@ class RetrievalEvalTest {
         }
 
         EmbeddingProbe probe = probeEmbedding();
-        KnowledgeRetriever retriever = new KnowledgeRetriever(probe.client);
+        KnowledgeRetriever retriever = new KnowledgeRetriever(probe.client, new KnowledgeEntityLexicon());
         retriever.rebuild(chunks);
         // 诊断用：同一批切块建独立 BM25 索引，逐题打印命中词，用于解释拒答判据。
         Bm25Index diagIndex = new Bm25Index();
@@ -173,7 +173,13 @@ class RetrievalEvalTest {
             }
         }
 
+        int colloquialTop1 = 0;
         int colloquialTop3 = 0;
+        List<String> aliasMisses = new ArrayList<String>();
+        List<String> aliasTop1Misses = new ArrayList<String>();
+        int aliasTop1 = 0;
+        int aliasTop3 = 0;
+        int aliasCount = 0;
         int colloquialAnswered = 0;
         double colloquialMinCoverage = 1.0;
         String colloquialMinQuery = "";
@@ -189,6 +195,9 @@ class RetrievalEvalTest {
             }
             if (row[1] == null) {
                 continue;
+            }
+            if (isHit(outcome.getItems(), 1, row[1])) {
+                colloquialTop1++;
             }
             if (isHit(outcome.getItems(), 3, row[1])) {
                 colloquialTop3++;
@@ -240,6 +249,42 @@ class RetrievalEvalTest {
         }
         System.out.println();
 
+        // 别名专项：用"农户口语别名"代替规范作物名提问（如把 马铃薯 说成 土豆），
+        // 考察查询归一化是否能让检索不受别名影响。
+        // 别名专项（只测**真正会踩到别名问题**的两种场景）：
+        //   A. 不给作物上下文、问题里用别名 → 只能靠查询归一化（块头部"作物：马铃薯"才有机会被匹配）
+        //   B. 作物字段直接传别名 → 考察作物过滤是否被归一化
+        //       过滤器是 chunkCrop.contains(cropType)，"马铃薯".contains("土豆") 为假，别名未归一化会一条都召不回。
+        // 注意：若给别名问题**同时传规范作物名**，过滤会替我们完成匹配，测出来是假象（首版就犯了这个错）。
+        String[][] aliasCases = {
+                {"土豆叶尖叶缘先烂，边上有一圈白霉", null, "马铃薯晚疫病", "A 无作物上下文+别名"},
+                {"西红柿叶片有同心轮纹的褐色病斑", null, "番茄早疫病", "A 无作物上下文+别名"},
+                {"苞米叶子上长梭形大斑，边缘褐色中间灰色", null, "玉米大斑病", "A 无作物上下文+别名"},
+                {"叶尖叶缘先烂，边上有一圈白霉", "土豆", "马铃薯晚疫病", "B 作物字段传别名"},
+                {"叶片有同心轮纹的褐色病斑", "西红柿", "番茄早疫病", "B 作物字段传别名"}
+        };
+        for (String[] aliasCase : aliasCases) {
+            aliasCount++;
+            RetrievalResult outcome = retriever.retrieve(aliasCase[0], aliasCase[1], 3);
+            if (outcome.getItems().isEmpty()) {
+                aliasMisses.add(aliasCase[3] + "「" + aliasCase[0] + "」(crop=" + aliasCase[1] + ") → **零召回**");
+                continue;
+            }
+            if (isHit(outcome.getItems(), 1, aliasCase[2])) {
+                aliasTop1++;
+            } else {
+                aliasTop1Misses.add(aliasCase[3] + "「" + aliasCase[0] + "」首条 "
+                        + outcome.getItems().get(0).getChunk().getDiseaseName());
+            }
+            if (isHit(outcome.getItems(), 3, aliasCase[2])) {
+                aliasTop3++;
+            } else {
+                aliasMisses.add(aliasCase[3] + "「" + aliasCase[0] + "」(crop=" + aliasCase[1] + ") → "
+                        + describe(outcome.getItems()) + "（覆盖率 "
+                        + String.format("%.2f", outcome.getQueryCoverage()) + "）");
+            }
+        }
+
         double nameTop1Rate = rate(nameTop1, Math.max(1, nameCount));
         double nameAnsweredRate = rate(nameAnswered, Math.max(1, nameCount));
         double nameTop3Rate = rate(nameTop3, Math.max(1, nameCount));
@@ -248,11 +293,22 @@ class RetrievalEvalTest {
         for (String miss : nameMisses.subList(0, Math.min(5, nameMisses.size()))) {
             System.out.println("  [病名未命中] " + miss);
         }
+        double colloquialTop1Rate = rate(colloquialTop1, Math.max(1, colloquialExpected));
+        double aliasTop1Rate = rate(aliasTop1, Math.max(1, aliasCount));
+        double aliasTop3Rate = rate(aliasTop3, Math.max(1, aliasCount));
         double colloquialTop3Rate = rate(colloquialTop3, Math.max(1, colloquialExpected));
         double colloquialAnsweredRate = rate(colloquialAnswered, COLLOQUIAL.length);
-        System.out.printf("  口语化检索（%d 题）    Top-3 命中率 %.1f%%   未误拒 %.1f%%（%d/%d）%n",
-                COLLOQUIAL.length, colloquialTop3Rate * 100, colloquialAnsweredRate * 100,
-                colloquialAnswered, COLLOQUIAL.length);
+        System.out.printf("  口语化检索（%d 题）    Top-1 %.1f%%   Top-3 %.1f%%   未误拒 %.1f%%（%d/%d）%n",
+                COLLOQUIAL.length, colloquialTop1Rate * 100, colloquialTop3Rate * 100,
+                colloquialAnsweredRate * 100, colloquialAnswered, COLLOQUIAL.length);
+        System.out.printf("  别名提问（%d 题）      Top-1 %.1f%%   Top-3 %.1f%%%n",
+                aliasCount, aliasTop1Rate * 100, aliasTop3Rate * 100);
+        for (String miss : aliasMisses) {
+            System.out.println("  [别名未命中 Top-3] " + miss);
+        }
+        for (String miss : aliasTop1Misses) {
+            System.out.println("  [别名未命中 Top-1] " + miss);
+        }
         System.out.printf("  口语题最低覆盖率 %.2f（%s）%n", colloquialMinCoverage, colloquialMinQuery);
         System.out.println("  --- 拒答判据逐题诊断（覆盖率 / 融合分 / 命中词 / 查询词数）---");
         for (String query : NEGATIVE_QUERIES) {

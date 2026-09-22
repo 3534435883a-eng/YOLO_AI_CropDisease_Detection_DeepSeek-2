@@ -1,5 +1,6 @@
 package com.example.Ece.agent.rag;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -30,13 +31,29 @@ public class KnowledgeRetriever {
     public static final String DEGRADED_EMBEDDING = "EMBEDDING_UNAVAILABLE";
 
     private final EmbeddingClient embeddingClient;
+    /** 作物别名词典；为 null 时不做归一化（单元测试只需 BM25/向量时可以不传）。 */
+    private final KnowledgeEntityLexicon entityLexicon;
     private final Bm25Index bm25Index = new Bm25Index();
     private final VectorIndex vectorIndex = new VectorIndex();
     private final RrfFusion fusion = new RrfFusion();
     private boolean vectorAvailable = false;
 
+    /** 单元测试用：不注入别名词典（不做归一化与扩展）。 */
     public KnowledgeRetriever(EmbeddingClient embeddingClient) {
+        this(embeddingClient, null);
+    }
+
+    /**
+     * 生产用构造器。
+     *
+     * <p><b>必须显式 {@code @Autowired}</b>：类里有两个构造器时，Spring 不会自动选择，
+     * 而是去找无参构造器 → 报 "No default constructor found" 导致**应用整体启动失败**（实测踩过）。
+     * 教训：改构造器后必须跑包含 {@code EceTests}（全上下文加载）的全量测试，只跑单测会漏掉这类错误。</p>
+     */
+    @Autowired
+    public KnowledgeRetriever(EmbeddingClient embeddingClient, KnowledgeEntityLexicon entityLexicon) {
         this.embeddingClient = embeddingClient;
+        this.entityLexicon = entityLexicon;
     }
 
     public void rebuild(List<KnowledgeChunk> chunks) {
@@ -94,7 +111,12 @@ public class KnowledgeRetriever {
     }
 
     public RetrievalResult retrieve(String query, String cropType, int topN) {
-        List<ScoredChunk> bm25Hits = filterByCrop(bm25Index.search(query, TOP_K_EACH), cropType);
+        // 先归一化：作物字段可能是农户别名（"土豆"），而知识库里写的是"马铃薯"；
+        // 不归一化时 filterByCrop 的 contains 判断为假 → 实测 2/2 零召回。
+        String effectiveCrop = entityLexicon == null ? cropType : entityLexicon.canonicalizeCrop(cropType);
+        // 再扩展查询：问题里出现别名时补上规范作物名（知识块头部就带"作物：马铃薯"，补上后才对得上）。
+        String effectiveQuery = entityLexicon == null ? query : entityLexicon.expandQuery(query);
+        List<ScoredChunk> bm25Hits = filterByCrop(bm25Index.search(effectiveQuery, TOP_K_EACH), effectiveCrop);
         List<List<ScoredChunk>> lists = new ArrayList<List<ScoredChunk>>();
         lists.add(bm25Hits);
         boolean degraded = false;
@@ -102,8 +124,8 @@ public class KnowledgeRetriever {
         int vectorHitCount = 0;
         if (vectorAvailable) {
             try {
-                double[] queryVector = embeddingClient.embed(query);
-                List<ScoredChunk> vectorHits = filterByCrop(vectorIndex.search(queryVector, TOP_K_EACH), cropType);
+                double[] queryVector = embeddingClient.embed(effectiveQuery);
+                List<ScoredChunk> vectorHits = filterByCrop(vectorIndex.search(queryVector, TOP_K_EACH), effectiveCrop);
                 vectorHitCount = vectorHits.size();
                 lists.add(vectorHits);
             } catch (EmbeddingUnavailableException error) {
@@ -115,15 +137,15 @@ public class KnowledgeRetriever {
             reason = DEGRADED_EMBEDDING;
         }
         List<ScoredChunk> fused = fusion.fuse(lists, RRF_K, topN);
-        double coverage = bm25Index.queryCoverage(query);
+        double coverage = bm25Index.queryCoverage(effectiveQuery);
         double maxChunkCoverage = 0.0;
         int maxChunkMatchedTerms = 0;
         for (ScoredChunk item : fused) {
-            int matchedInChunk = bm25Index.chunkMatchedTermCount(query, item.getChunk());
+            int matchedInChunk = bm25Index.chunkMatchedTermCount(effectiveQuery, item.getChunk());
             if (matchedInChunk > maxChunkMatchedTerms) {
                 maxChunkMatchedTerms = matchedInChunk;
             }
-            double chunkCov = bm25Index.chunkCoverage(query, item.getChunk());
+            double chunkCov = bm25Index.chunkCoverage(effectiveQuery, item.getChunk());
             if (chunkCov > maxChunkCoverage) {
                 maxChunkCoverage = chunkCov;
             }

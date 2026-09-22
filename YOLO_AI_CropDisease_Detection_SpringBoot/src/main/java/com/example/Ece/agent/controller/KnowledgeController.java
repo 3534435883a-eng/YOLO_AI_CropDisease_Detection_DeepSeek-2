@@ -3,6 +3,7 @@ package com.example.Ece.agent.controller;
 import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.EmbeddingUnavailableException;
 import com.example.Ece.agent.rag.IngestReport;
+import com.example.Ece.agent.rag.KnowledgeEntityLexicon;
 import com.example.Ece.agent.rag.KnowledgeIndexService;
 import com.example.Ece.agent.repository.JdbcVisionClassMapRepository;
 import com.example.Ece.agent.rag.KnowledgeIngestService;
@@ -48,6 +49,9 @@ public class KnowledgeController {
 
     @Resource
     private JdbcVisionClassMapRepository visionClassMapRepository;
+
+    @Resource
+    private KnowledgeEntityLexicon entityLexicon;
 
     @GetMapping("/status")
     public Result<?> status() {
@@ -104,6 +108,21 @@ public class KnowledgeController {
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("summary", visionClassMapRepository.summarize());
         payload.put("items", visionClassMapRepository.findAll());
+        return Result.success(payload);
+    }
+
+    /**
+     * 作物实体别名词典：别名 → 规范作物名。
+     *
+     * <p>来源如实标注：人工整理的通用农艺术称，非权威来源；词典内部逐条记录了该别名
+     * 是否在知识库原文中出现过（如"冬小麦"×5、"苹果树"×7）。</p>
+     */
+    @GetMapping("/entities")
+    public Result<?> entities() {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("version", entityLexicon.getVersion());
+        payload.put("aliasToCrop", entityLexicon.getAliasTextByCrop());
+        payload.put("note", "人工词典（通用农艺术称，非权威来源）；别名在知识库原文中的出现次数见 docs/knowledge-entity-lexicon.md");
         return Result.success(payload);
     }
 

@@ -1,0 +1,16 @@
+{
+  "version": "2026-09-23",
+  "provenance": "人工整理的通用农艺术语别称（非权威来源）。逐条标注是否在知识库原文中出现过（internalEvidence）；未标注者表示该别名在库内 0 次出现，属词典补充而非语料派生。",
+  "note": "单字别名（如“棉”）不作为别名收录：它会在任意含该字的文本中误匹配。",
+  "crops": [
+    { "crop": "番茄", "aliases": ["西红柿", "洋柿子", "蕃茄", "火柿子"], "internalEvidence": "" },
+    { "crop": "马铃薯", "aliases": ["土豆", "洋芋", "薯仔", "山药蛋"], "internalEvidence": "" },
+    { "crop": "玉米", "aliases": ["苞米", "棒子", "包谷", "玉蜀黍"], "internalEvidence": "" },
+    { "crop": "小麦", "aliases": ["冬小麦", "麦子", "春小麦"], "internalEvidence": "冬小麦×5（库内原文出现）" },
+    { "crop": "水稻", "aliases": ["稻子", "稻谷"], "internalEvidence": "稻谷×21（库内原文出现）" },
+    { "crop": "棉花", "aliases": [], "internalEvidence": "“棉花”本身即规范名（库内×24）" },
+    { "crop": "苹果", "aliases": ["苹果树"], "internalEvidence": "苹果树×7（库内原文出现）" },
+    { "crop": "葡萄", "aliases": ["葡萄树", "提子"], "internalEvidence": "葡萄树×1（库内原文出现）" },
+    { "crop": "草莓", "aliases": ["士多啤梨"], "internalEvidence": "" }
+  ]
+}
