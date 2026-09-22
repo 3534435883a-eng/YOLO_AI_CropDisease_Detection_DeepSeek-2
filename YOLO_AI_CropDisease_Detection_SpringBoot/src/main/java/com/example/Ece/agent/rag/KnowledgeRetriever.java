@@ -60,6 +60,11 @@ public class KnowledgeRetriever {
         rebuild(chunks, null);
     }
 
+    /** 当前索引里向量召回是否可用（建索引时定下；用于状态接口如实展示，不代表此刻 /embed 可达）。 */
+    public boolean isVectorAvailable() {
+        return vectorAvailable;
+    }
+
     /**
      * 重建内存索引。
      *
@@ -94,15 +99,29 @@ public class KnowledgeRetriever {
         return new ArrayList<double[]>(storedEmbeddings);
     }
 
-    /** 现场向量化；任一失败即整体放弃向量召回（返回 null），由调用方降级为纯关键词检索。 */
+    /**
+     * 现场向量化；任一失败即整体放弃向量召回（返回 null），由调用方降级为纯关键词检索。
+     *
+     * <p>按 {@link EmbeddingClient#DEFAULT_BATCH_SIZE} 分批：只在"已入库向量不可用"时才会走到这里
+     * （例如首次启动、块表刚写入但向量列为空），逐条往返会把启动时间拖长十几倍。</p>
+     */
     private List<double[]> embedAll(List<KnowledgeChunk> indexed) {
         if (indexed.isEmpty()) {
             return null;
         }
         List<double[]> vectors = new ArrayList<double[]>();
-        for (KnowledgeChunk chunk : indexed) {
+        for (int from = 0; from < indexed.size(); from += EmbeddingClient.DEFAULT_BATCH_SIZE) {
+            int to = Math.min(from + EmbeddingClient.DEFAULT_BATCH_SIZE, indexed.size());
+            List<String> texts = new ArrayList<String>();
+            for (int i = from; i < to; i++) {
+                texts.add(indexed.get(i).getContent());
+            }
             try {
-                vectors.add(embeddingClient.embed(chunk.getContent()));
+                List<double[]> batch = embeddingClient.embedBatch(texts);
+                if (batch == null || batch.size() != texts.size()) {
+                    return null;
+                }
+                vectors.addAll(batch);
             } catch (EmbeddingUnavailableException error) {
                 return null;
             }

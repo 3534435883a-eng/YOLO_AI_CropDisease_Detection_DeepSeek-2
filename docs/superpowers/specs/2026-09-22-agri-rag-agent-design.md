@@ -853,19 +853,21 @@ severityPct → diseaseDamageFactor → 降低净光合与果实品质（反馈�
 | 单次检索（BM25+向量+RRF，338 块） | **12 ~ 19 ms** | 来自智能体步骤事件的实测耗时 |
 | 向量化 `/embed`（单条） | **14 ~ 32 ms** | bge-small-zh-v1.5，本地 CPU |
 | 智能体端到端（2 次规划 + 1 次作答） | **11.5 ~ 12.4 s** | **检索仅占 ~0.04 s，瓶颈完全在大模型往返** |
-| 知识库全量重建（338 块） | **8,543 ms**（≈25.3 ms/块） | 每块一次 `/embed` HTTP 往返；**串行调用是瓶颈** |
-| 全量测试套件（127 个） | **19.8 s** | JUnit 5 |
+| 知识库全量重建（338 块） | **8,543 ms**（≈25.3 ms/块） | 当时逐条 `/embed` + 逐行写库；**已在 §32 修复到 1.5 s 级** |
+| 全量测试套件（127 个） | **19.8 s** | JUnit 5（当前为 144 个，见 §31/§32） |
 | `GET /ai/knowledge/vision-map`（56 行+汇总） | 中位 **8 ms** | |
 | `GET /ai/knowledge/entities` | 中位 **2 ms** | |
 | `GET /agent/runs/{id}/vision-events` | 中位 **10 ms** | 含逐条映射解析 |
 | `GET /eval/{batchId}/matrix`（读缓存） | 中位 **1 ms** | |
-| `GET /ai/knowledge/status` | 中位 **84 ms** | **会重建内存索引**（属重接口，前端不要高频轮询） |
+| `GET /ai/knowledge/status` | 中位 **84 ms** | 当时**会重建内存索引**（属重接口）；**已修复为 1 ms 快照，见 §32** |
 
-### 29.3 由性能实测发现的优化点（未做，记录待办）
+### 29.3 由性能实测发现的优化点（**均已完成，见 §32**）
 
-1. **向量化应批量化**：`/embed` 接口本身支持 `{"texts":[...]}` 一次多条，但 ingest 与索引重建是**逐块串行调用**，
-   338 块耗时 8.5 s。改为批量（如每批 32 条）后预计可降到 1 s 量级。
-2. **`/ai/knowledge/status` 每次都会重建索引**（84 ms），前端若轮询会造成无谓开销；应改为纯读状态、重建走单独入口。
+1. **向量化批量化**：原为逐块串行调用 `/embed`，实测 1,266 ~ 1,457 ms（原 4,286 ~ 4,382 ms）。
+2. **`/ai/knowledge/status` 不再重建索引**：改为读快照，84 ms → **1 ms**，并新增
+   `POST /ai/knowledge/reload` 承担重建职责。
+3. **写库批量化**（本节未列出的那个真正大头）：338 块 × 2 条单行 `update` = 676 次往返，
+   4,002 ~ 4,068 ms → **94 ~ 161 ms**；前提是数据源 URL 开 `rewriteBatchedStatements=true`。
 
 ### 29.4 性能测试中观察到的行为（与性能无关，但值得记录）
 
@@ -985,3 +987,65 @@ mvn -f YOLO_AI_CropDisease_Detection_SpringBoot/pom.xml test
 `doesNotAddNoteWhenEvidenceIsUsable`（后者守护"有可用证据时不得加 note"）。
 
 全量 **132 个测试通过、BUILD SUCCESS**（§29.2 记录的 127 个为当时基线，此后新增 §30 终止信号与本节共 5 个用例）。
+
+## 32. 知识库子系统的两处性能缺陷：实测定位与修复（2026-09-23）
+
+§29.3 已把两个优化点记为待办，本节是**做掉之后重新实测**的结果。三处改动：状态接口不再重建索引、
+向量化批量化、写库批量化。**过程中先猜错了一次**（以为瓶颈只有向量化），靠阶段计时纠正，一并记录。
+
+### 32.1 `/ai/knowledge/status` 不再重建索引（84 ms → 1 ms）
+
+| | 改前 | 改后 |
+|---|---|---|
+| 单次 `GET /ai/knowledge/status` | 84 ms，且**每次都全量重载块表 + 重建 BM25/向量索引 + 一次 `/embed` 探针** | **1 ms**（读最近一次快照；探针带 30 s TTL） |
+| 连续 6 次调用实测 | 每次都打数据库与向量服务 | 119 / 3 / 1 / 1 / 1 / 1 ms（首次数值为 JIT 与连接冷启动） |
+
+- `KnowledgeIndexService.currentSummary()` 只返回快照；重建只发生在启动、`/reingest`、以及新增的
+  `POST /ai/knowledge/reload`（实测重建 338 块 **35 ~ 49 ms**，无向量化，因为复用已入库向量）。
+- 状态里新增 `indexReloadMillis` / `indexLoadedAtMillis` / `indexVectorSearchAvailable`，
+  调用方看得出"这个快照有多旧、里面的向量能不能用"；探针新增 `embeddingProbeAgeMillis` +
+  `embeddingProbeTtlMillis`——**不写清楚的话，一个 20 秒前的"可用"会被当成此刻的结论**。
+- 单测 `currentSummaryDoesNotRebuildTheIndex` 用计数仓储把"重建次数"钉死，防止有人改回去。
+
+### 32.2 `/reingest` 的瓶颈不在向量化（8,543 ms → 1,500 ms 级）
+
+为了定位，在 `IngestReport` 里加了 `deleteMillis` / `embedMillis` / `writeMillis`，并在 `/reingest`
+响应中返回（**任何人都能当场复现这张表**）：
+
+| 阶段（338 块） | 改前 | 改后 |
+|---|---|---|
+| 删除旧块 | 21 ~ 30 ms | 22 ~ 29 ms |
+| **向量化** | **4,286 ~ 4,382 ms**（逐条 `/embed`） | **1,266 ~ 1,457 ms**（每批 32 条，−3.0 s） |
+| **写库** | **4,002 ~ 4,068 ms**（338 块 × 2 条单行 `update` = 676 次往返） | **94 ~ 161 ms**（`batchUpdate`，−3.9 s） |
+| 索引重建 | 38 ~ 51 ms | 35 ~ 47 ms |
+| **端到端** | **8,543 ms**（§29.2 记录） | **1,498 ~ 1,718 ms** |
+
+**先猜错的地方**：最初判断"瓶颈是逐条 `/embed`，批量化后应降到约 1 s"，实测只降到 5,842 ms。
+加阶段计时才看清：**写库和向量化一样贵**（676 次单行往返，每次约 6 ms）。改完之后向量化反而最大，
+这与我原先的判断正好相反——**没有阶段计时就只能凭想象优化**。
+
+**对照实验的做法**（保证公平）：临时把 `EMBED_BATCH_SIZE` 设为 1 重新编译，在同一天、同一台机器上
+量出串行路径的 `embedMillis` = 4,286 ms，而批量路径为 1,300 ms。两者相加回到 4,330 + 4,030 ≈ 8,360 ms，
+与 §29.2 记录的 8,543 ms 吻合——**说明历史基线可信，两处改动各自的贡献也可以分开归因**。
+
+### 32.3 两个必须成对出现的条件
+
+1. **`batchUpdate` 必须配 `rewriteBatchedStatements=true`**。`spring.datasource.url` 原为
+   `jdbc:mysql://localhost:3306/cropdisease?serverTimezone=Asia/Shanghai`，缺该参数时 Connector/J
+   **仍逐条发送**，改成 `batchUpdate` 也拿不到收益。已加上并注明原因。
+2. **批量失败要能退回逐条、且服务真的挂了要早停**。一条超长/异常文本不该让同批另外 31 条一起丢向量；
+   而一个没起来的 Flask 服务若逐条重试，会按"剩余块数 × 3 s 读超时"把 ingest 拖成几十分钟。
+   故策略是：整批 → 失败则逐条 → 逐条**连续 2 条**失败即认定服务不可用、剩余全部置空并如实标记降级。
+
+### 32.4 验证与回归
+
+- 新增测试 **12 个**（总计 **144 个全绿**）：
+  - `HttpEmbeddingClientTest`（5）：用 JDK 自带 `HttpServer` 起真实 HTTP 端点，验证"整批只一次往返、
+    请求体确实含全部文本、单条取首向量、空入参不发请求"；其中
+    `rejectsBatchWhenServerReturnsFewerVectorsThanRequested` 是**正确性守卫**——
+    返回条数不符时必须整批判失败，否则按错位使用会把 A 块的向量存到 B 块上，
+    检索期只表现为"偶发答非所问"，几乎无法定位。
+  - `KnowledgeIndexServiceTest`（4）：重建次数、懒加载、reload 刷新快照。
+  - `KnowledgeIngestServiceTest`（+3）：批量而非逐条、整批失败退回逐条、服务不可用时连续 2 条即停。
+- 实测结果一致性：`chunkCount=338 / vectorCount=338 / embeddingDegraded=false`，
+  并跑一次真实问答确认批量写入的向量可正常检索（`DONE`，答案带 `[1]` 引用，`degraded=false`）。

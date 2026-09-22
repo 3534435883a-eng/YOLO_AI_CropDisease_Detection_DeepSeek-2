@@ -2,10 +2,12 @@ package com.example.Ece.agent.repository;
 
 import com.example.Ece.agent.rag.KnowledgeChunk;
 import com.example.Ece.agent.rag.KnowledgeChunkRepository;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.nio.ByteBuffer;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -43,23 +45,62 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
         return new LinkedHashSet<String>(hashes);
     }
 
-    public int saveAll(String sourceCode, int authorityLevel, List<KnowledgeChunk> chunks,
-                       List<double[]> embeddings, String embeddingModel) {
-        int written = 0;
-        Timestamp now = new Timestamp(System.currentTimeMillis());
-        for (int i = 0; i < chunks.size(); i++) {
-            KnowledgeChunk chunk = chunks.get(i);
-            double[] vector = embeddings != null && i < embeddings.size() ? embeddings.get(i) : null;
-            jdbcTemplate.update(INSERT_CHUNK, chunk.getSourceTable(), Long.valueOf(chunk.getSourceId()),
-                    chunk.getCropType(), chunk.getDiseaseName(),
-                    chunk.getFieldType() == null ? null : chunk.getFieldType().name(),
-                    Integer.valueOf(chunk.getChunkNo()), Integer.valueOf(chunk.getStartOffset()),
-                    chunk.getContent(), chunk.getContentHash(), toBytes(vector), embeddingModel, now);
-            jdbcTemplate.update(INSERT_ORIGIN, chunk.getContentHash(), sourceCode,
-                    Integer.valueOf(authorityLevel), now);
-            written++;
+    /**
+     * 批量写入知识块与来源映射。
+     *
+     * <p>原实现是**逐块两条单行 update**：338 块 = 676 次数据库往返，实测写库 4,000 ms 左右，
+     * 成为 ingest 里最大的一段（比向量化还贵）。改为 {@code batchUpdate} 后配合数据源 URL 上的
+     * {@code rewriteBatchedStatements=true} 才会真正合并成多值 INSERT——少了那个参数，
+     * Connector/J 仍逐条发送，改了也白改。</p>
+     *
+     * <p>返回值语义：能走到这里说明整个批次都已提交（JDBC 批量失败会抛
+     * {@code BatchUpdateException} 而不是静默丢行），因此直接返回入参条数。</p>
+     */
+    public int saveAll(final String sourceCode, final int authorityLevel, final List<KnowledgeChunk> chunks,
+                       List<double[]> embeddings, final String embeddingModel) {
+        if (chunks == null || chunks.isEmpty()) {
+            return 0;
         }
-        return written;
+        final Timestamp now = new Timestamp(System.currentTimeMillis());
+        final List<byte[]> vectors = new ArrayList<byte[]>();
+        for (int i = 0; i < chunks.size(); i++) {
+            double[] vector = embeddings != null && i < embeddings.size() ? embeddings.get(i) : null;
+            vectors.add(toBytes(vector));
+        }
+        jdbcTemplate.batchUpdate(INSERT_CHUNK, new BatchPreparedStatementSetter() {
+            public void setValues(PreparedStatement statement, int index) throws SQLException {
+                KnowledgeChunk chunk = chunks.get(index);
+                statement.setString(1, chunk.getSourceTable());
+                statement.setLong(2, chunk.getSourceId());
+                statement.setString(3, chunk.getCropType());
+                statement.setString(4, chunk.getDiseaseName());
+                statement.setString(5, chunk.getFieldType() == null ? null : chunk.getFieldType().name());
+                statement.setInt(6, chunk.getChunkNo());
+                statement.setInt(7, chunk.getStartOffset());
+                statement.setString(8, chunk.getContent());
+                statement.setString(9, chunk.getContentHash());
+                statement.setBytes(10, vectors.get(index));
+                statement.setString(11, embeddingModel);
+                statement.setTimestamp(12, now);
+            }
+
+            public int getBatchSize() {
+                return chunks.size();
+            }
+        });
+        jdbcTemplate.batchUpdate(INSERT_ORIGIN, new BatchPreparedStatementSetter() {
+            public void setValues(PreparedStatement statement, int index) throws SQLException {
+                statement.setString(1, chunks.get(index).getContentHash());
+                statement.setString(2, sourceCode);
+                statement.setInt(3, authorityLevel);
+                statement.setTimestamp(4, now);
+            }
+
+            public int getBatchSize() {
+                return chunks.size();
+            }
+        });
+        return chunks.size();
     }
 
     public int deleteBySourceCode(String sourceCode) {

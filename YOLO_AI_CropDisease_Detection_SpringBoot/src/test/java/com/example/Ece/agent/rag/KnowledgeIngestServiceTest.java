@@ -146,6 +146,102 @@ class KnowledgeIngestServiceTest {
         assertTrue(content.contains("番茄"), "块内容必须含作物名：" + content);
         assertTrue(content.contains("字段："), "块内容必须含字段标记：" + content);
     }
+
+    /** 造 n 条各含一个症状字段的记录（文本互不相同，避免全局内容判重把它们合并）。 */
+    private List<IngestRecord> manyRecords(int n) {
+        List<IngestRecord> list = new ArrayList<IngestRecord>();
+        for (int i = 0; i < n; i++) {
+            Map<KnowledgeChunk.FieldType, String> fields = new LinkedHashMap<KnowledgeChunk.FieldType, String>();
+            fields.put(KnowledgeChunk.FieldType.SYMPTOM, "第" + i + "号症状描述：叶片出现褐色轮纹斑并逐日扩展");
+            list.add(new IngestRecord((long) i, "番茄", "早疫病" + i, fields));
+        }
+        return list;
+    }
+
+    /**
+     * 块数多时必须按批向量化，而不是逐块一次 HTTP 往返。
+     * 实测依据：32 条一次 79 ms vs 逐条 32 次约 1,150 ms。
+     */
+    @Test
+    void embedsInBatchesInsteadOfOneRequestPerChunk() {
+        CountingEmbeddingClient client = new CountingEmbeddingClient(true, true);
+        IngestReport report = service(client).ingest(source(), manyRecords(40));
+
+        assertEquals(40, report.getChunksNewlyWritten());
+        assertEquals(0, client.singleCalls, "整批可用时不应有任何逐条请求");
+        assertEquals(2, client.batchCalls, "40 块 = 32 + 8 两批");
+        assertEquals(Arrays.asList(Integer.valueOf(32), Integer.valueOf(8)), client.batchSizes);
+        assertFalse(report.isEmbeddingDegraded());
+    }
+
+    /**
+     * 整批失败退回逐条：**一条坏文本不该让同批另外几十条一起丢向量**。
+     * 逐条成功即不标记降级——向量确实都拿到了。
+     */
+    @Test
+    void fallsBackToPerChunkWhenBatchRequestFails() {
+        CountingEmbeddingClient client = new CountingEmbeddingClient(false, true);
+        IngestReport report = service(client).ingest(source(), manyRecords(40));
+
+        assertEquals(40, report.getChunksNewlyWritten());
+        assertEquals(40, client.singleCalls, "批量不可用时必须逐条补齐");
+        assertFalse(report.isEmbeddingDegraded(), "逐条都成功，向量齐全，不应报降级");
+        for (double[] vector : chunks.loadEmbeddings()) {
+            assertNotNull(vector, "逐条成功时不应留下空向量");
+        }
+    }
+
+    /**
+     * 服务真的挂了要**早停**：否则一个没起来的 Flask 会按"剩余块数 × 3 s 读超时"把 ingest 拖成几十分钟。
+     * 连续 2 条失败即认定不可用，剩余块直接置空并如实标记降级。
+     */
+    @Test
+    void stopsRetryingOnceEmbeddingServiceLooksDown() {
+        CountingEmbeddingClient client = new CountingEmbeddingClient(false, false);
+        IngestReport report = service(client).ingest(source(), manyRecords(40));
+
+        assertEquals(40, report.getChunksNewlyWritten(), "降级也要保住可关键词检索的语料");
+        assertTrue(report.isEmbeddingDegraded(), "向量缺失必须如实标记");
+        assertEquals(1, client.batchCalls, "整批失败一次");
+        assertEquals(2, client.singleCalls, "逐条重试连续 2 条失败即停，而不是试满 40 次");
+    }
+
+    /** 可计数的假客户端：分别控制"整批"与"逐条"是否成功，并记录调用次数与批大小。 */
+    private static final class CountingEmbeddingClient implements EmbeddingClient {
+
+        private final boolean batchWorks;
+        private final boolean singleWorks;
+        private int batchCalls;
+        private int singleCalls;
+        private final List<Integer> batchSizes = new ArrayList<Integer>();
+
+        CountingEmbeddingClient(boolean batchWorks, boolean singleWorks) {
+            this.batchWorks = batchWorks;
+            this.singleWorks = singleWorks;
+        }
+
+        public double[] embed(String text) throws EmbeddingUnavailableException {
+            singleCalls++;
+            if (!singleWorks) {
+                throw new EmbeddingUnavailableException("embedding service down");
+            }
+            return new double[]{1.0, 0.0};
+        }
+
+        public List<double[]> embedBatch(List<String> texts) throws EmbeddingUnavailableException {
+            batchCalls++;
+            batchSizes.add(Integer.valueOf(texts.size()));
+            if (!batchWorks) {
+                throw new EmbeddingUnavailableException("batch endpoint failed");
+            }
+            List<double[]> vectors = new ArrayList<double[]>();
+            for (int i = 0; i < texts.size(); i++) {
+                vectors.add(new double[]{1.0, 0.0});
+            }
+            return vectors;
+        }
+    }
+
     /** 内存实现。 */
     private static final class InMemorySourceRepository implements KnowledgeSourceRepository {
         private final Map<String, KnowledgeSource> store = new LinkedHashMap<String, KnowledgeSource>();

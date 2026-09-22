@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** ingest 结果报告：accepted/rejected/chunksWritten/chunksSkipped/是否降级/拒绝原因。 */
+/** ingest 结果报告：accepted/rejected/chunksWritten/chunksSkipped/是否降级/拒绝原因/各阶段耗时。 */
 public class IngestReport {
 
     private final String sourceCode;
@@ -17,6 +17,9 @@ public class IngestReport {
     private boolean embeddingDegraded;
     private final List<String> rejectedReasons = new ArrayList<String>();
     private String embeddingModel = "";
+    private long deleteMillis;
+    private long embedMillis;
+    private long writeMillis;
 
     public IngestReport(String sourceCode) {
         this.sourceCode = sourceCode;
@@ -36,6 +39,19 @@ public class IngestReport {
     public void addRemoved(int count) { chunksRemoved += count; }
 
     public int getChunksRemoved() { return chunksRemoved; }
+
+    /** 以下三个耗时用于定位 ingest 的真实瓶颈（不要靠猜：实测 338 块里最大的一块不是向量化）。 */
+    public void addDeleteMillis(long millis) { deleteMillis += millis; }
+
+    public void addEmbedMillis(long millis) { embedMillis += millis; }
+
+    public void addWriteMillis(long millis) { writeMillis += millis; }
+
+    public long getDeleteMillis() { return deleteMillis; }
+
+    public long getEmbedMillis() { return embedMillis; }
+
+    public long getWriteMillis() { return writeMillis; }
 
     public void markDegraded(String model) {
         this.embeddingDegraded = true;
