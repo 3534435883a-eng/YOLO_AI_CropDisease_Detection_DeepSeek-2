@@ -13,6 +13,7 @@
 					<span class="badge" :class="`badge-${connectionTone}`">{{ connectionLabel }}</span>
 					<span class="badge badge-quiet">{{ modelLabel }}</span>
 				</div>
+				<el-button link type="primary" @click="goCoverage">视觉—知识覆盖 →</el-button>
 				<el-button link type="primary" @click="goCenter">推演指挥中心 →</el-button>
 			</div>
 		</header>
@@ -397,6 +398,8 @@ function usePreset(question: string): void {
 function goCenter(): void {
 	router.push('/agentCenter');
 }
+
+const goCoverage = () => router.push('/visionCoverage');
 
 async function send(): Promise<void> {
 	const question = draft.value.trim();

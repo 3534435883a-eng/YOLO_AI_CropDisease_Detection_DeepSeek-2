@@ -115,6 +115,10 @@ public class AgentOrchestrator {
         List<ScoredChunk> evidenceChunks = new ArrayList<ScoredChunk>();
         boolean reliableEvidence = false;
         boolean degradedSeen = false;
+        // 工具给出的"解释性说明"（如视觉类别对应哪条知识、为何没有依据）。
+        // 有证据时喂给作答步以便回答点明依据来源；无证据时如实写进拒答文案，
+        // 避免用户只看到一句"没有可靠依据"而不知道到底为什么。
+        List<String> observations = new ArrayList<String>();
         String blockReason = null;
         long startedAt = System.currentTimeMillis();
         int planSteps = 0;
@@ -188,6 +192,12 @@ public class AgentOrchestrator {
                 history.add(message("user", "工具 " + toolName + " 未提供可用证据"
                         + (lowScore ? "（相关性不足）" : (output.get("error") == null ? "（无命中）" : "（执行失败）")) + "。"));
             }
+            Object rawNote = output.get("note");
+            if (rawNote != null && !String.valueOf(rawNote).trim().isEmpty()) {
+                String note = String.valueOf(rawNote).trim();
+                observations.add(note);
+                history.add(message("user", "工具 " + toolName + " 说明：" + note));
+            }
 
             Map<String, Object> payload = new LinkedHashMap<String, Object>();
             payload.put("citations", citations);
@@ -197,6 +207,10 @@ public class AgentOrchestrator {
             payload.put("lowScore", Boolean.valueOf(lowScore));
             payload.put("durationMs", Long.valueOf(durationMs));
             payload.put("error", output.get("error"));
+            // 工具入参一并下发：前端可展示"用什么参数调的"，排查时也不必靠猜。
+            payload.put("input", input);
+            payload.put("note", output.get("note"));
+            payload.put("mapping", output.get("mapping"));
 
             AgentStepEvent stepEvent = new AgentStepEvent("step", executed, toolName,
                     summarize(toolName, stepCitations.size(), durationMs, output), payload);
@@ -209,9 +223,11 @@ public class AgentOrchestrator {
         // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，
         // 也不给模型"顺手编个结论"的机会——这条路径的答案本来就会被丢弃。
         if (!reliableEvidence) {
+            String refusal = observations.isEmpty() ? REFUSAL_ANSWER
+                    : REFUSAL_ANSWER + "（" + String.join("；", observations) + "）";
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
                     AgentResult.Status.REFUSED, blockReason == null ? "NO_RELIABLE_EVIDENCE" : blockReason,
-                    REFUSAL_ANSWER);
+                    refusal);
         }
 
         String answer = null;

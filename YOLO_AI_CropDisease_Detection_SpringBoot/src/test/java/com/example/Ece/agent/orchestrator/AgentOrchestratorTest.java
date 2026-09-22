@@ -4,7 +4,9 @@ import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.KnowledgeChunk;
 import com.example.Ece.agent.rag.KnowledgeRetriever;
+import com.example.Ece.agent.tool.AgentTool;
 import com.example.Ece.agent.tool.AgentToolRegistry;
+import com.example.Ece.agent.tool.ToolPermission;
 import com.example.Ece.agent.tool.KnowledgeSearchTool;
 import org.junit.jupiter.api.Test;
 
@@ -400,6 +402,53 @@ class AgentOrchestratorTest {
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
         assertEquals(AgentOrchestrator.REFUSAL_ANSWER, result.getAnswer());
         assertEquals(2, composeCalls[0], "只重写一次，不做无休止重试");
+    }
+
+    /**
+     * 拒答文案必须带上工具的解释性说明（note）：
+     * 否则用户只看到"没有检索到可靠依据"，不知道到底是"类别没有对应条目"还是"检索没命中"。
+     */
+    @Test
+    void refusalAnswerCarriesToolExplanation() {
+        AgentToolRegistry registry = new AgentToolRegistry();
+        registry.register(new AgentTool() {
+            public String name() {
+                return "vision.explain";
+            }
+
+            public String description() {
+                return "视觉类别解释";
+            }
+
+            public ToolPermission permission() {
+                return ToolPermission.READ_ONLY;
+            }
+
+            public String inputSchemaJson() {
+                return "{\"type\":\"object\"}";
+            }
+
+            public Map<String, Object> execute(Map<String, Object> input) {
+                Map<String, Object> output = new java.util.LinkedHashMap<String, Object>();
+                output.put("lowScore", Boolean.TRUE);
+                output.put("note", "检测类别 Leaf_Miner(潜叶虫) 在知识库中没有可核对的对应条目");
+                return output;
+            }
+        });
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                return "{\"tool\":\"vision.explain\",\"input\":{\"classLabel\":\"Leaf_Miner(潜叶虫)\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return "不应被调用";
+            }
+        };
+        AgentResult result = new AgentOrchestrator(registry, llm).run("s15", "摄像头检出潜叶虫怎么办", "番茄", null);
+
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertTrue(result.getAnswer().contains("没有可核对的对应条目"),
+                "拒答文案应带上工具的说明：" + result.getAnswer());
     }
 
     /** 无可靠证据时必须直接拒答，不得白调一次作答步（拒答路径的答案本来就会被丢弃）。 */

@@ -138,6 +138,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				path: '/visionCoverage',
+				name: 'visionCoverage',
+				component: () => import('/@/views/visionCoverage/index.vue'),
+				meta: {
+					title: '视觉—知识覆盖',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-bingchonghai-1haichong',
+				},
+			},
+			{
 				path: '/agentChat',
 				name: 'agentChat',
 				component: () => import('/@/views/agentChat/index.vue'),
