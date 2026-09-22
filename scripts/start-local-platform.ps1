@@ -138,7 +138,10 @@ if (-not $mysqlReady -or -not $backendReady) {
     try {
         foreach ($migration in $migrations) {
             Write-Host "应用迁移 $($migration.Name)..."
-            Get-Content -Raw -LiteralPath $migration.FullName | & $mysqlClient --protocol=TCP -h 127.0.0.1 -P 3306 -u $dbUser cropdisease
+            # mysql 必须直接读取**文件字节**：PowerShell 管道会按控制台编码重新编码，
+            # 含中文数据的迁移会被写坏（实测 '苹果' 被写成 '鑻规灉'）。cmd 的输入重定向保留原始字节。
+            $mysqlCommand = '"{0}" --protocol=TCP -h 127.0.0.1 -P 3306 -u {1} --default-character-set=utf8mb4 cropdisease < "{2}"' -f $mysqlClient, $dbUser, $migration.FullName
+            & cmd.exe /c $mysqlCommand
             if ($LASTEXITCODE -ne 0) {
                 throw "数据库迁移失败（$($migration.Name)），退出码：$LASTEXITCODE"
             }

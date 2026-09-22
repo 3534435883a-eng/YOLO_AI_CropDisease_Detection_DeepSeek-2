@@ -4,6 +4,7 @@ import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.EmbeddingUnavailableException;
 import com.example.Ece.agent.rag.IngestReport;
 import com.example.Ece.agent.rag.KnowledgeIndexService;
+import com.example.Ece.agent.repository.JdbcVisionClassMapRepository;
 import com.example.Ece.agent.rag.KnowledgeIngestService;
 import com.example.Ece.agent.rag.KnowledgeSource;
 import com.example.Ece.agent.rag.KnowledgeSourceRepository;
@@ -44,6 +45,9 @@ public class KnowledgeController {
 
     @Resource
     private EmbeddingClient embeddingClient;
+
+    @Resource
+    private JdbcVisionClassMapRepository visionClassMapRepository;
 
     @GetMapping("/status")
     public Result<?> status() {
@@ -86,6 +90,20 @@ public class KnowledgeController {
         payload.put("embeddingDegraded", Boolean.valueOf(report.isEmbeddingDegraded()));
         payload.put("chunkCount", Integer.valueOf(summary.getChunkCount()));
         payload.put("vectorCount", Integer.valueOf(summary.getVectorCount()));
+        return Result.success(payload);
+    }
+
+    /**
+     * 视觉检测类别与知识库条目的对应关系及覆盖缺口。
+     *
+     * <p>回答"模型能看到什么、知识库能解释多少"。映射只收录经过核验的条目
+     * （依据见 docs/vision-class-kb-mapping.md），未核验的 matchRule 为 NONE。</p>
+     */
+    @GetMapping("/vision-map")
+    public Result<?> visionMap() {
+        Map<String, Object> payload = new LinkedHashMap<String, Object>();
+        payload.put("summary", visionClassMapRepository.summarize());
+        payload.put("items", visionClassMapRepository.findAll());
         return Result.success(payload);
     }
 
