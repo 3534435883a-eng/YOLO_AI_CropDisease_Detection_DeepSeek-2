@@ -19,7 +19,7 @@
 
 ## 2. 边界（明确不做）
 
-向量数据库、图数据库、多智能体协作、模型微调、实时传感器接入、真实执行器控制、自动用药、通用领域问答、用户级配额与计费。
+向量数据库、图数据库、多智能体协作、模型微调、实时传感器接入、真实执行器控制、自动用药、通用领域问答、用户级配额与计费、**3D 场景与生长动画渲染**（改为 2D 生长曲线 + 多目标雷达图）、**重排模型 bge-reranker**（显存/收益不划算）、**知识图谱三维可视化**（降级为数据表 + 2D 关系图）。
 
 ## 3. 数据来源标记（沿用既有体系，不得混用）
 
@@ -212,7 +212,10 @@ MySQL（create-only 迁移 V20260922_01）
 | W2-D2 | 处方与报告导出 | 1 天 |
 | W2-D3 | KG 抽取与补全 + 子图接口 | 1.5 天 |
 | W2-D4 | 前端对话面板与步骤时间线 | 1 天 |
-| W3 | 视觉指标取证、Kaggle/公开集验证、材料配套 | 与材料生产并行 |
+| W2-D5 | 作物生长模型（§20） | 2 人日 |
+| W3-D1 | 性能评测平台与四档对照（§21） | 1.5 人日 |
+| W3-D2 | 前端对比展示（矩阵表/雷达/曲线/堆叠图） | 1 人日 |
+| W3 | 视觉指标取证、公开集验证、材料配套 | 与材料生产并行 |
 
 合计约 **9 人日**（45h/周配置下 W1–W2 完成主体）。
 
@@ -236,3 +239,65 @@ MySQL（create-only 迁移 V20260922_01）
 - 《设施番茄、黄瓜的病虫害知识图谱构建数据集》《棉花病虫害知识图谱构建数据集》
 - `AgriEval`：中文农业大模型基准
 - Ultralytics YOLO11（**AGPL-3.0**）、`ffmpeg`（GPL-3.0）、Vue 前端模板（MIT，Copyright (c) 2021 lyt-Top）
+
+## 20. 作物生长模型（2026-09-22 新增立项）
+
+**目标**：为智能体决策提供"偏现实"的后果计算，使模型成为 **AI 性能的验证平台**（而非动画）。
+
+**组件**：`TomatoCropGrowthModel`（`com.example.Ece.agent.crop`，Java 纯函数、确定性、无随机、15 分钟步长），与 `TomatoSimulationEngine` 同频推进。
+
+**状态量**：
+
+| 类别 | 状态量 |
+|---|---|
+| 发育 | `gdd`（积温，℃·d）、`stage`（SEEDLING/FLOWERING/FRUIT_SET/FRUIT_GROWTH/MATURITY） |
+| 形态 | `lai`（叶面积指数）、`plantHeight` |
+| 干物质 | `wLeaf`、`wStem`、`wRoot`、`wFruit`（g·m⁻²）、`wTotal` |
+| 产量 | `fruitSetRate`、`fruitCount`、`singleFruitWeight`、`harvestableDryWeight` |
+| 胁迫 | `temperatureFactor`、`co2Factor`、`waterFactor`、`vpdFruitSetFactor` |
+
+**核心公式**（半机理；参数集中在 `TomatoGrowthParameters`，逐条带 `sourceNote`）：
+
+```
+gdd        += max(0, T_avg - T_base)                 T_base = 10℃（按日聚合）
+par         = 0.5 × solarRadiation
+iAbsorbed   = par × (1 - exp(-k × lai))              k ≈ 0.65
+dW          = rue × iAbsorbed × f_temp × f_co2 × f_water   rue ≈ 2.5–3.5 g DM·MJ⁻¹
+allocation  = 按 stage 查表（营养期偏叶/茎/根；坐果后果实分配比升至 0.5–0.6）
+dLai        = sla × dW_leaf - senescenceRate          sla ≈ 0.02 m²·g⁻¹
+fruitSetRate= f_temp(15–30℃ 最优，>32℃ 显著下降) × f_vpd(VPD>2.0 kPa 下降) × f_assimilate
+singleFruitWeight += 按坐果后积温增长；MATURITY 阶段触发转色标志
+```
+
+**参数出处纪律**：数值取番茄生长模型（TOMGROM / TOMSIM / 国内番茄栽培文献）的**典型区间**，实施时逐条核对并在 `sourceNote` 与材料附录中标注；**不做本地标定**（无田间数据），材料中列为限制与后续工作。**禁止编造具体文献页码**。
+
+**耦合**：`SimulationState`（环境） → `TomatoCropGrowthModel.advance(cropState, env, dt)` → 作物状态；决策层"规则引擎守门不变"，新增**作物导向决策评分**：沙盘预演候选方案对未来 N 步 `wFruit`/`fruitSetRate` 的影响，作为方案选择依据。LLM 与作物模型均不得直接操作设备。
+
+**数值约束**：所有干重、LAI 全程钳制非负并设上限；LAI ∈ [0, 6]；`wFruit ≤ wTotal`；跨越阶段时钳制 `stage` 单调不回退。
+
+**测试要求**（`TomatoCropGrowthModelTest`）：同 seed 同输入可复现（两次运行状态完全相等）；`gdd` 随有效温度单调不减；`lai` 先升后稳（不倒挂）；高温（>32℃）下 `fruitSetRate` 低于适宜温度；水分胁迫 `f_water < 1` 时 `dW` 降低；`wFruit ≤ wTotal` 恒成立。
+
+## 21. AI 性能评测平台（2026-09-22 新增立项）
+
+**目标**：用同一初始条件下的多档对照，量化证明"带 AI 的决策优于不带 AI"，直接产出应用成效证据。
+
+**四档对照**（同 seed、同天气相位、同初始状态）：`P0` 无调控（设备全关）／`P1` 人工固定策略（定时通风+灌溉）／`P2` 现有规则引擎自动／`P3` 智能体决策（agent + 沙盘预演）。
+
+**指标矩阵**（四类，同一批运行中聚合）：
+
+| 类别 | 指标 |
+|---|---|
+| 产量品质 | `wFruit`、`singleFruitWeight`、`fruitSetRate`、成熟达成时间 |
+| 资源效率 | 水/电/CO₂ 累计消耗、单位产量水耗与能耗 |
+| 风险控制 | 高温(>32℃)时长、高湿(>85%)时长、VPD>2kPa 时长、病害环境压力积分 |
+| 决策质量 | 约束违反次数（应为 0）、引用出处覆盖率、平均决策耗时、拒答率 |
+
+**接口**：`POST /api/eval/runs`（按四档批量推演）、`GET /api/eval/{batchId}/matrix`（指标矩阵）、`GET /api/eval/{batchId}/series`（LAI/干重/坐果时间序列）。
+
+**可复现要求**：同一 `batchId` 参数重复执行，矩阵与序列逐字节一致（写成单测断言）。
+
+**推演地平线（2026-09-22 修正）**：番茄发育由积温驱动，`BASE_TEMPERATURE_C = 10` 时 24℃ 下仅累积 **14 GDD/天**，而 `GDD_FLOWERING = 600` 需约 **43 天**、`GDD_MATURITY = 1500` 需约 **107 天**。因此：① 对照批次的默认地平线为 **120 天**（每日聚合一条序列）；② 短地平线（3–5 天）只能比较**风险与资源类**指标，产量类指标此时尚未分化；③ 需要短地平线展示产量差异时，必须从**预置的成株初始状态**（如 30 天龄、`lai ≈ 2.0`）起跑，并在界面标注初始状态来源。**禁止**通过调低 GDD 阈值来"加速"生长以迎合演示。
+
+**展示**（零新依赖，全部 ECharts）：多目标对比矩阵表 → 四类归一化雷达图 → 生长曲线（多档叠加） → 器官分配堆叠图。
+
+**工作量**：生长模型 2 人日 + 评测平台 1.5 人日 + 前端展示 1 人日 = **4.5 人日**。

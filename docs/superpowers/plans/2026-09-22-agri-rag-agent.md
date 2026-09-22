@@ -1151,6 +1151,274 @@ git -C $ROOT commit -m "feat: add streaming agent chat panel to command center"
 
 ---
 
+## 阶段 D：作物生长模型与 AI 性能评测平台（2026-09-22 追加）
+
+> 定位：模型不是展示动画，而是**AI 性能的验证平台**。做法是同一初始条件下跑四档对照，用多目标矩阵量化"带 AI 的决策优于不带 AI"。
+> 设计依据：spec §20、§21。
+
+### Task 12: 作物生长模型（半机理）
+
+**Files:**
+- Create: `$SB\src\main\java\com\example\Ece\agent\crop\CropStage.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\crop\TomatoGrowthParameters.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\crop\TomatoCropState.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\crop\TomatoCropGrowthModel.java`
+- Test: `$SB\src\test\java\com\example\Ece\agent\crop\TomatoCropGrowthModelTest.java`
+
+**Interfaces:**
+- Consumes: `SimulationState`（既有，含 `getTemperatureC/getAirHumidityPct/getSoilMoisturePct/getCo2Ppm/getLightPpfd/getVpd/getSimulatedAt`）
+- Produces:
+  - `enum CropStage { SEEDLING, FLOWERING, FRUIT_SET, FRUIT_GROWTH, MATURITY }`
+  - `class TomatoGrowthParameters`：常量与 `sourceNote` 字符串（`BASE_TEMPERATURE_C=10.0`、`OPTIMAL_LOW_C=18.0`、`OPTIMAL_HIGH_C=28.0`、`MAX_TEMPERATURE_C=35.0`、`EXTINCTION_K=0.65`、`RUE_G_PER_MJ=3.0`、`SLA_M2_PER_G=0.02`、`SENESCENCE_PER_DAY=0.02`、`FRUIT_ALLOCATION_RATIO=0.55`、`GDD_FLOWERING=600`、`GDD_FRUIT_SET=800`、`GDD_FRUIT_GROWTH=1200`、`GDD_MATURITY=1500`、`MAX_LAI=6.0`、`VPD_FRUIT_SET_LIMIT_KPA=2.0`）
+  - `class TomatoCropState`：不可变，含 `gdd/stage/lai/plantHeightCm/wLeaf/wStem/wRoot/wFruit/wTotal/fruitSetRate/fruitCount/singleFruitWeightG/temperatureFactor/co2Factor/waterFactor`，提供 `with...` 风格构造或全参构造 + getter
+  - `class TomatoCropGrowthModel`：`TomatoCropState initial()`、`TomatoCropState advance(TomatoCropState current, SimulationState environment, int minutes)`
+
+- [ ] **Step 1: 写失败测试**
+
+```java
+package com.example.Ece.agent.crop;
+
+import com.example.Ece.agent.engine.TomatoSimulationEngine;
+import com.example.Ece.agent.model.SimulationState;
+import org.junit.jupiter.api.Test;
+import java.time.LocalDateTime;
+import static org.junit.jupiter.api.Assertions.*;
+
+class TomatoCropGrowthModelTest {
+    private final TomatoCropGrowthModel model = new TomatoCropGrowthModel();
+    private final TomatoSimulationEngine engine = new TomatoSimulationEngine();
+
+    private SimulationState environment(double temperature, double humidity, double soil, double co2, double light) {
+        return engine.evaluate(LocalDateTime.of(2026, 9, 21, 12, 0), temperature, humidity, soil, co2, light, 6.2);
+    }
+
+    private TomatoCropState simulate(SimulationState environment, int steps) {
+        TomatoCropState state = model.initial();
+        for (int i = 0; i < steps; i++) state = model.advance(state, environment, 15);
+        return state;
+    }
+
+    @Test
+    void isDeterministicForSameInputs() {
+        SimulationState env = environment(24.0, 70.0, 60.0, 800.0, 500.0);
+        TomatoCropState first = simulate(env, 96);
+        TomatoCropState second = simulate(env, 96);
+        assertEquals(first.getGdd(), second.getGdd(), 1e-9);
+        assertEquals(first.getLai(), second.getLai(), 1e-9);
+        assertEquals(first.getWFruit(), second.getWFruit(), 1e-9);
+        assertEquals(first.getStage(), second.getStage());
+    }
+
+    @Test
+    void growingDegreeDaysIncreaseWithTemperature() {
+        TomatoCropState cool = simulate(environment(12.0, 70.0, 60.0, 800.0, 400.0), 96);
+        TomatoCropState warm = simulate(environment(26.0, 70.0, 60.0, 800.0, 400.0), 96);
+        assertTrue(warm.getGdd() > cool.getGdd());
+        assertTrue(cool.getGdd() >= 0.0);
+    }
+
+    @Test
+    void leafAreaRisesThenPlateausWithoutFalling() {
+        TomatoCropState early = simulate(environment(24.0, 70.0, 60.0, 800.0, 600.0), 96);
+        TomatoCropState later = simulate(environment(24.0, 70.0, 60.0, 800.0, 600.0), 480);
+        assertTrue(early.getLai() > 0.0);
+        assertTrue(later.getLai() >= early.getLai() * 0.5);
+        assertTrue(later.getLai() <= TomatoGrowthParameters.MAX_LAI);
+    }
+
+    @Test
+    void highTemperatureReducesFruitSet() {
+        TomatoCropState optimal = simulate(environment(24.0, 70.0, 60.0, 800.0, 600.0), 480);
+        TomatoCropState hot = simulate(environment(34.0, 55.0, 60.0, 800.0, 600.0), 480);
+        assertTrue(hot.getFruitSetRate() < optimal.getFruitSetRate());
+    }
+
+    @Test
+    void waterStressReducesDryMatterAndFruitNeverExceedsTotal() {
+        TomatoCropState wet = simulate(environment(24.0, 70.0, 70.0, 800.0, 600.0), 480);
+        TomatoCropState dry = simulate(environment(24.0, 45.0, 25.0, 800.0, 600.0), 480);
+        assertTrue(dry.getWaterFactor() < 1.0);
+        assertTrue(dry.getWTotal() < wet.getWTotal());
+        assertTrue(dry.getWFruit() <= dry.getWTotal() + 1e-9);
+    }
+}
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```powershell
+& $MVN -Dmaven.repo.local=$REPO -f "$SB\pom.xml" -Dtest=TomatoCropGrowthModelTest test
+```
+Expected: 编译失败 `cannot find symbol: class TomatoCropGrowthModel`
+
+- [ ] **Step 3: 实现模型**
+
+实现要点（严格按 spec §20 公式与钳制规则）：
+- `advance` 内先算日聚合：以 15 分钟步长累计当日均温与日辐射，跨日时更新 `gdd`、`lai` 衰老、`stage` 迁移；`gdd` 用 `max(0, T_avg - BASE_TEMPERATURE_C)`。
+- `temperatureFactor` 用最优区间 `[18, 28]`，超出后线性衰减到 `MAX_TEMPERATURE_C` 归零；`co2Factor` 用 `1.0 + min(0.35, max(0.0, (co2 - 400) / 400 * 0.35))`；`waterFactor` 用土壤水分的分段线性（`< 45%` 线性衰减到 0.3，`> 78%` 触发湿害系数 0.9）。
+- `dW = RUE × I_abs × f_temp × f_co2 × f_water`，其中 `I_abs = 0.5 × light × (1 - exp(-K × lai))`，光照按 15 分钟折算为 MJ·m⁻²（`light × minutes × 60 / 1e6`）。
+- 分配：`SEEDLING/FLOWERING` 按叶 0.5 / 茎 0.3 / 根 0.2；`FRUIT_SET` 起果实占比 `FRUIT_ALLOCATION_RATIO`，其余按叶 0.3 / 茎 0.25 / 根 0.45 归一化。
+- 坐果率：`f_temp(15–30℃ 区间最优，>32℃ 线性降到 0.2) × f_vpd(VPD>2.0 kPa 线性衰减) × min(1.0, wTotal / 阈值)`，仅在 `FRUIT_SET` 之后生效；单果重按坐果后积温增长。
+- 钳制：`lai ∈ [0, MAX_LAI]`、所有干重 `≥ 0`、`wFruit ≤ wTotal`、`stage` 单调不回退。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```powershell
+& $MVN -Dmaven.repo.local=$REPO -f "$SB\pom.xml" -Dtest=TomatoCropGrowthModelTest test
+```
+Expected: `Tests run: 5, Failures: 0, Errors: 0`
+
+- [ ] **Step 5: 提交**
+
+```powershell
+git -C $ROOT add "$SB\src\main\java\com\example\Ece\agent\crop" "$SB\src\test\java\com\example\Ece\agent\crop"
+git -C $ROOT commit -m "feat: add semi-mechanistic tomato crop growth model"
+```
+
+---
+
+### Task 13: AI 性能评测平台（四档对照 + 指标矩阵）
+
+**Files:**
+- Create: `$SB\src\main\java\com\example\Ece\agent\eval\EvaluationStrategy.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\eval\EvaluationBatch.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\eval\PerformanceEvaluationService.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\eval\EvaluationController.java`
+- Test: `$SB\src\test\java\com\example\Ece\agent\eval\PerformanceEvaluationServiceTest.java`
+
+**Interfaces:**
+- Consumes: `TomatoCropGrowthModel`、`TomatoSimulationEngine`、`TomatoDecisionPolicy`（Task 12 与既有）
+- Produces:
+  - `enum EvaluationStrategy { P0_NONE, P1_FIXED_MANUAL, P2_RULE_ENGINE, P3_AGENT }`
+  - `class EvaluationBatch`：`batchId`、`seed`、`days`、`Map<EvaluationStrategy, EvaluationOutcome> outcomes`
+  - `class EvaluationOutcome`：`wFruit`、`singleFruitWeightG`、`fruitSetRate`、`waterUsed`、`energyUsed`、`co2Used`、`highTemperatureMinutes`、`highHumidityMinutes`、`highVpdMinutes`、`diseasePressureIntegral`、`constraintViolations`、`List<Map<String,Object>> series`
+  - `class PerformanceEvaluationService`：`EvaluationBatch runBatch(String batchId, long seed, int days)`（**默认 `days = 120`**；短地平线评测必须显式传入并以 `TomatoCropState` 的预置成株初值起跑）
+  - HTTP：`POST /api/eval/runs`、`GET /api/eval/{batchId}/matrix`、`GET /api/eval/{batchId}/series`
+
+- [ ] **Step 1: 写失败测试**
+
+```java
+package com.example.Ece.agent.eval;
+
+import org.junit.jupiter.api.Test;
+import java.util.List;
+import java.util.Map;
+import static org.junit.jupiter.api.Assertions.*;
+
+class PerformanceEvaluationServiceTest {
+    private final PerformanceEvaluationService service = new PerformanceEvaluationService();
+
+    @Test
+    void producesAllFourStrategies() {
+        EvaluationBatch batch = service.runBatch("batch-a", 20260921L, 3);
+        assertEquals(4, batch.getOutcomes().size());
+        for (EvaluationStrategy strategy : EvaluationStrategy.values()) {
+            assertTrue(batch.getOutcomes().containsKey(strategy), "missing " + strategy);
+        }
+    }
+
+    @Test
+    void isReproducibleForSameSeed() {
+        EvaluationBatch first = service.runBatch("batch-b", 7L, 2);
+        EvaluationBatch second = service.runBatch("batch-b", 7L, 2);
+        for (EvaluationStrategy strategy : EvaluationStrategy.values()) {
+            assertEquals(first.getOutcomes().get(strategy).getWFruit(),
+                    second.getOutcomes().get(strategy).getWFruit(), 1e-9);
+            assertEquals(first.getOutcomes().get(strategy).getHighTemperatureMinutes(),
+                    second.getOutcomes().get(strategy).getHighTemperatureMinutes());
+        }
+    }
+
+    @Test
+    void regulatedStrategiesOutperformNoControlOnFruitOrRisk() {
+        EvaluationBatch batch = service.runBatch("batch-c", 20260921L, 5);
+        EvaluationOutcome none = batch.getOutcomes().get(EvaluationStrategy.P0_NONE);
+        EvaluationOutcome rule = batch.getOutcomes().get(EvaluationStrategy.P2_RULE_ENGINE);
+        assertTrue(rule.getHighTemperatureMinutes() <= none.getHighTemperatureMinutes());
+        assertTrue(rule.getWFruit() >= none.getWFruit() * 0.95);
+    }
+
+    @Test
+    void seriesCarryDailyProgression() {
+        EvaluationBatch batch = service.runBatch("batch-d", 1L, 3);
+        List<Map<String, Object>> series = batch.getOutcomes().get(EvaluationStrategy.P2_RULE_ENGINE).getSeries();
+        assertFalse(series.isEmpty());
+        assertTrue(series.get(0).containsKey("lai"));
+        assertTrue(series.get(0).containsKey("wFruit"));
+        assertTrue(series.get(0).containsKey("day"));
+    }
+}
+```
+
+- [ ] **Step 2: 运行测试确认失败**
+
+```powershell
+& $MVN -Dmaven.repo.local=$REPO -f "$SB\pom.xml" -Dtest=PerformanceEvaluationServiceTest test
+```
+Expected: 编译失败 `cannot find symbol: class PerformanceEvaluationService`
+
+- [ ] **Step 3: 实现四档策略与指标聚合**
+
+> **地平线纪律**：番茄 24℃ 下仅 14 GDD/天，`GDD_FLOWERING=600` 约需 43 天。因此产量类指标必须在 **≥120 天**地平线上比较；测试用 3–5 天只为快速验证结构与可复现性，不得据此宣称产量差异。需要短地平线演示产量时，从预置成株初值（30 天龄、`lai ≈ 2.0`）起跑并在界面标注来源。
+
+- `P0_NONE`：设备全关，环境自然演进，作物照常推进。
+- `P1_FIXED_MANUAL`：每 6 小时固定开灌溉 1 步、每日 12:00 开通风 2 步（模拟经验农户），不读环境。
+- `P2_RULE_ENGINE`：每步调用 `TomatoDecisionPolicy.decide(state)`，把 `targetOn` 映射为设备状态。
+- `P3_AGENT`：`P2` 的动作集作为候选，额外用作物模型向前推演 N 步（N=8）比较 `wFruit` 与风险积分，取更优候选；无更优则沿用 `P2`。
+- 指标聚合：每步累加高温/高湿/高 VPD 分钟数与病害环境压力；资源按 `DeviceCommand` 的资源码与量累加；`constraintViolations` 统计通风与 CO₂ 同开等冲突次数（应为 0）；`series` 每日一条（day、gdd、lai、wTotal、wFruit、stage、环境风险）。
+- 复现：全程无随机，`seed` 只影响天气相位的初始相位；同 seed 必须逐值一致。
+
+- [ ] **Step 4: 运行测试确认通过**
+
+```powershell
+& $MVN -Dmaven.repo.local=$REPO -f "$SB\pom.xml" -Dtest=PerformanceEvaluationServiceTest test
+```
+Expected: `Tests run: 4, Failures: 0, Errors: 0`
+
+- [ ] **Step 5: 跑全量回归并提交**
+
+```powershell
+& $MVN -Dmaven.repo.local=$REPO -f "$SB\pom.xml" test
+git -C $ROOT add "$SB\src\main\java\com\example\Ece\agent\eval" "$SB\src\test\java\com\example\Ece\agent\eval"
+git -C $ROOT commit -m "feat: add four-strategy performance evaluation platform"
+```
+
+---
+
+### Task 14: 前端性能对比展示
+
+**Files:**
+- Create: `$ROOT\YOLO_AI_CropDisease_Detection_Vue\src\api\eval\index.ts`
+- Create: `$ROOT\YOLO_AI_CropDisease_Detection_Vue\src\views\agentCenter\components\PerformanceMatrix.vue`
+- Modify: `$ROOT\YOLO_AI_CropDisease_Detection_Vue\src\views\agentCenter\index.vue`（挂载）
+
+**Interfaces:**
+- Consumes: `POST /api/eval/runs`、`GET /api/eval/{batchId}/matrix`、`GET /api/eval/{batchId}/series`
+- Produces: 四档对比矩阵表（含最优档高亮）、四类归一化雷达图、生长曲线（多档叠加）、器官分配堆叠图
+
+- [ ] **Step 1: 实现 API 封装**
+
+`src/api/eval/index.ts`：导出 `runEvaluation(payload)`、`getEvaluationMatrix(batchId)`、`getEvaluationSeries(batchId)`，沿用 `/@/utils/request` 实例并复用 `api/agent` 的 `unwrap` 信封解析方式。
+
+- [ ] **Step 2: 实现展示组件**
+
+`PerformanceMatrix.vue`：`el-table` 渲染指标矩阵（行=指标，列=四档，最优值加粗高亮）；`echarts` 雷达图（四类指标归一化到 0–100）；`echarts` 折线图（多档 LAI/wFruit 曲线叠加）；`echarts` 堆叠柱图（叶/茎/根/果干重分配）。所有图表在 `onUnmounted` 释放实例。
+
+- [ ] **Step 3: 生产构建校验**
+
+```powershell
+Set-Location "$ROOT\YOLO_AI_CropDisease_Detection_Vue"; npm run build
+```
+Expected: 构建成功，无新增 error
+
+- [ ] **Step 4: 提交**
+
+```powershell
+git -C $ROOT add YOLO_AI_CropDisease_Detection_Vue/src
+git -C $ROOT commit -m "feat: add ai performance comparison views"
+```
+
+---
 ## 覆盖核对（spec → task）
 
 | Spec 章节 | 覆盖任务 |
@@ -1168,6 +1436,8 @@ git -C $ROOT commit -m "feat: add streaming agent chat panel to command center"
 | §15 Flask 改动 | T4 |
 | §16 部署与迁移 | T1（迁移）、T4（依赖）、Global Constraints（命令） |
 | §17 里程碑 | T1–T4 = W1-D1~D2；T5–T7 = W1-D3~D4；T8–T11 = W2 |
+| §20 作物生长模型 | T12（模型与单测）；T13（作为 P3 档推演内核） |
+| §21 性能评测平台 | T13（四档对照与指标矩阵）、T14（前端矩阵/雷达/曲线/堆叠图） |
 
 ## 附录：Task 9–11 的完整测试与关键实现代码
 
@@ -1341,3 +1611,4 @@ export async function streamAgentChat(payload: AgentChatPayload, handlers: Agent
 
 - **报告导出改为自包含 HTML + 浏览器打印**（spec §5/§14 已同步修订）：OpenPDF 渲染中文需额外字体包，属高风险的隐性工作；HTML 方案零新依赖、中文零配置,演示时"打印/另存为 PDF"同样产出 PDF 文件。
 - **`/api/knowledge/search` 与 `/api/knowledge/reindex` 以工具与内部入口形式提供**（未单独暴露 HTTP）：评测（T8）在 JUnit 内直接调用检索器，避免为调试接口增加攻击面；若评委/演示需要，再补两个只读包装。
+- **取消 3D 场景与生长动画、取消 bge-reranker 重排、知识图谱三维可视化降级为 2D 关系图**（2026-09-22 决策）：需求澄清为"模型用于展示 AI 性能"而非视觉动画，故把 3–4 人日转投生长模型与评测平台；同时为材料生产预留 3.5 人日。
