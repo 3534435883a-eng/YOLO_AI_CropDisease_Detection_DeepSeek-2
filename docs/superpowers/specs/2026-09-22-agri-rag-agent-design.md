@@ -301,3 +301,127 @@ singleFruitWeight += 按坐果后积温增长；MATURITY 阶段触发转色标�
 **展示**（零新依赖，全部 ECharts）：多目标对比矩阵表 → 四类归一化雷达图 → 生长曲线（多档叠加） → 器官分配堆叠图。
 
 **工作量**：生长模型 2 人日 + 评测平台 1.5 人日 + 前端展示 1 人日 = **4.5 人日**。
+
+## 22. 番茄生态子系统（2026-09-22 新增立项）
+
+**目标**：把"环境 + 作物"扩展为可演示的**番茄生产生态**——五个子系统在**同一 15 分钟步长**上耦合演化，AI 决策同时作用于全部子系统，并由多目标矩阵（§21）衡量其后果。这不是动画，而是**决策的后果计算内核**。
+
+### 22.1 子系统耦合矩阵
+
+| 从 \ 到 | 微气候 | 水肥土壤 | 作物生长 | 病虫害 | 管理经济 |
+|---|---|---|---|---|---|
+| **微气候** | — | 蒸发/淋洗 | 光合·发育·蒸腾 | **侵染条件** | 通风/补光能耗 |
+| **水肥土壤** | 蒸发增湿 | — | 水分·养分胁迫 | 叶面湿润时长 | 水肥投入 |
+| **作物生长** | 冠层遮阴·蒸腾 | 吸水吸肥 | — | 寄主易感性 | 产量 |
+| **病虫害** | 病斑改变蒸腾 | — | **减产·品质下降** | — | 药剂投入·减产损失 |
+| **管理经济** | 设备动作 | 灌溉施肥 | 环境调控 | 植保处方（草稿） | — |
+
+### 22.2 子系统三：水肥土壤 `SoilWaterNutrientModel`（新增）
+
+**状态量**：`soilMoisturePct`、`ecDsPerM`、`soilPh`、`nitrogenKgPerHa`、`phosphorusKgPerHa`、`potassiumKgPerHa`、`leachedNitrogenKgPerHa`、`irrigationMm`、`nutrientFactor`。
+
+**核心公式**（日尺度聚合，参数集中在 `SoilParameters` 并逐条标 `sourceNote`）：
+
+```
+ET0      = 简化 Hargreaves（由日均温、温差与日辐射推算）        # 文献典型参数
+Kc       = 按 stage 查表（初期 0.6 → 中期 1.15 → 后期 0.8）      # 番茄作物系数
+ETc      = Kc × ET0
+ΔS       = irrigationMm + 0 − ETc − drainage − evaporation
+养分吸收  = uptakeCoefficient × ΔW（每 kg 干物质所需 N/P/K，文献区间）
+EC       += 施肥带入盐分 − 淋洗稀释
+pH       += f(肥料类型, 灌溉水)（缓冲，限定 [4.0, 8.5]）
+```
+
+**输出**：`nutrientFactor ∈ [0.3, 1.0]` 与已有 `waterFactor`，共同约束 `TomatoCropGrowthModel.dW`。
+
+### 22.3 子系统四：病虫害流行 `PestDiseaseEpidemicModel`（新增）
+
+**状态量**（每种病害一套，至少三种 + 一类虫害）：`inoculumLevel`（菌源 0–1）、`latentProgress`、`severityPct`、`infectionEvents`；虫害为 `pestPopulation`（logistic 增长）。
+
+**流行规则**（环境适宜度驱动，区间取文献典型值；**不宣称预测真实疫情**）：
+
+| 对象 | 适宜温度 | 湿度条件 | 备注 |
+|---|---|---|---|
+| 灰霉病 *Botrytis cinerea* | 15–22 ℃ | RH > 90% 或叶面湿润 > 4 h | 低温高湿型 |
+| 晚疫病 *Phytophthora infestans* | 18–22 ℃ | RH > 90%，叶面湿润 ≥ 4–6 h | 毁灭性，需重点演示 |
+| 白粉病 *Oidium* | 20–25 ℃ | RH 50–75%（**高湿反而不利**） | 与灰霉反向，用于检验模型分辨力 |
+| 叶霉病 *Passalora fulva* | 20–25 ℃ | RH > 85% | 温室高发 |
+| 虫害（粉虱/蓟马/蚜虫） | logistic：`r(T)` 在 20–30 ℃ 最大 | 与湿度弱相关 | 简化种群模型 |
+
+```
+infectionRate = fTemp(适宜度) × fMoisture(湿度或叶湿时长) × inoculumLevel × hostSusceptibility(stage)
+latentProgress += minutes / latentPeriodMinutes(温度相关)
+若 latentProgress ≥ 1 → infectionEvents++；severityPct += severityGain×(1 − severityPct)
+severityPct → diseaseDamageFactor → 降低净光合与果实品质（反馈给 §20 作物模型）
+```
+
+**必须标注**：界面与材料统一写"流行病学为**简化模型**，用于决策对比，不构成疫情预报"。
+
+### 22.4 子系统五：管理与经济 `ManagementEconomicsModel`（新增）
+
+**状态量**：`waterUsedM3`、`energyKWh`、`co2UsedKg`、`fertilizerUsedKg`、`pesticideUsedKg`、`laborHours`、`yieldKg`、`marketableYieldKg`、`costYuan`、`revenueYuan`、`profitYuan`、`waterPerYield`、`energyPerYield`。
+
+**公式**：`cost = Σ(用量 × 单价)`；`revenue = 一等品产量 × 单价 + 二等品产量 × 折价`；派生 `profit`、`单位产量水耗/能耗`。**单价与折价系数必须可配置，并在材料中标注取值来源与日期**（无来源则标注为"示例参数"）。
+
+### 22.5 AI 决策面扩展
+
+原有 5 类设备动作（灌溉/通风/补光/遮阳/CO₂）之外，新增两类**处方**：
+- **施肥处方**（水肥一体，`DRAFT` 权限，可下发）
+- **植保处方**（`DRAFT` 权限，**必须人工确认，禁止自动执行**——延续 §11 守门规则）
+
+### 22.6 验收标准
+
+1. 五子系统在同一循环内以 15 分钟步长推进，`SimulationState` 与各子系统状态在同一事务快照中落库。
+2. 同 seed + 同参数重复运行，五子系统状态逐值一致（单测断言）。
+3. 每个子系统 ≥3 项单测；病虫害模型在**低温高湿**下灰霉/晚疫严重度显著高于干燥条件，而**白粉病相反**（用于证明模型有分辨力而非单一趋势）。
+4. 无灌溉时土壤水分单调下降、无施肥时养分单调下降。
+5. 产量不得为负，`marketableYieldKg ≤ yieldKg`，`severityPct ∈ [0, 100]`。
+
+## 23. 权威知识库语料 ingest（2026-09-22 新增立项）
+
+**目标**：把 RAG 语料从现有 **100 条**扩展到**千级**，且**每条可溯源**——这是"知识检索的准确性"考察点的物质基础。
+
+### 23.1 语料来源分层
+
+| 层级 | 来源 | 用途 | 入库方式 |
+|---|---|---|---|
+| **A 权威数据库/标准** | ICAMA 农药登记数据中心；农业行业标准 `NY/T`、地方标准（`dba.sacinfo.org.cn`） | 药剂登记信息、防治技术规范 | 结构化录入**摘要条目** + 出处 URL |
+| **B 权威数据集/论文** | 《设施番茄、黄瓜的病虫害知识图谱构建数据集》；Nature《Scientific Data》2025 中国作物病虫害 KG；《棉花病虫害知识图谱构建数据集》 | 病害—症状—防治—环境关系（KG 三元组与知识块） | 下载后转换为三元组 + 知识块 |
+| **C 公开识别数据集** | PlantVillage、IP102（虫害） | **仅作视觉模型验证集（E-C）**，不入知识库 | 评测用 |
+| **D 评测基准** | AgriEval（中文农业大模型基准） | 回答专业性的外部对照 | 抽样评测 |
+| **E 本项目旧库** | 现有 `disease` 表 100 条 | 基线语料 | 复用 §7 切块器 |
+
+### 23.2 存储扩展（迁移 `V20260923_01__agent_knowledge_source.sql`，create-only）
+
+- 新增 `agent_knowledge_source`：`id`、`source_code`、`source_name`、`source_type`(A–E)、`authority_level`(1–5)、`url`、`license_note`、`retrieved_at`、`version`、`created_at`；唯一键 `(source_code, version)`。
+- `agent_knowledge_chunk` 增加列 `source_code VARCHAR(64) NULL`、`authority_level TINYINT NULL`；**不改动既有唯一键**（新增索引 `idx_agent_chunk_source_code`）。
+
+### 23.3 ingest 管线 `KnowledgeIngestService`
+
+```
+读取源（本地 JSON/CSV/导入文件）
+  → 规范化（字段映射、编码统一、去重）
+  → 切块（复用 KnowledgeChunker：500 字 / overlap 80）
+  → 出处登记（无 source_name 或 version 的条目【直接拒绝入库】）
+  → 向量化（Flask /embed；失败则退化为 BM25-only 并在 trace 标记降级）
+  → 幂等写入（按 content_hash 判重，重复运行不产生重复块）
+```
+
+### 23.4 纪律（写入材料附录）
+
+1. **禁止**爬取有版权限制的全文；只入库"可公开引用的摘要/结构化条目 + 出处链接"。
+2. 每条知识块必须能在界面回溯到 `source_name` + URL；无出处条目不得入库。
+3. 语料规模、来源构成与授权说明必须如实写入技术方案附录；引用他人数据须标注来源。
+4. 入库规模与来源分布以**脚本产出报告**为准（`docs/eval/corpus-report.md`），不得口头宣称。
+
+### 23.5 工作量与取舍
+
+| 项 | 人日 |
+|---|---|
+| 水肥土壤（§22.2） | 1.0 |
+| 病虫害流行（§22.3） | 1.5 |
+| 管理经济（§22.4） | 0.5 |
+| ingest 管线与来源登记（§23） | 1.5 |
+| **合计** | **4.5** |
+
+**取舍**：为腾出这 4.5 人日，知识图谱可视化降级为 2D 关系图，前端对话面板与性能对比面板保持"最小可用但完整"（不做动效与主题美化）。

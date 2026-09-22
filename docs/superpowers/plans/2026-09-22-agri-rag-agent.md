@@ -1419,6 +1419,147 @@ git -C $ROOT commit -m "feat: add ai performance comparison views"
 ```
 
 ---
+## 阶段 E：生态子系统与知识库 ingest（2026-09-22 追加）
+
+> 依据：spec §22、§23。目标是把"环境 + 作物"扩为五子系统生态，并把语料从 100 条扩到千级且条条可溯源。
+> 全部为纯 Java 半机理模型：确定性、可单测、参数逐条标 `sourceNote`；**不得编造文献页码**，拿不准就写"典型文献区间，待核对出处"。
+
+### Task 15: 水肥土壤模型
+
+**Files:**
+- Create: `$SB\src\main\java\com\example\Ece\agent\eco\SoilParameters.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\eco\SoilState.java`
+- Create: `$SB\src\main\java\com\example\Ece\agent\eco\SoilWaterNutrientModel.java`
+- Test: `$SB\src\test\java\com\example\Ece\agent\eco\SoilWaterNutrientModelTest.java`
+
+**Interfaces:**
+- Consumes: `SimulationState`、`TomatoCropState`（Task 12）
+- Produces:
+  - `class SoilState`（不可变 + getter）：`soilMoisturePct`、`ecDsPerM`、`soilPh`、`nitrogenKgPerHa`、`phosphorusKgPerHa`、`potassiumKgPerHa`、`leachedNitrogenKgPerHa`、`irrigationMmTotal`、`nutrientFactor`
+  - `class SoilParameters`：`KC_INITIAL=0.6`、`KC_MID=1.15`、`KC_LATE=0.8`、`N_PER_KG_DM=0.035`、`P_PER_KG_DM=0.008`、`K_PER_KG_DM=0.045`、`EC_PER_KG_FERT=0.02`、`EC_LEACH_RATE=0.05`、`PH_MIN=4.0`、`PH_MAX=8.5`、`NUTRIENT_LOW=20.0`、`NUTRIENT_HIGH=120.0`（均含 `sourceNote`）
+  - `class SoilWaterNutrientModel`：`SoilState initial()`、`SoilState advance(SoilState current, SimulationState environment, TomatoCropState crop, int minutes, boolean irrigationOn, double fertilizerKgPerHa)`
+
+- [ ] **Step 1: 写失败测试**（`SoilWaterNutrientModelTest`，5 项）
+
+```java
+@Test void soilMoistureDropsWithoutIrrigation() {
+    SoilState state = model.initial();
+    for (int i = 0; i < 96; i++) state = model.advance(state, env(26.0, 60.0), crop(), 15, false, 0.0);
+    assertTrue(state.getSoilMoisturePct() < model.initial().getSoilMoisturePct());
+}
+@Test void irrigationRaisesSoilMoisture() {
+    SoilState dry = run(96, false, 0.0);
+    SoilState wet = run(96, true, 0.0);
+    assertTrue(wet.getSoilMoisturePct() > dry.getSoilMoisturePct());
+}
+@Test void fertilizerRaisesNitrogenAndEc() {
+    SoilState base = run(96, false, 0.0);
+    SoilState fed = run(96, false, 40.0);
+    assertTrue(fed.getNitrogenKgPerHa() > base.getNitrogenKgPerHa());
+    assertTrue(fed.getEcDsPerM() > base.getEcDsPerM());
+}
+@Test void nutrientFactorStaysInRangeAndFallsWhenDepleted() {
+    SoilState depleted = run(480, false, 0.0);
+    assertTrue(depleted.getNutrientFactor() >= 0.3 && depleted.getNutrientFactor() <= 1.0);
+    assertTrue(depleted.getNutrientFactor() <= model.initial().getNutrientFactor());
+}
+@Test void isDeterministic() { assertEquals(run(96, true, 20.0).getSoilMoisturePct(), run(96, true, 20.0).getSoilMoisturePct(), 1e-9); }
+```
+
+- [ ] **Step 2: 运行确认失败** → `& $MVN "-Dmaven.repo.local=$REPO" -f "$SB\pom.xml" "-Dtest=SoilWaterNutrientModelTest" test`
+- [ ] **Step 3: 实现**（按 spec §22.2 公式：Hargreaves ET0、Kc 查表、水分平衡、养分吸收与 EC/pH 缓冲；全部钳制非负，`soilPh ∈ [PH_MIN, PH_MAX]`，`nutrientFactor ∈ [0.3, 1.0]`）
+- [ ] **Step 4: 运行确认通过**（`Tests run: 5, Failures: 0, Errors: 0`）
+- [ ] **Step 5: 提交** `git commit -m "feat: add soil water and nutrient balance model"`
+
+### Task 16: 病虫害流行模型
+
+**Files:** Create `agent\eco\DiseaseKind.java`、`EpidemicParameters.java`、`DiseaseState.java`、`PestDiseaseEpidemicModel.java`；Test `PestDiseaseEpidemicModelTest.java`
+
+**Interfaces:**
+- `enum DiseaseKind { BOTRYTIS, LATE_BLIGHT, POWDERY_MILDEW, LEAF_MOLD }`
+- `class DiseaseState`（不可变 + getter）：`Map<DiseaseKind, Double> severityPct`、`Map<DiseaseKind, Double> inoculumLevel`、`Map<DiseaseKind, Double> latentProgress`、`int infectionEvents`、`double diseaseDamageFactor`、`double pestPopulation`
+- `class EpidemicParameters`：各病害适宜温度区间、湿度阈值、叶湿时长阈值、潜育期分钟数、严重度增益；虫害 `rMax=0.08/天`、`K=500`（含 `sourceNote`）
+- `class PestDiseaseEpidemicModel`：`DiseaseState initial()`、`DiseaseState advance(DiseaseState current, SimulationState environment, TomatoCropState crop, int minutes)`
+
+- [ ] **Step 1: 写失败测试**（4 项，全部为**分辨力**断言，避免"单一趋势"假通过）
+
+```java
+@Test void humidCoolFavoursBotrytisOverDry() {
+    assertTrue(run(18.0, 95.0, 480).severity(DiseaseKind.BOTRYTIS) > run(18.0, 45.0, 480).severity(DiseaseKind.BOTRYTIS));
+}
+@Test void powderyMildewPrefersModerateHumidityUnlikeBotrytis() {
+    double moderate = run(22.0, 65.0, 480).severity(DiseaseKind.POWDERY_MILDEW);
+    double saturated = run(22.0, 95.0, 480).severity(DiseaseKind.POWDERY_MILDEW);
+    assertTrue(moderate >= saturated, "powdery mildew must NOT peak at saturation");
+}
+@Test void severityAndDamageStayInRange() {
+    DiseaseState state = run(20.0, 95.0, 1440);
+    for (DiseaseKind kind : DiseaseKind.values()) { assertTrue(state.severity(kind) >= 0.0 && state.severity(kind) <= 100.0); }
+    assertTrue(state.getDiseaseDamageFactor() >= 0.0 && state.getDiseaseDamageFactor() <= 1.0);
+}
+@Test void isDeterministic() { assertEquals(run(20.0, 90.0, 96).getInfectionEvents(), run(20.0, 90.0, 96).getInfectionEvents()); }
+```
+
+- [ ] **Step 2–4: 失败 → 实现（spec §22.3 公式）→ 通过**
+- [ ] **Step 5: 提交** `feat: add simplified pest and disease epidemic model`
+
+### Task 17: 管理经济模型
+
+**Files:** Create `agent\eco\EconomicsParameters.java`、`EconomicsState.java`、`ManagementEconomicsModel.java`；Test `ManagementEconomicsModelTest.java`
+
+**Interfaces:**
+- `class EconomicsParameters`：可配置单价（水/电/CO₂/肥/药/人工、一等品与二等品收购价、二等品折价系数），**每个字段含 `sourceNote`，无来源时默认值标注为"示例参数"**
+- `class EconomicsState`：`waterUsedM3`、`energyKWh`、`co2UsedKg`、`fertilizerUsedKg`、`pesticideUsedKg`、`laborHours`、`yieldKg`、`marketableYieldKg`、`costYuan`、`revenueYuan`、`profitYuan`、`waterPerYield`、`energyPerYield`
+- `class ManagementEconomicsModel`：`EconomicsState initial()`、`EconomicsState advance(EconomicsState current, ResourceUsage usage, TomatoCropState crop, DiseaseState disease, int minutes)`
+
+- [ ] **Step 1: 写失败测试**（4 项）
+
+```java
+@Test void costEqualsSumOfUsageTimesUnitPrice() { /* 断言 costYuan 与手工计算值一致（1e-6） */ }
+@Test void revenueSplitsFirstAndSecondGrade() { /* marketableYield < yield 时 revenue 按折价计算 */ }
+@Test void profitIsRevenueMinusCost() { assertEquals(state.getRevenueYuan() - state.getCostYuan(), state.getProfitYuan(), 1e-6); }
+@Test void perYieldMetricsAreSafeWhenYieldIsZero() { /* 未坐果时 waterPerYield/energyPerYield 返回 0.0，不得出现 NaN/Infinity */ }
+```
+
+- [ ] **Step 2–4: 失败 → 实现 → 通过**
+- [ ] **Step 5: 提交** `feat: add management economics model with configurable prices`
+
+### Task 18: 权威知识库 ingest 与来源登记
+
+**Files:**
+- Create: `database/migrations/V20260923_01__agent_knowledge_source.sql`
+- Create: `$SB\src\main\java\com\example\Ece\agent\rag\KnowledgeSource.java`、`KnowledgeSourceRepository.java`、`KnowledgeIngestService.java`、`IngestReport.java`
+- Test: `$SB\src\test\java\com\example\Ece\agent\rag\KnowledgeIngestServiceTest.java`
+
+**Interfaces:**
+- `class KnowledgeSource`：`sourceCode`、`sourceName`、`sourceType`(A–E)、`authorityLevel`(1–5)、`url`、`licenseNote`、`version`；构造时校验 `sourceName`/`version` 非空，否则抛 `IllegalArgumentException`
+- `interface KnowledgeSourceRepository { void save(KnowledgeSource source); KnowledgeSource findByCode(String sourceCode, String version); }`（运行期 `JdbcKnowledgeSourceRepository`，测试用内存实现）
+- `class KnowledgeIngestService`：`IngestReport ingest(KnowledgeSource source, List<IngestRecord> records)`；`IngestRecord` 含 `sourceId`、`cropType`、`diseaseName`、`Map<KnowledgeChunk.FieldType,String> fields`
+- `class IngestReport`：`int accepted`、`int rejected`、`int chunksWritten`、`boolean embeddingDegraded`、`List<String> rejectedReasons`
+
+- [ ] **Step 1: 写失败测试**（4 项）
+
+```java
+@Test void rejectsRecordsWithoutProvenance() {
+    assertThrows(IllegalArgumentException.class, () -> new KnowledgeSource("X", "", "B", 3, "http://x", "CC-BY", "v1"));
+}
+@Test void ingestIsIdempotentByContentHash() {
+    IngestReport first = service.ingest(source, records());
+    IngestReport second = service.ingest(source, records());
+    assertEquals(first.getChunksWritten(), second.getChunksWritten());
+    assertEquals(0, second.getRejected());          // 重复块按 content_hash 判重后跳过，不产生新块
+}
+@Test void reportsDegradedWhenEmbeddingUnavailable() { /* 注入抛异常的 EmbeddingClient → report.isEmbeddingDegraded() 为 true，且块仍写入（BM25-only） */ }
+@Test void countsRejectedRecordsWithReasons() { /* 空文本条目计入 rejected 且 reasons 非空 */ }
+```
+
+- [ ] **Step 2: 运行确认失败** → `"-Dtest=KnowledgeIngestServiceTest"`
+- [ ] **Step 3: 实现**（spec §23.3 六步管线：读取→规范化→切块→出处登记→向量化→幂等写入；无出处直接拒绝）
+- [ ] **Step 4: 运行确认通过** + 迁移静态检查（`Select-String -Pattern 'DROP TABLE|ALTER TABLE'` 应为空）
+- [ ] **Step 5: 产出语料报告** `docs/eval/corpus-report.md`（来源分布、块数、授权说明）并提交
+- [ ] **Step 6: 提交** `feat: add authoritative corpus ingest with provenance registry`
+
+---
 ## 覆盖核对（spec → task）
 
 | Spec 章节 | 覆盖任务 |
@@ -1438,6 +1579,8 @@ git -C $ROOT commit -m "feat: add ai performance comparison views"
 | §17 里程碑 | T1–T4 = W1-D1~D2；T5–T7 = W1-D3~D4；T8–T11 = W2 |
 | §20 作物生长模型 | T12（模型与单测）；T13（作为 P3 档推演内核） |
 | §21 性能评测平台 | T13（四档对照与指标矩阵）、T14（前端矩阵/雷达/曲线/堆叠图） |
+| §22 番茄生态子系统 | T15（水肥土壤）、T16（病虫害流行）、T17（管理经济）；与 T12 作物、既有微气候共同构成五子系统 |
+| §23 权威知识库 ingest | T18（来源登记 + 六步 ingest 管线 + 语料报告） |
 
 ## 附录：Task 9–11 的完整测试与关键实现代码
 
@@ -1611,4 +1754,5 @@ export async function streamAgentChat(payload: AgentChatPayload, handlers: Agent
 
 - **报告导出改为自包含 HTML + 浏览器打印**（spec §5/§14 已同步修订）：OpenPDF 渲染中文需额外字体包，属高风险的隐性工作；HTML 方案零新依赖、中文零配置,演示时"打印/另存为 PDF"同样产出 PDF 文件。
 - **`/api/knowledge/search` 与 `/api/knowledge/reindex` 以工具与内部入口形式提供**（未单独暴露 HTTP）：评测（T8）在 JUnit 内直接调用检索器，避免为调试接口增加攻击面；若评委/演示需要，再补两个只读包装。
+- **生态五子系统与权威 ingest 追加后，总工作量约 18 人日**（原 13.5 + 新增 4.5），超出 17 人日产能约 1 人日：以"知识图谱可视化降级为 2D 关系图 + 前端两处面板保持最小可用"抵扣；若仍紧张，优先保 T18（语料与出处）与 T13（评测），T10 可再降级为纯接口。
 - **取消 3D 场景与生长动画、取消 bge-reranker 重排、知识图谱三维可视化降级为 2D 关系图**（2026-09-22 决策）：需求澄清为"模型用于展示 AI 性能"而非视觉动画，故把 3–4 人日转投生长模型与评测平台；同时为材料生产预留 3.5 人日。
