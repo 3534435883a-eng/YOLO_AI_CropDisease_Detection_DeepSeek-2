@@ -62,4 +62,42 @@ class KnowledgeRetrieverTest {
         assertTrue(retriever.isLowScore(retriever.retrieve("量子计算机", "番茄", 3)));
         assertFalse(retriever.isLowScore(retriever.retrieve("褐色轮纹斑", "番茄", 3)));
     }
+
+    /**
+     * 只命中作物名的提问必须判为低分。实测语料上"如何给番茄施肥"就是这种情况：
+     * 它命中"番茄"等泛词，语料级覆盖率一度达 0.31，靠单一比值判据会被放行（实测漏判）。
+     */
+    @Test
+    void refusesQueryWhoseOnlyMatchIsTheCropName() {
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) {
+                return new double[]{1.0, 0.0};
+            }
+        });
+        retriever.rebuild(corpus());
+        RetrievalResult result = retriever.retrieve("番茄怎么卖", "番茄", 3);
+        assertFalse(result.getItems().isEmpty(), "本例的前提是确实召回了东西，否则测不到判据");
+        assertTrue(result.getMaxChunkMatchedTerms() <= 1, "只应命中作物名："
+                + result.getMaxChunkMatchedTerms());
+        assertTrue(retriever.isLowScore(result));
+    }
+
+    /**
+     * 长问句即使覆盖率被长度稀释，只要 Top 块里有两个以上查询词共现，就必须作答。
+     * 这正是旧判据（单一覆盖率阈值 0.30）会误杀的情形，锁住以防回退。
+     */
+    @Test
+    void acceptsLongQueryWhenSymptomTermsCoOccur() {
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) {
+                return new double[]{1.0, 0.0};
+            }
+        });
+        retriever.rebuild(corpus());
+        RetrievalResult result = retriever.retrieve(
+                "番茄叶片上出现的褐色轮纹斑一直在扩展，湿度也大，这种情况该怎么办", "番茄", 3);
+        assertTrue(result.getMaxChunkMatchedTerms() >= KnowledgeRetriever.MIN_CHUNK_TERMS,
+                "共现词数应达标：" + result.getMaxChunkMatchedTerms());
+        assertFalse(retriever.isLowScore(result));
+    }
 }

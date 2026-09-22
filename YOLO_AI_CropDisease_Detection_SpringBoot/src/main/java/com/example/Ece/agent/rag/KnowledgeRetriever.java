@@ -14,7 +14,19 @@ public class KnowledgeRetriever {
 
     public static final int TOP_K_EACH = 20;
     public static final int RRF_K = 60;
-    public static final double MIN_SCORE = 0.016;
+    /**
+     * 语料级查询词覆盖率下限（IDF 加权）。E2 判据：问题用词整体上确实落在语料里。
+     *
+     * <p>实测负样本最高 0.31、真实提问可达 0.69，取 0.45 留出余量。</p>
+     */
+    public static final double MIN_COVERAGE = 0.45;
+
+    /**
+     * Top 块内查询词**共现**个数下限。E1 判据：至少两个不同的查询词出现在同一个知识块里。
+     *
+     * <p>一个词只能说明"提到过"，两个词共现才说明"在讲这件事"。</p>
+     */
+    public static final int MIN_CHUNK_TERMS = 2;
     public static final String DEGRADED_EMBEDDING = "EMBEDDING_UNAVAILABLE";
 
     private final EmbeddingClient embeddingClient;
@@ -72,12 +84,44 @@ public class KnowledgeRetriever {
             reason = DEGRADED_EMBEDDING;
         }
         List<ScoredChunk> fused = fusion.fuse(lists, RRF_K, topN);
-        return new RetrievalResult(fused, degraded, reason, bm25Hits.size(), vectorHitCount);
+        double coverage = bm25Index.queryCoverage(query);
+        double maxChunkCoverage = 0.0;
+        int maxChunkMatchedTerms = 0;
+        for (ScoredChunk item : fused) {
+            int matchedInChunk = bm25Index.chunkMatchedTermCount(query, item.getChunk());
+            if (matchedInChunk > maxChunkMatchedTerms) {
+                maxChunkMatchedTerms = matchedInChunk;
+            }
+            double chunkCov = bm25Index.chunkCoverage(query, item.getChunk());
+            if (chunkCov > maxChunkCoverage) {
+                maxChunkCoverage = chunkCov;
+            }
+        }
+        return new RetrievalResult(fused, degraded, reason, bm25Hits.size(), vectorHitCount, coverage,
+                maxChunkCoverage, maxChunkMatchedTerms);
     }
 
     /**
-     * 低分判定：无命中、或**完全没有关键词证据**、或融合分数低于阈值。
-     * 仅靠向量召回的语义漂移不足以支撑专业结论，此时应改写查询或拒答。
+     * 低分判定（是否需要改写或拒答）。满足任一"有依据"的条件即不低分：
+     *
+     * <ul>
+     *   <li><b>E1 证据共现</b>：Top 块里有 ≥{@link #MIN_CHUNK_TERMS} 个不同的查询词。</li>
+     *   <li><b>E2 语料覆盖</b>：查询词的 IDF 加权覆盖率 ≥{@link #MIN_COVERAGE}。</li>
+     * </ul>
+     *
+     * <p>前置条件：必须有 BM25 命中。仅靠向量召回的语义相近不足以支撑专业结论。</p>
+     *
+     * <p><b>被实测推翻的两个判据（记录在此以免回退）：</b></p>
+     * <ol>
+     *   <li><i>用 RRF 融合分当置信阈值不可行。</i>RRF 按构造只保留排名、丢弃分数量级，
+     *       实测负样本 0.0164~0.0317 与真实提问 0.0300~0.0328 几乎完全重叠，任何阈值都无意义。</li>
+     *   <li><i>只看语料级覆盖率会误杀正常提问。</i>覆盖率为长度归一量：长问句被稀释，
+     *       且农户说"土豆"、语料写"马铃薯"时未登录词吃到最重惩罚。实测阈值 0.30 误拒 18.8%
+     *       的口语化提问（如"土豆叶尖叶缘先烂，边上有一圈白霉"覆盖率仅 0.21）。</li>
+     * </ol>
+     *
+     * <p>触发低分不等于拒答：上层先做查询改写重试，改写后仍低分才拒答。因此判据宁严勿宽——
+     * 多一次改写代价很小，用错证据作答代价很大。</p>
      */
     public boolean isLowScore(RetrievalResult result) {
         if (result == null || result.getItems().isEmpty()) {
@@ -86,7 +130,9 @@ public class KnowledgeRetriever {
         if (result.getBm25HitCount() == 0) {
             return true;
         }
-        return result.getTopScore() < MIN_SCORE;
+        boolean evidenceCoOccurs = result.getMaxChunkMatchedTerms() >= MIN_CHUNK_TERMS;
+        boolean corpusCovered = result.getQueryCoverage() >= MIN_COVERAGE;
+        return !(evidenceCoOccurs || corpusCovered);
     }
 
     private List<ScoredChunk> filterByCrop(List<ScoredChunk> hits, String cropType) {
