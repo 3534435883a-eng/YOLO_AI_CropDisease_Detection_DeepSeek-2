@@ -138,6 +138,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				path: '/agentChat',
+				name: 'agentChat',
+				component: () => import('/@/views/agentChat/index.vue'),
+				meta: {
+					title: 'AI 决策对话',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-znwd',
+				},
+			},
+			{
 				path: '/diseaseDetection',
 				name: 'diseaseDetection',
 				component: () => import('/@/layout/routerView/parent.vue'),

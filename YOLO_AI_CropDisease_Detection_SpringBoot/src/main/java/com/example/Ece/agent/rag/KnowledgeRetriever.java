@@ -40,26 +40,57 @@ public class KnowledgeRetriever {
     }
 
     public void rebuild(List<KnowledgeChunk> chunks) {
+        rebuild(chunks, null);
+    }
+
+    /**
+     * 重建内存索引。
+     *
+     * @param storedEmbeddings 与 {@code chunks} 一一对应的**已入库向量**（来自 agent_knowledge_chunk.embedding）。
+     *                         可用时直接复用，避免每次启动把几百个块重新向量化一遍；
+     *                         为 null、长度不符或含空向量时退回现场向量化。
+     */
+    public void rebuild(List<KnowledgeChunk> chunks, List<double[]> storedEmbeddings) {
         bm25Index.rebuild(chunks);
         List<KnowledgeChunk> indexed = chunks == null ? new ArrayList<KnowledgeChunk>() : chunks;
-        List<double[]> embeddings = new ArrayList<double[]>();
-        boolean embedded = !indexed.isEmpty();
-        if (embedded) {
-            for (KnowledgeChunk chunk : indexed) {
-                try {
-                    embeddings.add(embeddingClient.embed(chunk.getContent()));
-                } catch (EmbeddingUnavailableException error) {
-                    embedded = false;
-                    break;
-                }
-            }
+        List<double[]> vectors = reusableVectors(indexed, storedEmbeddings);
+        if (vectors == null) {
+            vectors = embedAll(indexed);
         }
-        vectorAvailable = embedded;
-        if (embedded) {
-            vectorIndex.rebuild(indexed, embeddings);
+        vectorAvailable = vectors != null;
+        if (vectorAvailable) {
+            vectorIndex.rebuild(indexed, vectors);
         } else {
             vectorIndex.rebuild(new ArrayList<KnowledgeChunk>(), new ArrayList<double[]>());
         }
+    }
+
+    private List<double[]> reusableVectors(List<KnowledgeChunk> indexed, List<double[]> storedEmbeddings) {
+        if (indexed.isEmpty() || storedEmbeddings == null || storedEmbeddings.size() != indexed.size()) {
+            return null;
+        }
+        for (double[] vector : storedEmbeddings) {
+            if (vector == null || vector.length == 0) {
+                return null;
+            }
+        }
+        return new ArrayList<double[]>(storedEmbeddings);
+    }
+
+    /** 现场向量化；任一失败即整体放弃向量召回（返回 null），由调用方降级为纯关键词检索。 */
+    private List<double[]> embedAll(List<KnowledgeChunk> indexed) {
+        if (indexed.isEmpty()) {
+            return null;
+        }
+        List<double[]> vectors = new ArrayList<double[]>();
+        for (KnowledgeChunk chunk : indexed) {
+            try {
+                vectors.add(embeddingClient.embed(chunk.getContent()));
+            } catch (EmbeddingUnavailableException error) {
+                return null;
+            }
+        }
+        return vectors;
     }
 
     public RetrievalResult retrieve(String query, String cropType, int topN) {

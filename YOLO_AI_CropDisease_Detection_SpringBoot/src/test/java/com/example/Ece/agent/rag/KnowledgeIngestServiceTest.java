@@ -106,7 +106,7 @@ class KnowledgeIngestServiceTest {
         assertEquals(4, registered.getAuthorityLevel());
     }
 
-    /** 内存实现：来源登记。 */
+    /** 内存实现。 */
     private static final class InMemorySourceRepository implements KnowledgeSourceRepository {
         private final Map<String, KnowledgeSource> store = new LinkedHashMap<String, KnowledgeSource>();
 
@@ -117,12 +117,17 @@ class KnowledgeIngestServiceTest {
         public KnowledgeSource findByCode(String sourceCode, String version) {
             return store.get(sourceCode + "|" + version);
         }
+
+        public List<KnowledgeSource> findAll() {
+            return new ArrayList<KnowledgeSource>(store.values());
+        }
     }
 
     /** 内存实现：知识块写入（全局判重）。 */
     private static final class InMemoryChunkRepository implements KnowledgeChunkRepository {
         private final Set<String> hashes = new LinkedHashSet<String>();
         private final List<KnowledgeChunk> stored = new ArrayList<KnowledgeChunk>();
+        private final List<double[]> vectors = new ArrayList<double[]>();
 
         public Set<String> existingContentHashes() {
             return new LinkedHashSet<String>(hashes);
@@ -131,13 +136,23 @@ class KnowledgeIngestServiceTest {
         public int saveAll(String sourceCode, int authorityLevel, List<KnowledgeChunk> chunkList,
                            List<double[]> embeddings, String embeddingModel) {
             int written = 0;
-            for (KnowledgeChunk chunk : chunkList) {
+            for (int i = 0; i < chunkList.size(); i++) {
+                KnowledgeChunk chunk = chunkList.get(i);
                 if (hashes.add(chunk.getContentHash())) {
                     stored.add(chunk);
+                    vectors.add(embeddings == null || i >= embeddings.size() ? null : embeddings.get(i));
                     written++;
                 }
             }
             return written;
+        }
+
+        public List<KnowledgeChunk> loadAll() {
+            return new ArrayList<KnowledgeChunk>(stored);
+        }
+
+        public List<double[]> loadEmbeddings() {
+            return new ArrayList<double[]>(vectors);
         }
     }
 }

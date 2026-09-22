@@ -6,7 +6,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.nio.ByteBuffer;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -16,6 +19,9 @@ import java.util.Set;
 public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
 
     private static final String SELECT_HASHES = "SELECT content_hash FROM agent_knowledge_chunk";
+    private static final String SELECT_ALL = "SELECT source_table, source_id, crop_type, disease_name, field_type, "
+            + "chunk_no, start_offset, content, content_hash FROM agent_knowledge_chunk ORDER BY id";
+    private static final String SELECT_EMBEDDINGS = "SELECT embedding FROM agent_knowledge_chunk ORDER BY id";
     private static final String INSERT_CHUNK = "INSERT INTO agent_knowledge_chunk "
             + "(source_table, source_id, crop_type, disease_name, field_type, chunk_no, start_offset, content, "
             + "content_hash, embedding, embedding_model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -52,7 +58,42 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
         return written;
     }
 
-    /** 向量按 float32 小端序列化为二进制，与迁移中的 VARBINARY(4096) 对应（512 维 = 2048 字节）。 */
+    public List<KnowledgeChunk> loadAll() {
+        return jdbcTemplate.query(SELECT_ALL, new org.springframework.jdbc.core.RowMapper<KnowledgeChunk>() {
+            public KnowledgeChunk mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return new KnowledgeChunk(rs.getString("source_table"), rs.getLong("source_id"),
+                        rs.getString("crop_type"), rs.getString("disease_name"),
+                        parseFieldType(rs.getString("field_type")), rs.getInt("chunk_no"),
+                        rs.getInt("start_offset"), rs.getString("content"), rs.getString("content_hash"));
+            }
+        });
+    }
+
+    public List<double[]> loadEmbeddings() {
+        List<byte[]> raw = jdbcTemplate.query(SELECT_EMBEDDINGS, new org.springframework.jdbc.core.RowMapper<byte[]>() {
+            public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return rs.getBytes(1);
+            }
+        });
+        List<double[]> vectors = new ArrayList<double[]>();
+        for (byte[] bytes : raw) {
+            vectors.add(toVector(bytes));
+        }
+        return vectors;
+    }
+
+    private KnowledgeChunk.FieldType parseFieldType(String value) {
+        if (value == null) {
+            return KnowledgeChunk.FieldType.OTHER;
+        }
+        try {
+            return KnowledgeChunk.FieldType.valueOf(value);
+        } catch (IllegalArgumentException error) {
+            return KnowledgeChunk.FieldType.OTHER;
+        }
+    }
+
+    /** 向量按 float32 序列化为二进制（{@link ByteBuffer} 默认字节序），与迁移的 VARBINARY(4096) 对应（512 维 = 2048 字节）。 */
     private byte[] toBytes(double[] vector) {
         if (vector == null || vector.length == 0) {
             return null;
@@ -62,5 +103,18 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
             buffer.putFloat((float) value);
         }
         return buffer.array();
+    }
+
+    /** 反序列化；空值或长度不是 4 的倍数时返回 null，交由调用方现场重新向量化。 */
+    private double[] toVector(byte[] bytes) {
+        if (bytes == null || bytes.length == 0 || bytes.length % 4 != 0) {
+            return null;
+        }
+        ByteBuffer buffer = ByteBuffer.wrap(bytes);
+        double[] vector = new double[bytes.length / 4];
+        for (int i = 0; i < vector.length; i++) {
+            vector[i] = buffer.getFloat();
+        }
+        return vector;
     }
 }

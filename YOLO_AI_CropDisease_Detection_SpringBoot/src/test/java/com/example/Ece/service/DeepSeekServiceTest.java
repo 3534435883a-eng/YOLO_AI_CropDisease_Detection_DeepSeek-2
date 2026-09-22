@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -152,6 +154,128 @@ class DeepSeekServiceTest {
         assertEquals("AI 服务连接超时，请稍后重试", error.getMessage());
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void planningOptionsDisableThinkingAndTightenBudget() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(response("{\"tool\":\"FINALIZE\"}", "deepseek-flash"), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        service.chat(singleUserMessage("规划"), DeepSeekService.ChatOptions.planning());
+
+        Map body = capturedBody(restTemplate);
+        assertEquals(Integer.valueOf(600), body.get("max_tokens"));
+        assertEquals("disabled", ((Map) body.get("thinking")).get("type"));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void composingOptionsEnableThinkingWithLargerBudget() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(response("防治建议正文", "deepseek-flash"), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        service.chat(singleUserMessage("作答"), DeepSeekService.ChatOptions.composing());
+
+        Map body = capturedBody(restTemplate);
+        assertEquals("enabled", ((Map) body.get("thinking")).get("type"));
+        // 只断言下界而非具体数值：实测思考模式曾把 4000 预算全用在推理上导致正文为空
+        // （finish_reason=length、content 为空），因此作答预算必须留足余量。
+        assertTrue(((Number) body.get("max_tokens")).intValue() >= 8000,
+                "作答预算不足会让推理挤掉正文：" + body.get("max_tokens"));
+    }
+
+    /**
+     * 旧版问答接口走的是无参 {@code chat(messages)}，请求体必须保持原样：
+     * 上游若不认识 thinking 字段会直接 400，不能因为智能体上线而改坏既有功能。
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void legacyCallOmitsThinkingFieldEntirely() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(response("旧接口回答", "deepseek-flash"), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        service.chat(singleUserMessage("旧接口提问"));
+
+        Map body = capturedBody(restTemplate);
+        assertEquals(Integer.valueOf(1200), body.get("max_tokens"));
+        assertFalse(body.containsKey("thinking"), "旧调用方不得被注入 thinking 字段");
+    }
+
+    /**
+     * 实测（deepseek-flash，2026-09-23）：thinking=enabled 且 max_tokens=50 时
+     * finish_reason=length、content 为空、reasoning_content 249 字。
+     * 这种"被截断"必须与"上游格式异常"分开报，否则排查方向会被带偏。
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void mapsTruncatedOutputToActionableError() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(emptyContentResponse("length", null), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        DeepSeekException error = assertThrows(DeepSeekException.class,
+                () -> service.chat(singleUserMessage("给我一份长建议"), DeepSeekService.ChatOptions.composing()));
+
+        assertEquals("AI_OUTPUT_TRUNCATED", error.getCode());
+    }
+
+    /** 只回了 reasoning_content：思考模式把预算全花在推理上，正文一个字都没输出。 */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void mapsReasoningOnlyOutputToActionableError() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(emptyContentResponse("stop", "推理过程……"), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        DeepSeekException error = assertThrows(DeepSeekException.class,
+                () -> service.chat(singleUserMessage("给我一份长建议"), DeepSeekService.ChatOptions.composing()));
+
+        assertEquals("AI_OUTPUT_TRUNCATED", error.getCode());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    @Test
+    void composingWithoutThinkingTurnsThinkingOffAndCapsBudget() {
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(Map.class)))
+                .thenReturn(new ResponseEntity(response("无思考作答", "deepseek-flash"), HttpStatus.OK));
+        DeepSeekService service = new DeepSeekService(propertiesWithKey("server-side-key"), restTemplate);
+
+        service.chat(singleUserMessage("作答"), DeepSeekService.ChatOptions.composingWithoutThinking());
+
+        Map body = capturedBody(restTemplate);
+        assertEquals("disabled", ((Map) body.get("thinking")).get("type"));
+        assertEquals(Integer.valueOf(3000), body.get("max_tokens"));
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static Map capturedBody(RestTemplate restTemplate) {
+        ArgumentCaptor<HttpEntity> captor = ArgumentCaptor.forClass(HttpEntity.class);
+        verify(restTemplate).exchange(anyString(), eq(HttpMethod.POST), captor.capture(), eq(Map.class));
+        return (Map) captor.getValue().getBody();
+    }
+
+    private static Map<String, Object> emptyContentResponse(String finishReason, String reasoning) {
+        Map<String, Object> message = new HashMap<>();
+        message.put("content", "");
+        if (reasoning != null) {
+            message.put("reasoning_content", reasoning);
+        }
+        Map<String, Object> choice = new HashMap<>();
+        choice.put("message", message);
+        choice.put("finish_reason", finishReason);
+        Map<String, Object> upstream = new HashMap<>();
+        upstream.put("choices", Arrays.asList(choice));
+        upstream.put("model", "deepseek-flash");
+        return upstream;
+    }
     private static DeepSeekProperties propertiesWithKey(String apiKey) {
         DeepSeekProperties properties = new DeepSeekProperties();
         properties.setApiKey(apiKey);

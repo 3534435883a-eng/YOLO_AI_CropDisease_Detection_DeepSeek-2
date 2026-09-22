@@ -6,11 +6,14 @@
 				<h2>智能体指挥中心</h2>
 				<p class="header-copy">以规则推演驱动虚拟设备，所有数值均为来源明确的模拟结果。</p>
 			</div>
-			<div class="run-status">
-				<span class="status-dot" :class="`status-${runStatus.toLowerCase()}`"></span>
-				<div>
-					<strong>{{ runStatusLabel }}</strong>
-					<span>{{ simulationTime }}</span>
+			<div class="header-side">
+				<el-button link type="primary" @click="goChat">AI 决策对话 →</el-button>
+				<div class="run-status">
+					<span class="status-dot" :class="`status-${runStatus.toLowerCase()}`"></span>
+					<div>
+						<strong>{{ runStatusLabel }}</strong>
+						<span>{{ simulationTime }}</span>
+					</div>
 				</div>
 			</div>
 		</header>
@@ -137,12 +140,15 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
 import { ElMessage } from 'element-plus';
+import { useRouter } from 'vue-router';
 import { useUserInfo } from '/@/stores/userInfo';
 import { AgentDevice } from '/@/api/agent';
 import { useAgentRunStore } from '/@/stores/agentRun';
 
 const agentStore = useAgentRunStore();
 const userStore = useUserInfo();
+const router = useRouter();
+const goChat = () => router.push('/agentChat');
 let refreshTimer: number | undefined;
 
 const asRecord = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -230,6 +236,7 @@ onUnmounted(() => { if (refreshTimer !== undefined) window.clearInterval(refresh
 h2, h3 { margin: 0; letter-spacing: 0; } h2 { font-size: 27px; } h3 { font-size: 17px; }
 .header-copy { margin: 7px 0 0; color: #617168; font-size: 13px; }
 .run-status { min-width: 180px; gap: 10px; padding: 10px 12px; border: 1px solid #d7e6da; border-radius: 7px; background: #fff; }
+.header-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .run-status strong, .run-status span { display: block; } .run-status strong { font-size: 13px; } .run-status span { margin-top: 3px; color: #718178; font-size: 11px; }
 .status-dot { width: 9px; height: 9px; border-radius: 50%; background: #9ca89f; } .status-running { background: #2d8a54; box-shadow: 0 0 0 3px rgba(45,138,84,.14); } .status-paused { background: #c68a25; }
 .empty-run { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; max-width: 900px; margin: 78px auto; padding: 28px; border: 1px solid #d7e7da; border-radius: 8px; background: #fff; }

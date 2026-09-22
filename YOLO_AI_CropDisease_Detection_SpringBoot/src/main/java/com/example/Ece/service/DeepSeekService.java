@@ -29,6 +29,60 @@ public class DeepSeekService {
     private static final int MAX_MESSAGES = 30;
     private static final int MAX_CONTENT_LENGTH = 12_000;
     private static final List<String> ALLOWED_ROLES = Arrays.asList("system", "user", "assistant");
+    private static final int LEGACY_MAX_TOKENS = 1200;
+    private static final int PLANNING_MAX_TOKENS = 600;
+    private static final int COMPOSING_PLAIN_MAX_TOKENS = 3000;
+    private static final int COMPOSING_MAX_TOKENS = 8000;
+
+    /**
+     * 单次调用的可选参数。
+     *
+     * <p>思考模式按官方 API 默认是**开启**的，但并非所有调用都该开：</p>
+     * <ul>
+     *   <li><b>规划步</b>关闭思考：只需要吐一个严格 JSON 动作，思考既拖慢每一步往返，
+     *       又会与正文争夺 {@code max_tokens} 输出预算（推理占满时 {@code content} 会是空的）。</li>
+     *   <li><b>作答步</b>开启思考并放宽预算：要组织带引用的中文长答，值得多花推理。</li>
+     * </ul>
+     *
+     * <p><b>兼容性约束</b>：{@code thinking} 为 {@code null} 时**完全不发送该字段**，
+     * 使既有调用方（旧版问答接口）的请求体逐字节不变——上游若不认识该字段会直接 400。</p>
+     */
+    public static final class ChatOptions {
+
+        private final Boolean thinking;
+        private final int maxTokens;
+
+        private ChatOptions(Boolean thinking, int maxTokens) {
+            this.thinking = thinking;
+            this.maxTokens = maxTokens;
+        }
+
+        /** 规划步：关闭思考、收紧输出预算。 */
+        public static ChatOptions planning() {
+            return new ChatOptions(Boolean.FALSE, PLANNING_MAX_TOKENS);
+        }
+
+        /** 作答步：开启思考、放宽输出预算。 */
+        public static ChatOptions composing() {
+            return new ChatOptions(Boolean.TRUE, COMPOSING_MAX_TOKENS);
+        }
+
+        /**
+         * 作答步的退路：**关闭思考**。
+         *
+         * <p>实测（2026-09-23，deepseek-flash）：思考模式下作答 20s 以上时，推理可能吃光输出预算，
+         * 返回 {@code finish_reason=length} 且 {@code content} 为空（报 AI_OUTPUT_TRUNCATED）。
+         * 关掉思考后没有推理占用预算，正文一定拿得到——用质量换可用性，且只在必要时才走这条路。</p>
+         */
+        public static ChatOptions composingWithoutThinking() {
+            return new ChatOptions(Boolean.FALSE, COMPOSING_PLAIN_MAX_TOKENS);
+        }
+
+        /** 既有行为：不发送 thinking 字段、沿用原 token 上限。 */
+        public static ChatOptions legacy() {
+            return new ChatOptions(null, LEGACY_MAX_TOKENS);
+        }
+    }
 
     private final DeepSeekProperties properties;
     private final RestTemplate restTemplate;
@@ -41,6 +95,12 @@ public class DeepSeekService {
 
     @SuppressWarnings("rawtypes")
     public AiChatResponse chat(List<ChatMessage> messages) {
+        return chat(messages, ChatOptions.legacy());
+    }
+
+    @SuppressWarnings("rawtypes")
+    public AiChatResponse chat(List<ChatMessage> messages, ChatOptions options) {
+        ChatOptions actualOptions = options == null ? ChatOptions.legacy() : options;
         String requestId = UUID.randomUUID().toString();
         long startedAt = System.currentTimeMillis();
         try {
@@ -57,7 +117,12 @@ public class DeepSeekService {
             body.put("model", properties.getModel());
             body.put("messages", messages);
             body.put("stream", false);
-            body.put("max_tokens", 1200);
+            body.put("max_tokens", Integer.valueOf(actualOptions.maxTokens));
+            if (actualOptions.thinking != null) {
+                Map<String, Object> thinking = new LinkedHashMap<String, Object>();
+                thinking.put("type", actualOptions.thinking.booleanValue() ? "enabled" : "disabled");
+                body.put("thinking", thinking);
+            }
 
             String upstreamUrl = normalizedBaseUrl() + "/chat/completions";
             ResponseEntity<Map> response = restTemplate.exchange(
@@ -117,12 +182,24 @@ public class DeepSeekService {
         if (choices.isEmpty() || !(choices.get(0) instanceof Map)) {
             throw new DeepSeekException("AI_UPSTREAM_ERROR", "AI 服务返回格式异常，请稍后重试");
         }
-        Object messageObject = ((Map) choices.get(0)).get("message");
+        Map choice = (Map) choices.get(0);
+        Object messageObject = choice.get("message");
         if (!(messageObject instanceof Map)) {
             throw new DeepSeekException("AI_UPSTREAM_ERROR", "AI 服务返回格式异常，请稍后重试");
         }
-        Object contentObject = ((Map) messageObject).get("content");
+        Map message = (Map) messageObject;
+        Object contentObject = message.get("content");
         if (!(contentObject instanceof String) || ((String) contentObject).trim().isEmpty()) {
+            // 空 content 有两种常见成因，必须与"上游格式异常"分开报，否则会把"被截断"误导成"服务坏了"：
+            // 1) finish_reason=length：输出预算被耗尽；
+            // 2) 只回了 reasoning_content：思考模式把预算全花在推理上，正文没来得及输出。
+            boolean truncated = "length".equals(choice.get("finish_reason"));
+            Object reasoning = message.get("reasoning_content");
+            boolean reasoningOnly = reasoning instanceof String && !((String) reasoning).trim().isEmpty();
+            if (truncated || reasoningOnly) {
+                throw new DeepSeekException("AI_OUTPUT_TRUNCATED",
+                        "AI 输出被截断（推理占用了输出预算），请提高 max_tokens 或关闭思考模式");
+            }
             throw new DeepSeekException("AI_UPSTREAM_ERROR", "AI 服务返回格式异常，请稍后重试");
         }
         Object modelObject = response.get("model");

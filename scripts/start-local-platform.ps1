@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -126,19 +126,38 @@ if (-not $mysqlReady -or -not $backendReady) {
         }
     }
 
-    # This migration is create-only and idempotent. It never rewrites the legacy tables.
-    $migrationPath = Join-Path $projectRoot 'database\migrations\V20260921_01__agent_simulation.sql'
-    if (-not (Test-Path -LiteralPath $migrationPath)) {
-        throw "未找到智能体迁移文件：$migrationPath"
+    # Apply every migration in filename order. All of them are create-only
+    # (CREATE TABLE IF NOT EXISTS) and never rewrite the legacy tables, so
+    # re-running this script is safe and self-healing.
+    $migrationDir = Join-Path $projectRoot 'database\migrations'
+    $migrations = @(Get-ChildItem -LiteralPath $migrationDir -Filter '*.sql' -ErrorAction SilentlyContinue | Sort-Object Name)
+    if ($migrations.Count -eq 0) {
+        throw "未找到数据库迁移文件：$migrationDir"
     }
     $env:MYSQL_PWD = $dbPassword
     try {
-        Get-Content -Raw -LiteralPath $migrationPath | & $mysqlClient --protocol=TCP -h 127.0.0.1 -P 3306 -u $dbUser cropdisease
-        if ($LASTEXITCODE -ne 0) {
-            throw "智能体数据库迁移失败，退出码：$LASTEXITCODE"
+        foreach ($migration in $migrations) {
+            Write-Host "应用迁移 $($migration.Name)..."
+            Get-Content -Raw -LiteralPath $migration.FullName | & $mysqlClient --protocol=TCP -h 127.0.0.1 -P 3306 -u $dbUser cropdisease
+            if ($LASTEXITCODE -ne 0) {
+                throw "数据库迁移失败（$($migration.Name)），退出码：$LASTEXITCODE"
+            }
         }
     } finally {
         Remove-Item Env:MYSQL_PWD -ErrorAction SilentlyContinue
+    }
+
+    # The agent needs LLM credentials. They are only ever read from the
+    # environment (User scope included) and forwarded to the child process;
+    # nothing is written to disk, matching application.properties.
+    foreach ($name in @('DEEPSEEK_API_KEY', 'DEEPSEEK_BASE_URL', 'DEEPSEEK_MODEL')) {
+        $value = Get-ConfiguredEnvironmentValue -Name $name
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            Set-Item -Path "Env:$name" -Value $value
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($env:DEEPSEEK_API_KEY)) {
+        Write-Host '提示：未检测到大模型密钥（DEEPSEEK_API_KEY），AI 决策对话会返回"AI 服务尚未配置"（其余功能不受影响）。' -ForegroundColor Yellow
     }
 }
 

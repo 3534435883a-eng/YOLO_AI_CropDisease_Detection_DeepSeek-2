@@ -15,4 +15,10 @@ public interface KnowledgeChunkRepository {
     /** 批量写入，返回本次新写入的块数。 */
     int saveAll(String sourceCode, int authorityLevel, List<KnowledgeChunk> chunks,
                 List<double[]> embeddings, String embeddingModel);
+
+    /** 按入库顺序读取全部知识块，用于启动时重建内存索引。 */
+    List<KnowledgeChunk> loadAll();
+
+    /** 读取与 {@link #loadAll()} **顺序一一对应**的向量；未写入向量的行返回 null 元素。 */
+    List<double[]> loadEmbeddings();
 }

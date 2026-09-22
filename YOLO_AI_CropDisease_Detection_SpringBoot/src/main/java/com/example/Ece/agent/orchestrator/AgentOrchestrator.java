@@ -53,6 +53,20 @@ public class AgentOrchestrator {
     public static final String REFUSAL_ANSWER =
             "没有检索到可靠依据，暂不给出结论；建议补充叶片照片或联系当地农技人员核实。";
 
+    /**
+     * 作答阶段的系统提示。
+     *
+     * <p><b>为什么必须单独一套</b>：规划阶段的系统提示写着"每一步只输出一个 JSON"，
+     * 模型会一直遵守——实测真实端到端时，作答步返回的是
+     * {@code {"tool":"FINALIZE","input":{"answer":"**结论**：…"}}}，用户看到的就是一坨 JSON。
+     * 作答阶段必须显式解除 JSON 约束（并继续禁止越权执行声明）。</p>
+     */
+    static final String ANSWER_SYSTEM_PROMPT =
+            "你是面向番茄设施种植的农业智能体，当前进入【作答】阶段。请直接用中文散文输出最终答复："
+                    + "先给结论，再给依据与[编号]引用（编号必须与上文证据完全一致），最后给风险与注意事项。"
+                    + "不要输出 JSON，不要复述工具名或调用过程。证据不足时明确说明依据不足，不得臆造。"
+                    + "不得声称已经自动执行了任何设备操作。";
+
     private final AgentToolRegistry registry;
     private final LlmClient llmClient;
     private final CitationFormatter citationFormatter = new CitationFormatter();
@@ -188,21 +202,46 @@ public class AgentOrchestrator {
             }
         }
 
-        String answer = null;
-        try {
-            answer = llmClient.compose(history);
-        } catch (RuntimeException error) {
-            answer = null;
-        }
+        // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，
+        // 也不给模型"顺手编个结论"的机会——这条路径的答案本来就会被丢弃。
         if (!reliableEvidence) {
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
                     AgentResult.Status.REFUSED, blockReason == null ? "NO_RELIABLE_EVIDENCE" : blockReason,
                     REFUSAL_ANSWER);
         }
+
+        String answer = null;
+        try {
+            answer = unwrapAnswer(llmClient.compose(composeHistory(history)));
+        } catch (RuntimeException error) {
+            answer = null;
+        }
         if (answer == null || answer.trim().isEmpty()) {
-            answer = REFUSAL_ANSWER;
+            // 有证据却拿不到回答（模型调用失败或输出被截断）：如实按未完成返回。
+            // 曾用拒答文案兜底并报 DONE，界面上会显示成"结论"，把失败伪装成成功。
+            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                    AgentResult.Status.REFUSED, "ANSWER_EMPTY", REFUSAL_ANSWER);
         }
         GuardrailCheck guardrail = guardrailService.check(answer, evidenceChunks, degradedSeen);
+
+        // 被安全守门判为"越权执行声明"时给一次重写机会：实测多数情况是模型顺手写了"已自动…"，
+        // 并非真要越权。重写一次既不放行声明本身，也避免把整段有依据的分析直接丢成拒答。
+        if (!guardrail.isAllowed() && GuardrailService.REASON_AUTO_EXECUTION_CLAIM.equals(guardrail.getReason())) {
+            String retry = null;
+            try {
+                retry = unwrapAnswer(llmClient.compose(composeHistoryAfterExecutionClaim(history)));
+            } catch (RuntimeException error) {
+                retry = null;
+            }
+            if (retry != null && !retry.trim().isEmpty()) {
+                GuardrailCheck recheck = guardrailService.check(retry, evidenceChunks, degradedSeen);
+                if (recheck.isAllowed()) {
+                    return finish(events, sink, citations, executed, recheck.getRewrittenAnswer(),
+                            AgentResult.Status.DONE, blockReason, null);
+                }
+                guardrail = recheck;
+            }
+        }
         if (!guardrail.isAllowed()) {
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
                     AgentResult.Status.REFUSED, guardrail.getReason(), REFUSAL_ANSWER);
@@ -261,13 +300,141 @@ public class AgentOrchestrator {
         return new AgentResult(finalAnswer, kept, events, executed, status);
     }
 
+    /**
+     * 从模型输出里取出动作 JSON。
+     *
+     * <p>真实模型（尤其思考模式）常把 JSON 包在 ```json 围栏里，或在前面加一句"好的，下一步："。
+     * 原来直接 {@code parseObject(raw.trim())} 会把这类输出整体判为不可解析——接入真实模型后
+     * 这是最容易出现的"智能体一步不动"故障。这里改为扫描第一个**花括号配对完整**的对象，
+     * 且扫描时跳过字符串字面量内的括号，避免 {@code {"input":{"q":"a{b"}}} 这类内容被截断。</p>
+     */
     private JSONObject parsePlan(String raw) {
-        if (raw == null || raw.trim().isEmpty()) {
+        if (raw == null) {
             return null;
         }
+        String text = raw.trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        int start = text.indexOf('{');
+        while (start >= 0) {
+            int end = matchingBrace(text, start);
+            if (end > start) {
+                JSONObject object = tryParse(text.substring(start, end + 1));
+                if (object != null && object.containsKey("tool")) {
+                    return object;
+                }
+            }
+            start = text.indexOf('{', start + 1);
+        }
+        return null;
+    }
+
+    /**
+     * 用作答阶段的系统提示替换规划阶段的提示，其余对话（含证据块）原样保留。
+     */
+    private List<Map<String, Object>> composeHistory(List<Map<String, Object>> history) {
+        List<Map<String, Object>> copy = new ArrayList<Map<String, Object>>(history);
+        if (!copy.isEmpty() && "system".equals(copy.get(0).get("role"))) {
+            copy.set(0, message("system", ANSWER_SYSTEM_PROMPT));
+        }
+        return copy;
+    }
+
+    /**
+     * 在作答提示之后追加一条"上次被守门拦下"的说明，用于重写。措辞直接点名禁止的表述，
+     * 因为实测模型对抽象约束（"不得声称已执行"）遵守不稳，对具体禁用词更敏感。
+     */
+    private List<Map<String, Object>> composeHistoryAfterExecutionClaim(List<Map<String, Object>> history) {
+        List<Map<String, Object>> copy = composeHistory(history);
+        copy.add(message("user", "上一次回答里出现了表示设备动作已完成的表述，已被安全规则拦下。请重新作答："
+                + "只给决策建议，禁止出现任何完成态表述（如“已自动”“已经自动”“已开启”“已执行”“已启动”“已替你”）；"
+                + "需要执行时写成“建议……，由操作人员确认后在平台上执行”。"));
+        return copy;
+    }
+
+    /**
+     * 兜底解包：模型偶尔仍会把答案包成 {@code {"tool":"FINALIZE","input":{"answer":"…"}}}。
+     *
+     * <p>只有"整段几乎就是一个 JSON 对象"时才拆（前后残留不超过 8 个字符），
+     * 以免误伤正文里本来含花括号的正常回答。若对象里既没有动作也没有答案，返回 null 交给拒答兜底。</p>
+     */
+    private String unwrapAnswer(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String text = raw.trim();
+        if (text.isEmpty()) {
+            return text;
+        }
+        String candidate = null;
+        if (text.startsWith("{")) {
+            candidate = text;
+        } else {
+            int start = text.indexOf('{');
+            if (start < 0) {
+                return raw;
+            }
+            int end = matchingBrace(text, start);
+            boolean jsonDominates = end > start && start <= 8 && text.length() - (end + 1) <= 8;
+            if (!jsonDominates) {
+                return raw;
+            }
+            candidate = text.substring(start, end + 1);
+        }
         try {
-            JSONObject object = JSON.parseObject(raw.trim());
-            return object != null && object.containsKey("tool") ? object : null;
+            JSONObject object = JSON.parseObject(candidate);
+            if (object == null) {
+                return raw;
+            }
+            JSONObject input = object.getJSONObject("input");
+            JSONObject source = input == null ? object : input;
+            for (String key : new String[]{"answer", "content", "text", "reply"}) {
+                String value = source.getString(key);
+                if (value != null && !value.trim().isEmpty()) {
+                    return value;
+                }
+            }
+            return object.containsKey("tool") ? null : raw;
+        } catch (RuntimeException error) {
+            return raw;
+        }
+    }
+
+    /** 返回与 {@code start} 处 '{' 配对的 '}' 下标；不配对时返回 -1。字符串字面量内的括号不算数。 */
+    private int matchingBrace(String text, int start) {
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int index = start; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (current == '\\') {
+                    escaped = true;
+                } else if (current == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+            if (current == '"') {
+                inString = true;
+            } else if (current == '{') {
+                depth++;
+            } else if (current == '}') {
+                depth--;
+                if (depth == 0) {
+                    return index;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private JSONObject tryParse(String candidate) {
+        try {
+            return JSON.parseObject(candidate);
         } catch (RuntimeException error) {
             return null;
         }
@@ -303,7 +470,11 @@ public class AgentOrchestrator {
         return "你是面向番茄设施种植的农业智能体。可用工具目录：" + registry.catalogJson()
                 + "。每一步只输出一个 JSON：{\"tool\":\"工具名\",\"input\":{...}}；"
                 + "没有可用工具或信息已足够时输出 {\"tool\":\"FINALIZE\",\"input\":{}}。"
-                + "禁止输出 JSON 以外的内容。不得编造工具名。";
+                + "禁止输出 JSON 以外的内容。不得编造工具名。"
+                // 实测：同一问题、同一提示，模型自选查询词不同会导致漏检（一次检索漏掉"同心轮纹"型病斑，
+                // 结论退化成"无法确诊"；分两次检索则命中）。因此显式要求按特征分步检索。
+                + "检索时：query 要包含用户描述中的具体症状词（如病斑形状、颜色、部位、扩展速度），"
+                + "不要只用一个宽泛词；当描述包含多个特征时，应分步检索不同特征再汇总，不要只检索一次。";
     }
 
     private String userPrompt(String question, String crop) {

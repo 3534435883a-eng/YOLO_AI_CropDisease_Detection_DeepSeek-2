@@ -2,6 +2,7 @@ package com.example.Ece.agent.orchestrator;
 
 import com.example.Ece.dto.ai.AiChatResponse;
 import com.example.Ece.dto.ai.ChatMessage;
+import com.example.Ece.service.DeepSeekException;
 import com.example.Ece.service.DeepSeekService;
 import org.springframework.stereotype.Component;
 
@@ -26,12 +27,33 @@ public class DeepSeekLlmClient implements LlmClient {
         this.deepSeekService = deepSeekService;
     }
 
+    /**
+     * 规划步：**关闭思考模式**。
+     *
+     * <p>规划只需吐一个严格 JSON 动作。实测（deepseek-flash，2026-09-23）关掉思考后单步 955ms、
+     * content 恰好是纯 JSON；而开启思考时推理会与正文争夺 {@code max_tokens}——max_tokens=50 时
+     * 实测 {@code finish_reason=length}、{@code content} 为空、{@code reasoning_content} 249 字，
+     * 整轮会退化成不可解析或被截断。</p>
+     */
     public String plan(List<Map<String, Object>> history) {
-        return call(withHint(history, PLAN_HINT));
+        return call(withHint(history, PLAN_HINT), DeepSeekService.ChatOptions.planning());
     }
 
+    /**
+     * 作答步：**开启思考模式**并放宽输出预算——要组织带引用、含风险提示的中文长答。
+     *
+     * <p>实测思考模式可能把输出预算全部消耗在推理上，返回空正文（AI_OUTPUT_TRUNCATED）。
+     * 这种失败重试一次**关闭思考**即可拿到正文；其他错误原样抛出，由编排层按失败处理。</p>
+     */
     public String compose(List<Map<String, Object>> history) {
-        return call(withHint(history, COMPOSE_HINT));
+        try {
+            return call(withHint(history, COMPOSE_HINT), DeepSeekService.ChatOptions.composing());
+        } catch (DeepSeekException error) {
+            if (!"AI_OUTPUT_TRUNCATED".equals(error.getCode())) {
+                throw error;
+            }
+            return call(withHint(history, COMPOSE_HINT), DeepSeekService.ChatOptions.composingWithoutThinking());
+        }
     }
 
     private List<Map<String, Object>> withHint(List<Map<String, Object>> history, String hint) {
@@ -47,7 +69,7 @@ public class DeepSeekLlmClient implements LlmClient {
         return copy;
     }
 
-    private String call(List<Map<String, Object>> history) {
+    private String call(List<Map<String, Object>> history, DeepSeekService.ChatOptions options) {
         List<ChatMessage> messages = new ArrayList<ChatMessage>();
         for (Map<String, Object> entry : history) {
             ChatMessage message = new ChatMessage();
@@ -55,7 +77,7 @@ public class DeepSeekLlmClient implements LlmClient {
             message.setContent(String.valueOf(entry.get("content")));
             messages.add(message);
         }
-        AiChatResponse response = deepSeekService.chat(messages);
+        AiChatResponse response = deepSeekService.chat(messages, options);
         return response == null ? null : response.getContent();
     }
 }

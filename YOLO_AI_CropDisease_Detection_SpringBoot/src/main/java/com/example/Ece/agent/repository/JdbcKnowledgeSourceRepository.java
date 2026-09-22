@@ -28,6 +28,17 @@ public class JdbcKnowledgeSourceRepository implements KnowledgeSourceRepository 
                 source.getVersion(), new Timestamp(System.currentTimeMillis()));
     }
 
+    public List<KnowledgeSource> findAll() {
+        return jdbcTemplate.query("SELECT * FROM agent_knowledge_source ORDER BY authority_level ASC, source_code ASC",
+                new org.springframework.jdbc.core.RowMapper<KnowledgeSource>() {
+                    public KnowledgeSource mapRow(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+                        return new KnowledgeSource(rs.getString("source_code"), rs.getString("source_name"),
+                                rs.getString("source_type"), rs.getInt("authority_level"), rs.getString("url"),
+                                rs.getString("license_note"), rs.getString("version"));
+                    }
+                });
+    }
+
     public KnowledgeSource findByCode(final String sourceCode, final String version) {
         List<KnowledgeSource> found = jdbcTemplate.query(
                 "SELECT * FROM agent_knowledge_source WHERE source_code = ? AND version = ?",

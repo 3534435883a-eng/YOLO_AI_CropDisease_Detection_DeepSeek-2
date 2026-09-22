@@ -64,6 +64,46 @@ class KnowledgeRetrieverTest {
     }
 
     /**
+     * 复用已入库向量：库里存了向量就不该每次启动把几百个块重新向量化一遍。
+     * 这里断言 embed 调用次数为 0，且向量召回仍然可用（未降级）。
+     */
+    @Test
+    void rebuildReusesStoredEmbeddingsWithoutCallingEmbeddingService() {
+        final int[] embedCalls = {0};
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) {
+                embedCalls[0]++;
+                return new double[]{1.0, 0.0};
+            }
+        });
+        List<double[]> stored = Arrays.asList(
+                new double[]{1.0, 0.0}, new double[]{1.0, 0.0}, new double[]{1.0, 0.0});
+        retriever.rebuild(corpus(), stored);
+
+        assertEquals(0, embedCalls[0], "存量向量可用时不得再次调用向量服务");
+        RetrievalResult result = retriever.retrieve("白霉", "番茄", 3);
+        assertFalse(result.isDegraded(), "复用存量向量后向量召回应可用");
+        assertFalse(result.getItems().isEmpty());
+    }
+
+    /** 存量向量不完整（含空向量）时必须退回现场向量化，而不是悄悄丢掉向量召回。 */
+    @Test
+    void rebuildFallsBackToEmbeddingWhenStoredVectorsIncomplete() {
+        final int[] embedCalls = {0};
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) {
+                embedCalls[0]++;
+                return new double[]{1.0, 0.0};
+            }
+        });
+        List<double[]> incomplete = Arrays.asList(new double[]{1.0, 0.0}, null, new double[]{1.0, 0.0});
+        retriever.rebuild(corpus(), incomplete);
+
+        assertEquals(corpus().size(), embedCalls[0], "向量不完整时应逐个重新向量化");
+        assertFalse(retriever.retrieve("白霉", "番茄", 3).isDegraded());
+    }
+
+    /**
      * 只命中作物名的提问必须判为低分。实测语料上"如何给番茄施肥"就是这种情况：
      * 它命中"番茄"等泛词，语料级覆盖率一度达 0.31，靠单一比值判据会被放行（实测漏判）。
      */

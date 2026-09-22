@@ -9,7 +9,16 @@ import java.util.List;
  * 安全守门（spec §11 六条规则）。判定顺序即优先级：
  * ② 设备自动执行声明 > ③ 无引用不得给专业结论 > ① 涉药补人工确认 > ④ 降级披露 > ⑤ 仿真不得称实测 > ⑥ 超长截断。
  *
- * 设计立场：宁可回答保守一点，也不让系统说出"我已经替你打了药"这类越权结论。
+ * <p>设计立场：宁可回答保守一点，也不让系统说出"我已经替你打了药"这类越权结论。</p>
+ *
+ * <p><b>规则②的两级判定</b>（实测修正）：原先把 {@code 自动开启} 与 {@code 已自动} 同等对待并**整段拒绝**，
+ * 结果是"建议自动开启通风"这种正常建议也被判越权，整段有依据的分析被丢弃——真实端到端里
+ * 一次 21 秒生成、引用 5 条证据的回答就这样退化成拒答。现改为：</p>
+ * <ul>
+ *   <li><b>完成态声明</b>（{@code 已自动}/{@code 已经自动}/{@code 已替你}…）→ 仍然整段拒绝，不给改写机会；</li>
+ *   <li><b>语气模糊</b>（{@code 自动开启}/{@code 已开启}…）→ 改写成建议语气并追加"不直接执行设备动作"声明，
+ *       既保住有用内容，也不让任何完成态表述漏过去。</li>
+ * </ul>
  */
 @Component
 public class GuardrailService {
@@ -19,8 +28,14 @@ public class GuardrailService {
 
     private static final int MAX_ANSWER_CHARS = 4000;
 
-    private static final String[] AUTO_EXECUTION_PATTERNS = {
-            "已自动", "已经自动", "自动开启", "自动执行", "已执行", "已开启", "已启动", "已替你"
+    /** 完成态越权声明：直接拒绝。 */
+    private static final String[] EXECUTION_CLAIM_PATTERNS = {
+            "已自动", "已经自动", "已替你", "已代你", "已经替你", "已经代你"
+    };
+
+    /** 语气模糊、既可能是建议也可能是完成态的表述：改写成建议语气，不做整段拒绝。 */
+    private static final String[] AMBIGUOUS_ACTION_PATTERNS = {
+            "自动开启", "自动执行", "自动调节", "自动启动", "已开启", "已执行", "已启动"
     };
 
     private static final String[] PESTICIDE_KEYWORDS = {
@@ -37,13 +52,15 @@ public class GuardrailService {
     private static final String DEGRADED_NOTE =
             "\n（本次为降级检索：仅关键词匹配，请人工核对出处）";
     private static final String TRUNCATED_NOTE = "\n（回答过长已截断，请追问具体环节）";
+    private static final String EXECUTION_DISCLAIMER =
+            "\n（说明：本系统只提供决策建议，不直接执行设备动作；如需执行请由操作人员在平台上确认）";
 
     public GuardrailCheck check(String answer, List<ScoredChunk> citations, boolean degraded) {
         String text = answer == null ? "" : answer.trim();
         boolean hasCitation = citations != null && !citations.isEmpty();
 
-        // 规则②：不得声称已经执行设备动作或代为处置
-        for (String pattern : AUTO_EXECUTION_PATTERNS) {
+        // 规则②（硬拦）：不得声称已经替用户执行了设备动作
+        for (String pattern : EXECUTION_CLAIM_PATTERNS) {
             if (text.contains(pattern)) {
                 return GuardrailCheck.reject(REASON_AUTO_EXECUTION_CLAIM, text);
             }
@@ -55,6 +72,18 @@ public class GuardrailService {
         }
 
         String rewritten = text;
+
+        // 规则②（软改）：模糊表述统一改成建议语气，并补一句"不直接执行设备动作"
+        boolean ambiguousActionSeen = false;
+        for (String pattern : AMBIGUOUS_ACTION_PATTERNS) {
+            if (rewritten.contains(pattern)) {
+                ambiguousActionSeen = true;
+                rewritten = rewritten.replace(pattern, advisoryWording(pattern));
+            }
+        }
+        if (ambiguousActionSeen && !rewritten.contains("不直接执行设备动作")) {
+            rewritten = rewritten + EXECUTION_DISCLAIMER;
+        }
 
         // 规则①：涉药必须显式提示人工确认
         if (containsAny(rewritten, PESTICIDE_KEYWORDS) && !rewritten.contains("需人工确认")) {
@@ -79,6 +108,14 @@ public class GuardrailService {
         }
 
         return rewritten.equals(text) ? GuardrailCheck.allow(text) : GuardrailCheck.rewrite(rewritten);
+    }
+
+    /** 把完成态动作词改写成建议语气；保留动作本身，只去掉"已经做了"的含义。 */
+    private String advisoryWording(String pattern) {
+        if (pattern.startsWith("自动")) {
+            return "建议" + pattern.substring(2);
+        }
+        return "建议" + pattern.substring(1);
     }
 
     private boolean containsAny(String text, String[] keywords) {
