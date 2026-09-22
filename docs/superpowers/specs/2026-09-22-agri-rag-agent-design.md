@@ -1049,3 +1049,79 @@ mvn -f YOLO_AI_CropDisease_Detection_SpringBoot/pom.xml test
   - `KnowledgeIngestServiceTest`（+3）：批量而非逐条、整批失败退回逐条、服务不可用时连续 2 条即停。
 - 实测结果一致性：`chunkCount=338 / vectorCount=338 / embeddingDegraded=false`，
   并跑一次真实问答确认批量写入的向量可正常检索（`DONE`，答案带 `[1]` 引用，`degraded=false`）。
+
+## 33. 一键启动：从"双击没反应"到真正可用的桌面快捷方式（2026-09-23）
+
+**现象**：用户反馈"启动不了"。排查后发现**三个独立原因叠在一起**，任何一个都足以让它起不来。
+
+### 33.1 原因一：`.ps1` 没有 BOM，被 Windows PowerShell 5.1 按 GBK 解析（致命）
+
+`scripts/start-local-platform.ps1` 与仓库里其它文本一样是**无 BOM 的 UTF-8**。而双击 `.lnk` 走的解释器是
+`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`（5.1），它**对无 BOM 文件按系统 ANSI 代码页
+（本机 GBK）解码**——文件里的中文被拆成乱码字节，某些字节恰好落在引号上，于是整个脚本报
+`字符串缺少终止符 / Missing closing '}'`，**一行都不执行**。
+
+排查时最直接的证据就是报错里回显的那行源码：
+
+```
++     Write-Host "  Maven 鍚姩鍣?(PID $($launcher.ProcessId))锛氬凡鍋滄"
+The string is missing the terminator: ".
+```
+
+`Maven 鍚姩鍣?` 正是"启动器"三个字的 UTF-8 字节被按 GBK 解读的结果。之前服务能起来，是因为一直用
+**PowerShell 7（`pwsh`）** 执行，而 pwsh 默认按 UTF-8 读无 BOM 文件，问题被掩盖了。
+
+**修法**：两个脚本保存为**带 UTF-8 BOM** 的 UTF-8（首三字节 `EF BB BF`）。注意 **`edit` 工具会写回无 BOM 版本**，
+改完必须补回；已在两个脚本头部写明这条约束（含首三字节的核对方法）。
+
+### 33.2 原因二：原脚本**根本没有启动 Flask**
+
+平台是四个进程：MySQL(3306) → Flask 识别/向量服务(5000) → Spring Boot(9999) → Vue(8100)。
+原脚本只起了三个，**漏了 Flask**。后果不是报错而是**静默降级**：检索退化为纯关键词（§16 的向量召回整段失效），
+知识库里 338 个块的向量全部用不上——这种"看起来能跑、其实少了一半能力"的故障最难察觉。
+
+### 33.3 原因三：冷启动时向量模型加载必然超时
+
+Flask 侧 `sentence-transformers` 是**懒加载**：第一次 `/embed` 才加载模型，冷启动约 8 秒；
+而后端 `embedding.timeout-ms` 是 **3000 ms**。所以"后端先起、再被第一次检索触发"的时序下，
+那一次必定超时 → 判定向量服务不可用 → 降级。
+
+**修法（顺序有讲究）**：启动顺序改为 **MySQL → 迁移 → Flask → 预热 `/embed` → 后端 → 前端**，
+预热用 180 秒超时把模型加载完（实测返回 512 维），后端起来时向量服务已是 14~32 ms 的热态。
+
+### 33.4 顺带修掉的两个问题
+
+| 问题 | 现象 | 修法 |
+|---|---|---|
+| `Start-Process -ArgumentList` 按空格拼接 | 工作区路径是 `E:\agent 农业\...`，vite 入口路径被截成 `E:\agent`，node 报 `Cannot find module 'E:\agent'` | `Start-LoggedProcess` 对含空格参数自动加引号 |
+| 服务输出一律 `WindowStyle Hidden` 且不留日志 | 启动失败时用户只看到一个闪过的窗口，无从判断卡在哪一步 | 四个服务分别落盘 `flask.log` / `backend.log` / `frontend.log`（含 `.err`），失败时提示日志目录；外层 `try/catch` 打印原因并**暂停**，窗口不会一闪而过 |
+
+### 33.5 交付物与实测
+
+- **桌面快捷方式**：`启动农业智能体平台.lnk` / `停止农业智能体平台.lnk`，目标为
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <scripts>\...ps1`
+  （`-ExecutionPolicy Bypass` 是必须的，否则默认执行策略会拒绝运行 `.ps1`）。
+- **新增 `scripts/stop-local-platform.ps1`**：按端口停止并**核对进程名**（避免误杀恰好占用同端口的其它程序），
+  同时清理 `mvn spring-boot:run` 的孤儿启动器进程。
+- **幂等**：重复双击只补没起来的服务（实测第二次启动跳过了已在监听的三个，只补起前端）。
+- **完整冷启动实测（用 5.1 执行，与双击一致）**：MySQL → 5 个迁移 → Flask → 预热（512 维）→ 后端 → 前端，
+  四个端口全部就绪、`exit=0`；随后 `chunkCount=338 / vectorCount=338 / 向量可用=true`，
+  真实问答 `DONE` 且答案带 `[1]` 引用、`degraded=false`。
+
+### 33.6 MySQL 优雅关闭的限制（如实记录）
+
+停止脚本优先用 `mysqladmin shutdown`（避免 InnoDB 走恢复流程），但**应用账号没有 SHUTDOWN 权限**：
+
+```
+mysqladmin: shutdown failed; error: 'Access denied; you need (at least one of) the SHUTDOWN privilege(s) for this operation'
+```
+
+因此实际是强制停止 + 下次启动走 InnoDB 恢复，**实测数据无损**（338 块知识块与检索均正常）。
+若想打通优雅关闭，需要用管理员账号执行一次
+`GRANT SHUTDOWN ON *.* TO 'cropdisease_app'@'%'; FLUSH PRIVILEGES;`（本次未擅自提权）。
+
+### 33.7 启动后首次提问较慢（要在演示中预期）
+
+冷启动后连续提问实测：**第 1 问约 35 秒 → 第 2 问约 22 秒 → 之后稳定在 6 秒上下**，
+差异来自 JVM 预热与首次外网 TLS / 提示词缓存。脚本已在结尾直接提示这条，
+避免演示时把"首次较慢"误判为卡死。
