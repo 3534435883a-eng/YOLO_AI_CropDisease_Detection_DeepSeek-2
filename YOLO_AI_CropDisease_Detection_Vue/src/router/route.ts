@@ -42,7 +42,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 		path: '/',
 		name: '/',
 		component: () => import('/@/layout/index.vue'),
-		redirect: '/homePage',
+		redirect: '/agentCenter',
 		meta: {
 			isKeepAlive: true,
 		},

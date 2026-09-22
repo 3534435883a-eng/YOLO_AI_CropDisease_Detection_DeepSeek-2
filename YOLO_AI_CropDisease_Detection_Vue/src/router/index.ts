@@ -7,6 +7,7 @@ import { useKeepALiveNames } from '/@/stores/keepAliveNames';
 import { useRoutesList } from '/@/stores/routesList';
 import { useThemeConfig } from '/@/stores/themeConfig';
 import { Session } from '/@/utils/storage';
+import Cookies from 'js-cookie';
 import { staticRoutes, notFoundAndNoPower } from '/@/router/route';
 import { initFrontEndControlRoutes } from '/@/router/frontEnd';
 import { initBackEndControlRoutes } from '/@/router/backEnd';
@@ -90,6 +91,23 @@ export function formatTwoStageRoutes(arr: any) {
 	return newArr;
 }
 
+/**
+ * This project is currently demonstrated locally. Bootstrap a stable local
+ * operator identity so every screen can be entered without a login form.
+ */
+function ensureLocalDemoSession() {
+	const userInfo = Session.get('userInfo');
+	const needsReset =
+		Session.get('token') !== 'local-demo' ||
+		Cookies.get('userName') !== 'admin' ||
+		Cookies.get('role') !== 'admin' ||
+		(userInfo && (userInfo.userName !== 'admin' || userInfo.role !== 'admin'));
+	if (needsReset) Session.clear();
+	Session.set('token', 'local-demo');
+	Cookies.set('userName', 'admin');
+	Cookies.set('role', 'admin');
+}
+
 // 路由加载前
 /**
  * 提示：在这里可以释放路由界面
@@ -98,12 +116,10 @@ export function formatTwoStageRoutes(arr: any) {
 router.beforeEach(async (to, from, next) => {
 	NProgress.configure({ showSpinner: false });
 	if (to.meta.title) NProgress.start();
+	ensureLocalDemoSession();
 	const token = Session.get('token');
-	if (to.path === '/login' && !token) {
-		next();
-		NProgress.done();
-	} else if (to.path === '/register' && !token) {
-		next();
+	if (to.path === '/login' || to.path === '/register') {
+		next('/agentCenter');
 		NProgress.done();
 	} else if (to.path === '/videoShow' && token) {
 		next();
