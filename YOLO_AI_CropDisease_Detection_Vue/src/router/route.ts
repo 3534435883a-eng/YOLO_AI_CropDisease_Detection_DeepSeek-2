@@ -108,6 +108,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				path: '/digitalTwin',
+				name: 'digitalTwin',
+				component: () => import('/@/views/digitalTwin/index.vue'),
+				meta: {
+					title: '数字孪生温室',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-znws',
+				},
+			},
+			{
 				path: '/agentCenter',
 				name: 'agentCenter',
 				component: () => import('/@/views/agentCenter/index.vue'),
