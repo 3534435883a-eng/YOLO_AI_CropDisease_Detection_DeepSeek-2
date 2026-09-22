@@ -50,8 +50,16 @@ public class AgentOrchestrator {
     public static final int MAX_TOOL_REPEAT = 2;
     public static final long STEP_TIMEOUT_MS = 20000L;
     public static final long TOTAL_TIMEOUT_MS = 90000L;
+    /**
+     * 无可靠依据时的统一答复。
+     *
+     * <p>措辞要求：**直接说"资料库不足"**，不要只说"没有检索到可靠依据"——后者让用户不知道
+     * 是资料缺口还是检索没命中。具体原因由工具通过 {@code note} 追加在括号里
+     *（关键词零命中 / 检索到但相关性不足）。</p>
+     */
     public static final String REFUSAL_ANSWER =
-            "没有检索到可靠依据，暂不给出结论；建议补充叶片照片或联系当地农技人员核实。";
+            "资料库不足：知识库里没有能支撑这个问题的可靠依据，暂不给出结论；"
+                    + "建议补充作物、发病部位或症状描述，或联系当地农技人员核实。";
 
     /**
      * 作答阶段的系统提示。

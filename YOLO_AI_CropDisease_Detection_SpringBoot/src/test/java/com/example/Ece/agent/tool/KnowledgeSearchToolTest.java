@@ -15,6 +15,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -54,5 +55,39 @@ class KnowledgeSearchToolTest {
     @Test
     void rejectsMissingQuery() {
         assertThrows(ToolException.class, () -> toolWith(false).execute(new HashMap<String, Object>()));
+    }
+
+    /** 关键词零命中时必须说明"知识库里没有相关内容"，上层才能直接告诉用户资料库不足。 */
+    @Test
+    void explainsZeroHitWithNote() throws ToolException {
+        Map<String, Object> output = toolWith(false).execute(new HashMap<String, Object>(
+                Collections.singletonMap("query", "量子计算机的原理")));
+
+        assertEquals(Boolean.TRUE, output.get("lowScore"));
+        String note = String.valueOf(output.get("note"));
+        assertTrue(note.contains("零命中"), "应说明是关键词零命中：" + note);
+        assertTrue(note.contains("量子计算机"), "应带上查询串便于核对：" + note);
+    }
+
+    /** 检索到了但相关性不足时，note 要给出覆盖率，让用户能分辨是问法问题还是资料缺口。 */
+    @Test
+    void explainsInsufficientCoverageWithNote() throws ToolException {
+        Map<String, Object> output = toolWith(false).execute(new HashMap<String, Object>(
+                Collections.singletonMap("query", "番茄怎么施肥")));
+
+        assertEquals(Boolean.TRUE, output.get("lowScore"));
+        String note = String.valueOf(output.get("note"));
+        assertTrue(note.contains("相关性不足"), "应说明相关性不足：" + note);
+        assertTrue(note.contains("覆盖率"), "应给出覆盖率数值：" + note);
+    }
+
+    /** 有可用证据时不得带"资料库不足"式的说明，否则会误导用户以为库里没有。 */
+    @Test
+    void doesNotAddNoteWhenEvidenceIsUsable() throws ToolException {
+        Map<String, Object> output = toolWith(false).execute(new HashMap<String, Object>(
+                Collections.singletonMap("query", "褐色轮纹斑")));
+
+        assertEquals(Boolean.FALSE, output.get("lowScore"));
+        assertNull(output.get("note"), "有依据时不应给出缺依据的说明");
     }
 }

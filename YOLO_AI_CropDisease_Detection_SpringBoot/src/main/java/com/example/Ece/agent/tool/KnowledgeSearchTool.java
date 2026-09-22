@@ -7,6 +7,7 @@ import com.example.Ece.agent.rag.RetrievalResult;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /** 知识检索工具：返回引用列表、证据块与降级标记。 */
@@ -59,6 +60,7 @@ public class KnowledgeSearchTool implements AgentTool {
             topN = ((Number) rawTopN).intValue();
         }
         RetrievalResult result = retriever.retrieve(query, crop, topN);
+        boolean lowScore = retriever.isLowScore(result);
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         output.put("citations", citationFormatter.toCitations(result.getItems()));
         output.put("items", result.getItems());
@@ -66,7 +68,17 @@ public class KnowledgeSearchTool implements AgentTool {
         output.put("degraded", Boolean.valueOf(result.isDegraded()));
         output.put("degradedReason", result.getDegradedReason());
         output.put("topScore", Double.valueOf(result.getTopScore()));
-        output.put("lowScore", Boolean.valueOf(retriever.isLowScore(result)));
+        output.put("lowScore", Boolean.valueOf(lowScore));
+        // 无可用证据时给出**具体原因**：编排层会把它拼进拒答文案。
+        // 用户看到的不该只是一句笼统的"没有可靠依据"，而要能分辨是"库里根本没这段"还是
+        // "检索到了但相关性不够"——前者是资料缺口，后者往往换个问法就有。
+        if (lowScore) {
+            output.put("note", result.getBm25HitCount() == 0
+                    ? "知识库里没有与「" + query + "」匹配的关键词依据（关键词零命中）"
+                    : "检索到 " + result.getItems().size() + " 条但相关性不足（查询词覆盖率 "
+                            + String.format(Locale.ROOT, "%.2f", result.getQueryCoverage())
+                            + "），不足以作为结论依据");
+        }
         output.put("inputDigest", KnowledgeChunker.sha256(query + "|" + (crop == null ? "" : crop) + "|" + topN));
         return output;
     }
