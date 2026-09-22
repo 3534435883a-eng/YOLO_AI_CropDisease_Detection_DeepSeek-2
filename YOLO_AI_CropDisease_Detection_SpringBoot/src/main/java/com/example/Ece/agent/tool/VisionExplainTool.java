@@ -89,8 +89,11 @@ public class VisionExplainTool implements AgentTool {
 
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         if (candidates.isEmpty()) {
-            return unavailable(output, label, "未在视觉类别映射表中找到该类别（classLabel=" + label + "）",
-                    "该标签不在 9 个检测模型的 56 个类别之内；不得据此推断病害，请人工核实。", null);
+            return unavailable(output, "未在视觉类别映射表中找到该类别（classLabel=" + label + "）",
+                    "该标签不在 9 个检测模型的 56 个类别之内；不得据此推断病害。", null,
+                    "KNOWLEDGE_INSUFFICIENT",
+                    "资料库不足：检测类别「" + label + "」不在已登记的 56 个模型类别之内，"
+                            + "无法给出有依据的解释。请先确认类别标签是否正确，或补充相应知识来源。");
         }
 
         Set<String> diseases = new LinkedHashSet<String>();
@@ -105,17 +108,23 @@ public class VisionExplainTool implements AgentTool {
 
         // 歧义：同名类别落在多个作物上且调用方未指定作物
         if (diseases.size() > 1) {
-            return unavailable(output, label, "该类别在多个作物的模型中存在，且未指定作物",
-                    "候选：" + String.join("、", diseases) + "。请先确认作物后再查询，不得直接选定其中一个。",
-                    new ArrayList<String>(diseases));
+            List<String> options = new ArrayList<String>(diseases);
+            return unavailable(output, "该类别在多个作物的模型中存在，且未指定作物",
+                    "候选：" + String.join("、", options) + "。请先确认作物后再查询，不得直接选定其中一个。",
+                    options, "NEED_CROP",
+                    "需要先确认作物：「" + label + "」在多个作物的模型中都存在（候选："
+                            + String.join("、", options) + "）。请说明作物后我再查询。");
         }
 
         if (diseases.isEmpty()) {
             Map<String, Object> row = candidates.get(0);
-            return unavailable(output, label,
+            return unavailable(output,
                     "检测类别 " + row.get("classLabel") + "（模型 " + row.get("modelCode") + "）在知识库中没有可核对的对应条目",
-                    "映射规则为 " + row.get("matchRule") + "：" + row.get("evidence")
-                            + "。不得据此推断病名或给出防治建议，请人工核实或补充知识库来源。", null);
+                    "映射规则为 " + row.get("matchRule") + "：" + row.get("evidence"),
+                    null, "KNOWLEDGE_INSUFFICIENT",
+                    "资料库不足：知识库里没有检测类别「" + row.get("labelZh") + "」（模型 " + row.get("modelCode")
+                            + "）可核对的条目，无法给出诊断或防治建议。"
+                            + "建议人工核实，或先补充该病害/虫害的知识来源。");
         }
 
         String disease = diseases.iterator().next();
@@ -144,13 +153,27 @@ public class VisionExplainTool implements AgentTool {
         return output;
     }
 
-    /** 无可用依据时的统一返回：lowScore=true（编排层据此拒答）+ 说明原因，不产生任何引用。 */
-    private Map<String, Object> unavailable(Map<String, Object> output, String label, String reason,
-                                            String note, List<String> candidates) {
+    /**
+     * 无可用依据时的统一返回，并给出**终止信号**。
+     *
+     * <p><b>为什么必须终止</b>：下面三类情况都不是"再检索一次就能答"的问题，而是资料不足或信息不全：
+     * 类别不在模型类别表内、同名类别跨作物未给作物、类别没有可核对的知识条目。
+     * 若让循环继续，模型会拿相近主题的证据硬答——实测问"潜叶虫"时它检索到 7 条番茄病害并试图作答，
+     * 虽然最终自己声明"不能用相近主题内容替代作答"，但那种 DONE + 无关引用的结果没有意义。</p>
+     *
+     * <p>因此这里直接给出 {@code terminal=true} 与最终答复文案，编排层据此**立即结束本轮、不再检索**，
+     * 用户看到的是一句明确的"资料库不足"或"请先确认作物"。</p>
+     */
+    private Map<String, Object> unavailable(Map<String, Object> output, String reason, String note,
+                                            List<String> candidates, String terminalReason,
+                                            String terminalAnswer) {
         output.put("lowScore", Boolean.TRUE);
         output.put("citations", new ArrayList<Map<String, Object>>());
         output.put("mapping", null);
         output.put("note", reason + "：" + note);
+        output.put("terminal", Boolean.TRUE);
+        output.put("terminalReason", terminalReason);
+        output.put("terminalAnswer", terminalAnswer);
         if (candidates != null) {
             output.put("candidates", candidates);
         }

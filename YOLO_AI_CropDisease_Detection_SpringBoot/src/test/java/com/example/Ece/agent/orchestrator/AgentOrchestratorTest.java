@@ -179,6 +179,70 @@ class AgentOrchestratorTest {
     }
 
     /**
+     * 工具给出终止信号时必须立即结束本轮：不再规划、不调作答步，直接返回工具给的答复。
+     *
+     * <p>动机（实测）：问"摄像头检出潜叶虫怎么办"时，vision.explain 已如实说明没有可核对条目，
+     * 但循环继续，模型又检索到 7 条番茄病害并试图作答。该说"资料库不足"就直接说，不要拿相近主题硬答。</p>
+     */
+    @Test
+    void stopsImmediatelyWhenToolSignalsTerminal() {
+        final int[] planCalls = {0};
+        final int[] composeCalls = {0};
+        AgentToolRegistry registry = new AgentToolRegistry();
+        registry.register(new AgentTool() {
+            public String name() {
+                return "vision.explain";
+            }
+
+            public String description() {
+                return "视觉类别解释";
+            }
+
+            public ToolPermission permission() {
+                return ToolPermission.READ_ONLY;
+            }
+
+            public String inputSchemaJson() {
+                return "{\"type\":\"object\"}";
+            }
+
+            public Map<String, Object> execute(Map<String, Object> input) {
+                Map<String, Object> output = new java.util.LinkedHashMap<String, Object>();
+                output.put("lowScore", Boolean.TRUE);
+                output.put("citations", new java.util.ArrayList<Map<String, Object>>());
+                output.put("terminal", Boolean.TRUE);
+                output.put("terminalReason", "KNOWLEDGE_INSUFFICIENT");
+                output.put("terminalAnswer", "资料库不足：检测类别「潜叶虫」在知识库中没有可核对的对应条目，无法给出诊断或防治建议。");
+                return output;
+            }
+        });
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                planCalls[0]++;
+                return "{\"tool\":\"vision.explain\",\"input\":{\"classLabel\":\"Leaf_Miner(潜叶虫)\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                composeCalls[0]++;
+                return "不应被调用";
+            }
+        };
+        AgentResult result = new AgentOrchestrator(registry, llm).run("s16", "摄像头检出潜叶虫怎么办", "番茄", null);
+
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(1, planCalls[0], "终止后不得再规划下一步");
+        assertEquals(0, composeCalls[0], "终止后不得调用作答步");
+        assertTrue(result.getAnswer().contains("资料库不足"), "应直接返回工具给的答复：" + result.getAnswer());
+        String reason = null;
+        for (AgentStepEvent event : result.getEvents()) {
+            if ("final".equals(event.getType())) {
+                reason = String.valueOf(event.getPayload().get("reason"));
+            }
+        }
+        assertEquals("KNOWLEDGE_INSUFFICIENT", reason);
+    }
+
+    /**
      * 真实模型（尤其思考模式）常把动作 JSON 包在 ```json 围栏里并带一句说明。
      * 原实现整体 trim 后解析，这类输出会被判 PLAN_UNPARSEABLE，表现为"智能体一步不动"。
      */

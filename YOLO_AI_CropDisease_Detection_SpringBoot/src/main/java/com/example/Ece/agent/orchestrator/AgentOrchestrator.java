@@ -218,6 +218,19 @@ public class AgentOrchestrator {
             if (sink != null) {
                 sink.accept(stepEvent);
             }
+
+            // 工具可给出**终止信号**：例如"该检测类别在知识库里没有可核对条目"、"同名类别需先确认作物"。
+            // 这类问题再检索也答不出来，继续循环只会让模型拿相近主题的证据硬答
+            //（实测问"潜叶虫"时检索到 7 条番茄病害并试图作答）。因此立即结束本轮，
+            // 把工具给出的答复文案原样交给用户——该说"资料库不足"就直接说。
+            Object terminalAnswer = output.get("terminalAnswer");
+            if (Boolean.TRUE.equals(output.get("terminal")) && terminalAnswer != null) {
+                Object terminalReason = output.get("terminalReason");
+                return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                        AgentResult.Status.REFUSED,
+                        terminalReason == null ? "TOOL_TERMINAL" : String.valueOf(terminalReason),
+                        String.valueOf(terminalAnswer));
+            }
         }
 
         // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，

@@ -108,7 +108,10 @@ class VisionExplainToolTest {
         assertTrue(String.valueOf(output.get("note")).contains("马铃薯早疫病"));
     }
 
-    /** 没有可核对映射的类别必须明确说"没有依据"，不得猜测病名。 */
+    /**
+     * 没有可核对映射的类别必须明确说"资料库不足"，并给出终止信号。
+     * 终止是为了阻止模型继续检索无关内容硬答（实测问"潜叶虫"时检索到 7 条番茄病害）。
+     */
     @Test
     void refusesToGuessForUnmappedClass() throws ToolException {
         Map<String, Object> output = tool().execute(input("潜叶虫", "番茄"));
@@ -117,10 +120,14 @@ class VisionExplainToolTest {
         assertTrue(((List<?>) output.get("citations")).isEmpty(), "无映射时不得产生任何引用");
         String note = String.valueOf(output.get("note"));
         assertTrue(note.contains("没有可核对的对应条目"), "应明确说明缺依据：" + note);
-        assertTrue(note.contains("不得据此推断"), "应写明不得推断：" + note);
+        assertEquals(Boolean.TRUE, output.get("terminal"), "无对应条目必须终止本轮，不再检索");
+        assertEquals("KNOWLEDGE_INSUFFICIENT", output.get("terminalReason"));
+        String answer = String.valueOf(output.get("terminalAnswer"));
+        assertTrue(answer.contains("资料库不足"), "应直接说明资料库不足：" + answer);
+        assertTrue(answer.contains("潜叶虫"), "应写明是哪个类别：" + answer);
     }
 
-    /** 同名类别跨作物且未给作物时必须要求补充，而不是随便选一个。 */
+    /** 同名类别跨作物且未给作物时必须要求补充，而不是随便选一个（同样是终止本轮）。 */
     @Test
     void asksForCropWhenClassIsAmbiguous() throws ToolException {
         Map<String, Object> output = tool().execute(input("早疫病", null));
@@ -132,6 +139,9 @@ class VisionExplainToolTest {
         assertNotNull(candidates);
         assertTrue(candidates.contains("番茄早疫病") && candidates.contains("马铃薯早疫病"),
                 "候选应列出两个作物上的条目：" + candidates);
+        assertEquals(Boolean.TRUE, output.get("terminal"));
+        assertEquals("NEED_CROP", output.get("terminalReason"));
+        assertTrue(String.valueOf(output.get("terminalAnswer")).contains("请说明作物"));
     }
 
     @Test
@@ -139,6 +149,17 @@ class VisionExplainToolTest {
         Map<String, Object> output = tool().execute(input("不存在的类别", "番茄"));
         assertEquals(Boolean.TRUE, output.get("lowScore"));
         assertTrue(String.valueOf(output.get("note")).contains("未在视觉类别映射表中找到"));
+        assertEquals(Boolean.TRUE, output.get("terminal"), "未知类别也应终止本轮");
+        assertEquals("KNOWLEDGE_INSUFFICIENT", output.get("terminalReason"));
+        assertTrue(String.valueOf(output.get("terminalAnswer")).contains("资料库不足"));
+    }
+
+    /** 已核验映射的正常路径不得带终止信号，否则会误伤正常问答。 */
+    @Test
+    void doesNotSignalTerminalForMappedClass() throws ToolException {
+        Map<String, Object> output = tool().execute(input("Early_Blight(早疫病)", "番茄"));
+        assertFalse(Boolean.TRUE.equals(output.get("terminal")), "正常映射不应终止本轮");
+        assertEquals(Boolean.FALSE, output.get("lowScore"));
     }
 
     @Test
