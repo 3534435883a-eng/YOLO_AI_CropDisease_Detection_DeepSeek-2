@@ -441,6 +441,60 @@ class AgentOrchestratorTest {
         assertFalse(result.getAnswer().contains("已自动"), "最终回答不得含完成态越权表述");
     }
 
+    @Test
+    void refusesRewriteWithFabricatedCitationNumber() {
+        final int[] planCalls = {0};
+        final int[] composeCalls = {0};
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                planCalls[0]++;
+                return planCalls[0] == 1
+                        ? "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"褐色轮纹斑\"}}"
+                        : "{\"tool\":\"FINALIZE\",\"input\":{}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                composeCalls[0]++;
+                return composeCalls[0] == 1 ? "已自动开启设备。[1]" : "建议人工复核。[99]";
+            }
+        };
+        AgentResult result = new AgentOrchestrator(registry(), llm)
+                .run("invalid-rewrite-citation", "叶子有褐色轮纹斑", "番茄", null);
+
+        assertEquals(2, composeCalls[0]);
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertTrue(result.getCitations().isEmpty());
+    }
+
+    @Test
+    void carriesCompletedTurnOnlyWithinSameSession() {
+        final List<List<Map<String, Object>>> planningHistories = new ArrayList<List<Map<String, Object>>>();
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                planningHistories.add(new ArrayList<Map<String, Object>>(history));
+                for (Map<String, Object> message : history) {
+                    if (String.valueOf(message.get("content")).contains("已获得证据（编号全局一致")) {
+                        return "{\"tool\":\"FINALIZE\",\"input\":{}}";
+                    }
+                }
+                return "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"褐色轮纹斑\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return "疑似早疫病，建议复核。[1]";
+            }
+        };
+        AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), llm);
+        assertEquals(AgentResult.Status.DONE, orchestrator.run("session-a", "第一轮问题", "番茄", null).getStatus());
+        assertEquals(AgentResult.Status.DONE, orchestrator.run("session-a", "追问", "番茄", null).getStatus());
+        assertEquals(AgentResult.Status.DONE, orchestrator.run("session-b", "新会话问题", "番茄", null).getStatus());
+
+        assertTrue(planningHistories.get(2).stream().anyMatch(message ->
+                "疑似早疫病，建议复核。[1]".equals(message.get("content"))));
+        assertFalse(planningHistories.get(4).stream().anyMatch(message ->
+                String.valueOf(message.get("content")).contains("第一轮问题")));
+    }
+
     /** 重写仍越权时必须拒答——安全底线不因重试而放宽。 */
     @Test
     void stillRefusesWhenRewriteAlsoClaimsExecution() {

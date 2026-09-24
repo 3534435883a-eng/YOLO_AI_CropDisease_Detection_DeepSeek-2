@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>温室模型工作台</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #172029; color: #e9ece8; font-family: system-ui, sans-serif; letter-spacing: 0; }
+    #viewport { position: fixed; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+    #toggle-panel { position: fixed; top: 16px; right: 16px; z-index: 2; width: 38px; height: 38px; border: 1px solid #6b817c; border-radius: 6px; background: #1b302c; color: #f0eee5; cursor: pointer; font-size: 20px; }
+    #panel { position: fixed; top: 16px; left: 16px; z-index: 2; width: min(320px, calc(100vw - 80px)); max-height: calc(100vh - 32px); box-sizing: border-box; overflow: auto; padding: 16px; border: 1px solid #48645d; border-radius: 7px; background: rgba(20, 34, 34, 0.94); box-shadow: 0 12px 32px #0006; }
+    #panel[hidden] { display: none; }
+    h1 { margin: 0 0 5px; font-size: 19px; font-weight: 650; }
+    #status { margin: 0 0 16px; color: #8cdbc2; font-size: 12px; min-height: 18px; }
+    .control { border-top: 1px solid #45605b; padding: 11px 0; }
+    .label { display: block; margin-bottom: 8px; color: #b4c5bf; font-size: 12px; }
+    .row { display: flex; flex-wrap: wrap; gap: 6px; }
+    button.mode { border: 1px solid #647972; border-radius: 4px; background: #253936; color: #e9ece8; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+    button.mode.active { border-color: #77ccb0; background: #3a695a; }
+    button.mode:hover, #toggle-panel:hover { filter: brightness(1.2); }
+    .check { display: flex; align-items: center; gap: 8px; margin: 7px 0; font-size: 13px; }
+    input[type="checkbox"] { accent-color: #72c7a7; }
+    #details { margin: 0; font-size: 12px; line-height: 1.55; color: #c4d1cd; }
+    #selected { color: #ffe0a3; }
+    @media (max-width: 600px) { #panel { top: 8px; left: 8px; width: min(282px, calc(100vw - 64px)); padding: 12px; } #toggle-panel { top: 8px; right: 8px; } }
+  </style>
+</head>
+<body>
+  <canvas id="viewport" tabindex="0" aria-label="温室三维预览"></canvas>
+  <button id="toggle-panel" title="显示或隐藏控制面板" aria-controls="panel" aria-expanded="true">◫</button>
+  <aside id="panel">
+    <h1>温室模型工作台</h1>
+    <p id="status" role="status">正在加载模型</p>
+    <div class="control"><span class="label">视角</span><div class="row" id="presets">
+      <button class="mode" data-preset="overview">外部</button>
+      <button class="mode" data-preset="closeup">通道</button>
+      <button class="mode" data-preset="top">屋顶</button>
+      <button class="mode" data-preset="fruit">作物</button>
+    </div></div>
+    <div class="control"><span class="label">移动</span><div class="row" id="navigation">
+      <button class="mode active" data-navigation="orbit">环绕</button>
+      <button class="mode" data-navigation="fly">自由飞行</button>
+    </div></div>
+    <div class="control"><span class="label">棚膜</span><div class="row" id="shell-modes">
+      <button class="mode active" data-shell="solid">完整</button>
+      <button class="mode" data-shell="translucent">透明</button>
+      <button class="mode" data-shell="cutaway">剖切</button>
+    </div></div>
+    <div class="control">
+      <label class="check"><input id="demo-devices" type="checkbox" />设备运行状态</label>
+      <label class="check"><input id="auto-sync" type="checkbox" checked />自动同步新导出模型</label>
+    </div>
+    <div class="control"><p id="details"><span id="selected">未选择设备</span><br /><span id="metrics"></span></p></div>
+  </aside>
+  <script type="module" src="/src/views/digitalTwin/workbench.ts"></script>
+</body>
+</html>

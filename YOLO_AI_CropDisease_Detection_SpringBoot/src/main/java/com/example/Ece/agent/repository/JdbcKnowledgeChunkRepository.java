@@ -25,8 +25,16 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
     private static final String DELETE_ORIGIN_BY_SOURCE =
             "DELETE FROM agent_knowledge_chunk_origin WHERE source_code = ?";
     private static final String SELECT_HASHES = "SELECT content_hash FROM agent_knowledge_chunk";
-    private static final String SELECT_ALL = "SELECT source_table, source_id, crop_type, disease_name, field_type, "
-            + "chunk_no, start_offset, content, content_hash FROM agent_knowledge_chunk ORDER BY id";
+    private static final String SELECT_ALL = "SELECT c.source_table, c.source_id, c.crop_type, c.disease_name, "
+            + "c.field_type, c.chunk_no, c.start_offset, c.content, c.content_hash, o.source_code, "
+            + "s.source_name, s.source_type, s.url AS source_url, s.version AS source_version "
+            + "FROM agent_knowledge_chunk c "
+            + "LEFT JOIN agent_knowledge_chunk_origin o ON o.id = "
+            + "(SELECT MIN(origin_row.id) FROM agent_knowledge_chunk_origin origin_row "
+            + "WHERE origin_row.content_hash = c.content_hash) "
+            + "LEFT JOIN agent_knowledge_source s ON s.id = "
+            + "(SELECT MAX(source_row.id) FROM agent_knowledge_source source_row "
+            + "WHERE source_row.source_code = o.source_code) ORDER BY c.id";
     private static final String SELECT_EMBEDDINGS = "SELECT embedding FROM agent_knowledge_chunk ORDER BY id";
     private static final String INSERT_CHUNK = "INSERT INTO agent_knowledge_chunk "
             + "(source_table, source_id, crop_type, disease_name, field_type, chunk_no, start_offset, content, "
@@ -127,7 +135,9 @@ public class JdbcKnowledgeChunkRepository implements KnowledgeChunkRepository {
                 return new KnowledgeChunk(rs.getString("source_table"), rs.getLong("source_id"),
                         rs.getString("crop_type"), rs.getString("disease_name"),
                         parseFieldType(rs.getString("field_type")), rs.getInt("chunk_no"),
-                        rs.getInt("start_offset"), rs.getString("content"), rs.getString("content_hash"));
+                        rs.getInt("start_offset"), rs.getString("content"), rs.getString("content_hash"),
+                        rs.getString("source_code"), rs.getString("source_name"), rs.getString("source_type"),
+                        rs.getString("source_url"), rs.getString("source_version"));
             }
         });
     }

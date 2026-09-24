@@ -1,676 +1,165 @@
-<script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
-import * as echarts from 'echarts'
-import { ElCard } from 'element-plus'
-import 'element-plus/dist/index.css'
-import { useRouter } from 'vue-router'
-import { useAgentRunStore } from '/@/stores/agentRun'
-
-const router = useRouter()
-const agentStore = useAgentRunStore()
-
-const asRecord = (value: unknown): Record<string, unknown> => {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : {}
-}
-
-const agentState = computed(() => asRecord(agentStore.summary?.currentState || agentStore.summary?.state))
-const agentStatus = computed(() => String(agentStore.activeRun?.status || agentStore.summary?.status || 'READY').toUpperCase())
-const agentStatusLabel = computed(() => ({
-  RUNNING: '自动推演中',
-  PAUSED: '模拟已暂停',
-  COMPLETED: '本轮完成',
-  READY: '等待创建',
-}[agentStatus.value] || '模拟待命'))
-const agentStatusType = computed(() => {
-  if (agentStatus.value === 'RUNNING') return 'success'
-  if (agentStatus.value === 'PAUSED') return 'warning'
-  return 'info'
-})
-const readAgentMetric = (keys: string[], digits: number, unit: string) => {
-  for (const key of keys) {
-    const numericValue = Number(agentState.value[key])
-    if (Number.isFinite(numericValue)) return `${numericValue.toFixed(digits)} ${unit}`
-  }
-  return '--'
-}
-const agentTemperature = computed(() => readAgentMetric(['temperatureC', 'temperature_c', 'temperature'], 1, 'C'))
-const agentHumidity = computed(() => readAgentMetric(['airHumidityPct', 'air_humidity_pct', 'airHumidity'], 1, '%'))
-const agentRisk = computed(() => String(agentState.value.riskLevel || agentState.value.risk_level || '--'))
-const agentStep = computed(() => Number(agentStore.activeRun?.currentStep || agentStore.activeRun?.progress || 0))
-
-// 统计数据
-const statistics = ref({
-  users: 42,
-  greenhouse: 9,
-  diseases: 141,
-  yield: 1232
-})
-
-// 图表实例
-let diseaseDistChart: echarts.ECharts
-let plantingStatsChart: echarts.ECharts
-
-// 天气信息
-const weatherInfo = ref({
-  date: '',
-  weekday: '',
-  status: '',
-  temperature: '',
-  weather: '',
-  wind: '',
-  airQuality: '',
-  notice: ''
-})
-
-// 种植作物数据
-const cropTypes = ref([
-  { name: '1号温室', crop: '玉米', status: '生长良好', plantCount: 350, diseaseCount: 20 },
-  { name: '2号温室', crop: '水稻', status: '生长良好', plantCount: 400, diseaseCount: 15 },
-  { name: '3号温室', crop: '小麦', status: '需要关注', plantCount: 350, diseaseCount: 18 },
-  { name: '4号温室', crop: '马铃薯', status: '生长良好', plantCount: 250, diseaseCount: 12 },
-  { name: '5号温室', crop: '棉花', status: '生长良好', plantCount: 300, diseaseCount: 16 },
-  { name: '6号温室', crop: '苹果', status: '需要关注', plantCount: 8, diseaseCount: 14 },
-  { name: '7号温室', crop: '葡萄', status: '生长良好', plantCount: 300, diseaseCount: 17 },
-  { name: '8号温室', crop: '番茄', status: '生长良好', plantCount: 300, diseaseCount: 14 },
-  { name: '9号温室', crop: '草莓', status: '生长良好', plantCount: 300, diseaseCount: 15 }
-])
-
-// 农业链接
-const agricultureLinks = ref([
-  { name: '中国农村网', url: 'https://www.crnews.net/', icon: 'icon-nongye' },
-  { name: '中国农业网', url: 'https://www.zgny.com/', icon: 'icon-keji' },
-  { name: '农业气象网', url: 'http://www.nmc.cn/publish/agro/soil-moisture-monitoring-10cm.html', icon: 'icon-zhihui' },
-  { name: '农业病虫害服务站', url: 'https://farm.sino-eco.com/website/bingchonghai/', icon: 'icon-qixiang' },
-  { name: '国家农业数据中心', url: 'https://www.agridata.cn/', icon: 'icon-qixiang' },
-  { name: '农业病虫害研究图库', url: 'http://www.icgroupcas.cn/website_bchtk/zhenduan.aspx', icon: 'icon-qixiang' },
-  { name: '中国害虫防治网', url: 'http://zghcfzw.com/', icon: 'icon-qixiang' },
-  { name: '中国农业科学院', url: 'https://www.caas.cn/', icon: 'icon-qixiang' },
-  { name: '中国农业农村信息网', url: 'https://www.agri.cn/', icon: 'icon-qixiang' },
-  { name: '农业中国_中国网', url: 'http://agri.china.com.cn/', icon: 'icon-bingchonghai' }
-])
-
-// 获取天气数据
-const fetchWeatherData = async () => {
-  try {
-    const appid = '33291957'
-    const appsecret = 'FL2wmc16'
-    const cityid = '101010100'
-    const url = `http://v1.yiketianqi.com/api?unescape=1&version=v61&appid=${appid}&appsecret=${appsecret}&cityid=${cityid}`
-    
-    const response = await fetch(url)
-    const data = await response.json()
-    
-    weatherInfo.value = {
-      date: data.date,
-      weekday: data.week,
-      status: data.city,
-      temperature: data.tem + '°C',
-      weather: data.wea,
-      wind: `${data.win} ${data.win_speed}`,
-      airQuality: `${data.air_level} (AQI: ${data.air})`,
-      notice: data.air_tips
-    }
-  } catch (err) {
-    console.error('获取天气数据失败:', err)
-  }
-}
-
-onMounted(() => {
-  fetchWeatherData() // 获取天气数据
-  if (!agentStore.loading) agentStore.loadActiveRun()
-})
-
-</script>
-
 <template>
-  <div class="home-page">
-    <!-- 顶部区域 -->
-    <div class="top-section">
-      <!-- 系统公告 -->
-      <ElCard class="notice-card">
-        <template #header>
-          <div class="card-header">
-            <span>系统公告</span>
-          </div>
-        </template>
-        <div class="notice-content">
-          尊敬的各位系统用户：您好！欢迎使用本智慧农业云平台系统。为确保您能够顺畅、高效地运用本系统，充分发挥其功能优势，现将首页关键使用事项公告如下，请您仔细阅读并予以配合。本智慧农业云平台集成了多项先进技术，通过首页，您可一键快速实时查看环境监测、病害生长数据分析、园林作物病虫害监控。促进病虫害及时发现及防治，助力农业智能化。科学化管理重点养殖业，提升养殖效益与质量！
-        </div>
-      </ElCard>
+	<main class="workbench">
+		<header class="page-head">
+			<div><h1>农业决策工作台</h1><p>8号温室 · 番茄</p></div>
+			<el-button :icon="Refresh" :loading="refreshing" @click="refresh">刷新</el-button>
+		</header>
 
-      <!-- 常用应用 -->
-      <ElCard class="quick-apps-card">
-        <template #header>
-          <div class="card-header">
-            <span>常用应用</span>
-          </div>
-        </template>
-        <div class="apps-grid">
-          <div class="app-item" @click="$router.push('/infoDisease')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-bingchonghai-1haichong"></i>
-            </div>
-            <span>病虫害数据库</span>
-          </div>
-          <div class="app-item" @click="$router.push('/smartChat')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-znwd"></i>
-            </div>
-            <span>智能助手</span>
-          </div>
-          <div class="app-item" @click="$router.push('/imgPredict')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-tpjc"></i>
-            </div>
-            <span>图片检测</span>
-          </div>
-          <div class="app-item" @click="$router.push('/imgRecord')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-tpjl"></i>
-            </div>
-            <span>图片检测记录</span>
-          </div>
-          <div class="app-item" @click="$router.push('/videoPredict')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-spjc"></i>
-            </div>
-            <span>视频检测</span>
-          </div>
-          <div class="app-item" @click="$router.push('/videoRecord')">
-            <div class="app-icon">
-              <i class="iconfontjs icon-spjl"></i>
-            </div>
-            <span>视频检测记录</span>
-          </div>
-        </div>
-      </ElCard>
+		<section class="run-band" aria-label="当前运行">
+			<div class="run-heading"><div><span class="section-label">当前运行</span><h2>{{ runTitle }}</h2></div><el-tag :type="statusTone" effect="plain">{{ statusLabel }}</el-tag></div>
+			<p v-if="!agentStore.serviceAvailable" class="service-error">推演服务未连接，运行状态暂时无法读取。</p>
+			<p v-else class="run-meta">{{ runMeta }}</p>
+			<div class="run-actions">
+				<el-button type="primary" :icon="Operation" @click="go('/agentCenter')">{{ agentStore.hasActiveRun ? '进入推演' : '创建推演' }}</el-button>
+				<el-button :icon="View" @click="go('/digitalTwin?mode=agent')">查看三维场景</el-button>
+			</div>
+		</section>
 
-      <!-- 天气信息 -->
-      <ElCard class="weather-card">
-        <template #header>
-          <div class="card-header">
-            <span>天气预报</span>
-          </div>
-        </template>
-        <div class="weather-info">
-          <div class="weather-header">
-            {{ weatherInfo.date }} &nbsp; {{ weatherInfo.weekday }}&nbsp; {{ weatherInfo.status }}
-          </div>
-          <div class="weather-details">
-            <div class="weather-item">温度: {{ weatherInfo.temperature }}</div>
-            <div class="weather-item">天气: {{ weatherInfo.weather }}</div>
-            <div class="weather-item">风向: {{ weatherInfo.wind }}</div>
-            <div class="weather-item">空气质量: {{ weatherInfo.airQuality }}</div>
-          </div>
-          <div class="weather-notice">注意事项：
-            {{ weatherInfo.notice }}
-          </div>
-        </div>
-      </ElCard>
-    </div>
+		<nav class="workflow" aria-label="主要工作流程">
+			<button type="button" @click="go('/imgPredict')"><el-icon><Picture /></el-icon><span><strong>病害识别</strong><small>上传图片并查看检测结果</small></span><el-icon><ArrowRight /></el-icon></button>
+			<button type="button" @click="go('/agentChat')"><el-icon><ChatLineRound /></el-icon><span><strong>决策助手</strong><small>核对知识依据和处置建议</small></span><el-icon><ArrowRight /></el-icon></button>
+			<button type="button" @click="go('/agentCenter')"><el-icon><DataAnalysis /></el-icon><span><strong>温室推演</strong><small>比较策略与查看虚拟设备</small></span><el-icon><ArrowRight /></el-icon></button>
+		</nav>
 
-    <!-- 数据统计 -->
-    <div class="statistics-row">
-      <div class="stat-item">
-        <i class="iconfontjs icon-yh"></i>
-        <div class="stat-info">
-          <div class="stat-value">{{ statistics.users }}</div>
-          <div class="stat-label">用户</div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <i class="iconfontjs icon-znws"></i>
-        <div class="stat-info">
-          <div class="stat-value">{{ statistics.greenhouse }}</div>
-          <div class="stat-label">温室</div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <i class="iconfontjs icon-bingchonghai-1haichong"></i>
-        <div class="stat-info">
-          <div class="stat-value">{{ statistics.diseases }}</div>
-          <div class="stat-label">病害</div>
-        </div>
-      </div>
-      <div class="stat-item">
-        <i class="iconfontjs icon-cc"></i>
-        <div class="stat-info">
-          <div class="stat-value">{{ statistics.yield }}</div>
-          <div class="stat-label">产量</div>
-        </div>
-      </div>
-    </div>
+		<div class="content-grid">
+			<section class="data-section">
+				<div class="section-head"><h2>温室状态</h2><span>模拟推演 / 规则计算</span></div>
+				<div v-if="agentStore.hasActiveRun && stateMetrics.length" class="metric-grid">
+					<div v-for="item in stateMetrics" :key="item.label" class="metric"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.source }}</small></div>
+				</div>
+				<p v-else class="empty">{{ agentStore.loading ? '正在读取运行状态…' : '暂无运行数据。创建推演后显示环境状态。' }}</p>
+			</section>
+			<section class="data-section">
+				<div class="section-head"><h2>待关注事项</h2><span>{{ alerts.length }} 项</span></div>
+				<div v-if="alerts.length" class="alert-list">
+					<div v-for="alert in alerts.slice(0, 4)" :key="String(alert.id || alert.message || alert.title)" class="alert-row"><el-tag size="small" :type="alertTone(alert.severity || alert.level)">{{ alertLabel(alert.severity || alert.level) }}</el-tag><span>{{ alert.message || alert.description || alert.title }}</span></div>
+				</div>
+				<p v-else class="empty">{{ agentStore.hasActiveRun ? '当前运行没有待关注告警。' : '暂无运行告警。' }}</p>
+			</section>
+		</div>
 
-    <section class="agent-overview" aria-label="8号温室番茄智能体模拟状态">
-      <div class="agent-overview-copy">
-        <div class="agent-overview-title">
-          <span>8号温室番茄智能体</span>
-          <el-tag size="small" effect="plain" :type="agentStatusType">{{ agentStatusLabel }}</el-tag>
-        </div>
-        <p>开花坐果期 · 数据来源：仿真生成 · 第 {{ agentStep }} 个虚拟步</p>
-      </div>
-      <div class="agent-overview-metrics">
-        <span>温度 {{ agentTemperature }}</span>
-        <span>湿度 {{ agentHumidity }}</span>
-        <span>风险 {{ agentRisk }}</span>
-      </div>
-      <el-button type="primary" plain @click="router.push('/agentCenter')">进入指挥中心</el-button>
-    </section>
-
-    <!-- 图表区域 -->
-    <div class="charts-container">
-      <!-- 温室作物信息和农业链接并排显示 -->
-      <div class="content-row">
-        <!-- 温室作物信息 -->
-        <ElCard class="crop-info-card">
-          <template #header>
-            <div class="card-header">
-              <span>温室作物信息</span>
-            </div>
-          </template>
-          <div class="crop-grid">
-            <div v-for="(item, index) in cropTypes" :key="index" class="crop-item">
-              <div class="crop-header">{{ item.name }}</div>
-              <div class="crop-content">
-                <div class="crop-type">作物：{{ item.crop }}</div>
-                <div class="crop-numbers">
-                  <span class="plant-count">种植数量：{{ item.plantCount }}</span>
-                  <span class="disease-count">病害数量：{{ item.diseaseCount }}</span>
-                </div>
-                <div class="crop-status" :class="{ 'warning': item.status === '需要关注' }">
-                  状态：{{ item.status }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </ElCard>
-
-        <!-- 农业链接 -->
-        <ElCard class="links-card">
-          <template #header>
-            <div class="card-header">
-              <span>常用农业链接</span>
-            </div>
-          </template>
-          <div class="links-grid">
-            <a v-for="(link, index) in agricultureLinks" 
-               :key="index" 
-               :href="link.url" 
-               target="_blank" 
-               class="link-item">
-              <i :class="link.icon"></i>
-              <span>{{ link.name }}</span>
-            </a>
-          </div>
-        </ElCard>
-      </div>
-    </div>
-  </div>
+		<section class="data-section latest-section">
+			<div class="section-head"><h2>最近识别信号</h2><el-button link type="primary" @click="go('/imgRecord')">查看识别记录</el-button></div>
+			<div v-if="latestVision" class="vision-row">
+				<div class="vision-main"><strong>{{ latestVision.detectedLabel || '类别未提供' }}</strong><span>{{ latestVision.cropType || '作物未提供' }} · {{ latestVision.observedAt || '时间未提供' }}</span></div>
+				<el-tag :type="latestVision.explainable ? 'success' : 'warning'" effect="plain">{{ latestVision.explainable ? '知识库可核对' : '暂无对应条目' }}</el-tag>
+				<el-button :icon="ChatLineRound" @click="goVisionChat">到决策助手</el-button>
+			</div>
+			<p v-else class="empty">{{ visionLoading ? '正在读取识别信号…' : '当前运行尚无导入的识别信号。' }}</p>
+		</section>
+	</main>
 </template>
 
-<style scoped lang="scss">
-.home-page {
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: 100vh;
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { ArrowRight, ChatLineRound, DataAnalysis, Operation, Picture, Refresh, View } from '@element-plus/icons-vue';
+import { AgentAlert, AgentVisionEvent, getAgentVisionEvents } from '/@/api/agent';
+import { useAgentRunStore } from '/@/stores/agentRun';
 
-  .top-section {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 16px;
+const router = useRouter();
+const agentStore = useAgentRunStore();
+const refreshing = ref(false);
+const visionLoading = ref(false);
+const latestVision = ref<AgentVisionEvent | null>(null);
+const go = (path: string) => router.push(path);
+const currentState = computed<Record<string, unknown>>(() => agentStore.summary?.currentState || agentStore.summary?.state || {});
+const status = computed(() => String(agentStore.activeRun?.status || 'READY').toUpperCase());
+const statusLabel = computed(() => agentStore.serviceAvailable
+	? ({ RUNNING: '运行中', PAUSED: '已暂停', COMPLETED: '已完成', DRAFT: '待启动', READY: '未创建' }[status.value] || status.value)
+	: '服务未连接');
+const statusTone = computed<'success' | 'warning' | 'info'>(() => status.value === 'RUNNING' ? 'success' : status.value === 'PAUSED' ? 'warning' : 'info');
+const runTitle = computed(() => !agentStore.serviceAvailable ? '推演服务未连接' : agentStore.hasActiveRun ? '番茄温室规则推演' : '尚未创建推演');
+const runMeta = computed(() => agentStore.hasActiveRun
+	? `运行 ${agentStore.activeRun?.runCode || agentStore.runId} · 第 ${agentStore.activeRun?.currentStep ?? 0} 步 · 仿真数据，非实测`
+	: '创建运行后可查看规则结论、虚拟设备和同期策略对比。');
+const goVisionChat = () => {
+	const recordId = latestVision.value?.sourceRecordId;
+	void router.push(recordId === undefined || recordId === null
+		? '/agentChat'
+		: { path: '/agentChat', query: { recordId: String(recordId) } });
+};
+const alerts = computed<AgentAlert[]>(() => Array.isArray(agentStore.summary?.alerts) ? agentStore.summary.alerts : []);
+const alertTone = (severity: unknown): 'danger' | 'warning' | 'info' => {
+	const value = String(severity || '').toUpperCase();
+	return value === 'HIGH' || value === 'CRITICAL' ? 'danger' : value === 'MEDIUM' ? 'warning' : 'info';
+};
+const alertLabel = (severity: unknown) => ({ HIGH: '高风险', CRITICAL: '紧急', MEDIUM: '需关注', LOW: '提示' }[String(severity || '').toUpperCase()] || '提示');
+const metric = (label: string, keys: string[], unit: string, digits: number, source: string) => {
+	const value = keys.map((key) => currentState.value[key]).find((item) => item !== null && item !== undefined && item !== '');
+	const number = Number(value);
+	return { label, value: value === undefined || !Number.isFinite(number) ? '--' : `${number.toFixed(digits)} ${unit}`, source };
+};
+const stateMetrics = computed(() => agentStore.summary ? [
+	metric('室内温度', ['temperatureC', 'temperature_c', 'temperature'], '°C', 1, '模拟'),
+	metric('空气湿度', ['airHumidityPct', 'air_humidity_pct', 'airHumidity'], '%', 1, '模拟'),
+	metric('VPD', ['vpdKpa', 'vpd_kpa'], 'kPa', 2, '计算'),
+	metric('环境风险', ['environmentRisk', 'environment_risk'], '%', 0, '规则计算'),
+] : []);
 
-    @media (max-width: 1200px) {
-      grid-template-columns: 1fr;
-    }
-
-    .notice-card, .weather-card, .quick-apps-card {
-      background: #fff;
-      border-radius: 4px;
-      
-      :deep(.el-card__header) {
-        padding: 12px 16px;
-        border-bottom: 1px solid #ebeef5;
-      }
-
-      :deep(.el-card__body) {
-        padding: 16px;
-      }
-
-      .card-header {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1f2f3d;
-      }
-    }
-
-    .notice-card {
-      .notice-content {
-        font-size: 14px;
-        font-weight: 500;
-        color: #606266;
-        line-height: 1.8;
-      }
-    }
-
-    .quick-apps-card {      
-      .apps-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-        padding: 8px;
-
-        .app-item {
-          display: flex;
-          flex-direction: row;
-          align-items: center;
-          justify-content: flex-start;
-          background: #f5f7fa;
-          padding: 16px;
-          border-radius: 4px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-
-          .app-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-
-            i {
-              font-size: 20px;
-              color: #409EFF;
-            }
-          }
-
-          span {
-            color: #606266;
-            font-size: 15px;
-            font-weight: 500;
-          }
-
-          &:hover {
-            background: #ecf5ff;
-            
-            .app-icon i {
-              color: #409EFF;
-            }
-            
-            span {
-              color: #409EFF;
-            }
-          }
-        }
-      }
-    }
-
-    .weather-card {
-      .weather-info {
-        .weather-header {
-          font-size: 15px;
-          font-weight: 500;
-          color: #606266;
-          margin-bottom: 12px;
-        }
-
-        .weather-details {
-          margin-bottom: 12px;
-
-          .weather-item {
-            font-size: 14px;
-            font-weight: 500;
-            color: #606266;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            
-            &:before {
-              content: '•';
-              color: #409EFF;
-              margin-right: 6px;
-            }
-          }
-        }
-
-        .weather-notice {
-          font-size: 13px;
-          font-weight: 500;
-          color: #909399;
-          line-height: 2;
-          background: #f5f7fa;
-          padding: 8px 12px;
-          border-radius: 4px;
-        }
-      }
-    }
-  }
-
-  .statistics-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 16px;
-
-    .stat-item {
-      background: white;
-      padding: 20px;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      box-shadow: 0 2px 11px 0 rgba(0, 0, 0, 0.1);
-
-
-      i {
-        font-size: 24px;
-        color: #409EFF;
-        background: #ecf5ff;
-        padding: 12px;
-        border-radius: 8px;
-        transition: all 0.3s ease;
-      }
-
-      .stat-info {
-        .stat-value {
-          font-size: 24px;
-          font-weight: 600;
-          color: #303133;
-          margin-bottom: 8px;
-        }
-
-        .stat-label {
-          font-size: 15px;
-          font-weight: 500;
-          color: #909399;
-        }
-      }
-    }
-  }
-
-  .agent-overview {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    margin-bottom: 16px;
-    padding: 14px 16px;
-    border: 1px solid #d7e7da;
-    border-radius: 4px;
-    background: #ffffff;
-
-    .agent-overview-copy {
-      min-width: 220px;
-    }
-
-    .agent-overview-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #2d4234;
-      font-size: 15px;
-      font-weight: 600;
-    }
-
-    p {
-      margin: 6px 0 0;
-      color: #728076;
-      font-size: 12px;
-    }
-
-    .agent-overview-metrics {
-      display: flex;
-      flex: 1;
-      justify-content: flex-end;
-      gap: 18px;
-      color: #526158;
-      font-size: 13px;
-      white-space: nowrap;
-    }
-  }
-
-  .charts-container {
-    .content-row {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 16px;
-    }
-
-    .chart-card, .crop-info-card, .links-card {
-      background: #fff;
-      border-radius: 4px;
-
-      :deep(.el-card__header) {
-        padding: 12px 16px;
-        border-bottom: 1px solid #ebeef5;
-      }
-
-      :deep(.el-card__body) {
-        padding: 16px;
-      }
-
-      .card-header {
-        font-size: 16px;
-        font-weight: 600;
-        color: #1f2f3d;
-      }
-    }
-
-    .crop-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-      padding: 12px;
-
-      .crop-item {
-        background: #f5f7fa;
-        border-radius: 4px;
-        padding: 8px;
-
-        .crop-header {
-          font-size: 14px;
-          font-weight: 600;
-          color: #303133;
-          margin-bottom: 4px;
-        }
-
-        .crop-content {
-          .crop-type {
-            font-size: 13px;
-            color: #606266;
-            margin-bottom: 2px;
-          }
-
-          .crop-numbers {
-            display: flex;
-            flex-direction: row;
-            justify-content: space-between;
-            gap: 8px;
-            margin-bottom: 2px;
-            font-size: 13px;
-            
-            .plant-count {
-              color: #67c23a;
-            }
-            
-            .disease-count {
-              color: #f56c6c;
-            }
-          }
-
-          .crop-status {
-            font-size: 13px;
-            color: #67c23a;
-            margin-top: 2px;
-
-            &.warning {
-              color: #e6a23c;
-            }
-          }
-        }
-      }
-    }
-
-    .links-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
-      padding: 8px;
-
-      .link-item {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: flex-start;
-        background: #f5f7fa;
-        padding: 16px;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-decoration: none;
-
-        i {
-          font-size: 20px;
-          color: #409EFF;
-          margin-right: 8px;
-        }
-
-        span {
-          color: #606266;
-          font-size: 15px;
-          font-weight: 500;
-        }
-
-        &:hover {
-          background: #ecf5ff;
-          
-          i {
-            color: #409EFF;
-          }
-          
-          span {
-            color: #409EFF;
-          }
-        }
-      }
-    }
-  }
-
-  @media (max-width: 760px) {
-    .statistics-row {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .agent-overview {
-      align-items: flex-start;
-      flex-direction: column;
-
-      .agent-overview-metrics {
-        flex-wrap: wrap;
-        justify-content: flex-start;
-        gap: 8px 14px;
-        white-space: normal;
-      }
-    }
-  }
+async function refresh() {
+	refreshing.value = true;
+	await agentStore.loadActiveRun();
+	latestVision.value = null;
+	if (agentStore.runId !== null) {
+		visionLoading.value = true;
+		try {
+			const events = await getAgentVisionEvents(agentStore.runId, 1);
+			latestVision.value = events[0] || null;
+		} catch {
+			latestVision.value = null;
+		} finally {
+			visionLoading.value = false;
+		}
+	}
+	refreshing.value = false;
 }
+
+onMounted(() => { void refresh(); });
+</script>
+
+<style scoped>
+.workbench { min-height: 100%; padding: 24px; background: #f5f7f5; color: #243129; }
+.page-head, .run-heading, .run-actions, .section-head, .vision-row, .alert-row { display: flex; align-items: center; }
+.page-head, .run-heading, .section-head { justify-content: space-between; gap: 16px; }
+.page-head { margin-bottom: 20px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 24px; font-weight: 650; }
+.page-head p { margin-top: 4px; color: #69756c; font-size: 13px; }
+h2 { font-size: 16px; font-weight: 650; }
+.run-band { padding: 22px 24px; border-left: 4px solid #3c805d; background: #fff; }
+.section-label { display: block; margin-bottom: 5px; color: #6b786f; font-size: 12px; }
+.run-band h2 { font-size: 20px; }
+.run-meta, .service-error { margin-top: 10px; color: #627068; font-size: 13px; }
+.service-error { color: #a83f39; }
+.run-actions { gap: 10px; margin-top: 18px; }
+.workflow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; margin: 20px 0; background: #dce4de; border: 1px solid #dce4de; }
+.workflow button { display: flex; align-items: center; gap: 13px; min-width: 0; min-height: 88px; padding: 18px; border: 0; background: #fff; color: #274334; text-align: left; cursor: pointer; }
+.workflow button:hover, .workflow button:focus-visible { background: #edf5ee; }
+.workflow button > .el-icon:first-child { flex: 0 0 auto; font-size: 23px; }
+.workflow button > .el-icon:last-child { flex: 0 0 auto; margin-left: auto; color: #77877a; }
+.workflow strong, .workflow small { display: block; }
+.workflow strong { margin-bottom: 4px; font-size: 15px; }
+.workflow small { color: #718077; font-size: 12px; line-height: 1.4; }
+.content-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; }
+.data-section { min-width: 0; padding: 18px 20px; background: #fff; border: 1px solid #e0e7e1; }
+.section-head { min-height: 28px; margin-bottom: 15px; }
+.section-head span { color: #748178; font-size: 12px; }
+.metric-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.metric { padding: 13px 0; border-top: 1px solid #e8eee9; }
+.metric span, .metric strong, .metric small { display: block; }
+.metric span { color: #6c7a70; font-size: 12px; }
+.metric strong { margin: 6px 0 3px; font-size: 21px; font-weight: 650; }
+.metric small { color: #718779; font-size: 11px; }
+.alert-list { display: grid; gap: 8px; }
+.alert-row { gap: 10px; padding: 9px 0; border-top: 1px solid #e8eee9; font-size: 13px; line-height: 1.4; }
+.empty { padding: 14px 0; color: #7d8980; font-size: 13px; }
+.latest-section { margin-top: 20px; }
+.vision-row { gap: 15px; flex-wrap: wrap; padding-top: 12px; border-top: 1px solid #e8eee9; }
+.vision-main { flex: 1; min-width: 180px; }
+.vision-main strong, .vision-main span { display: block; }
+.vision-main strong { font-size: 14px; }
+.vision-main span { margin-top: 4px; color: #7b887e; font-size: 12px; }
+@media (max-width: 900px) { .content-grid { grid-template-columns: 1fr; } }
+@media (max-width: 680px) { .workbench { padding: 14px; }.workflow { grid-template-columns: 1fr; }.run-band { padding: 18px; }.run-actions { flex-wrap: wrap; } }
 </style>

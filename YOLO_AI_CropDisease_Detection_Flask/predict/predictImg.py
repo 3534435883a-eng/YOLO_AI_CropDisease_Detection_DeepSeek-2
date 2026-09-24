@@ -31,8 +31,7 @@ class ImagePredictor:
             'potato': ['Early_Blight(早疫病)', 'Healthy(健康)', 'Late_Blight(晚疫病)'],
             'tomato': ['Early_Blight(早疫病)', 'Healthy(健康)', 'Late_Blight(晚疫病)', 'Leaf_Miner(潜叶虫)',
                        'Leaf_Mold(叶霉病)', 'Mosaic_V(花叶病毒)', 'Septoria(壳针孢病)', 'Spider_M(红蜘蛛)',
-                       'YLCV(黄化卷叶病毒)', 'maize-streak-disease（玉米条斑病）', 'yellow-stem-borer（黄秆虫病）',
-                       'yellow-stem-borer-larva（黄秆虫幼虫病）'],
+                       'YLCV(黄化卷叶病毒)'],
             'cotton': ['Blight(枯萎病)', 'Curl(卷叶病)', 'Healthy(健康)', 'Wilt(萎蔫病)', 'Wilt(萎蔫病)'],
             'apple': ['Apple_RootRot(黑根腐)', 'Scab(黑星)', 'CedarRust(锈病)', 'Healthy(健康)'],
             'grape': ['Black_Rot(黑腐病)', 'Downey_Mildew(白粉病)', 'Esca(木材腐烂病)', 'Healthy(健康)',
@@ -40,7 +39,15 @@ class ImagePredictor:
             'strawberry': ['Angular_LS(角斑病)', 'Anthracnose_FR(炭疽果腐)', 'Blossom_BT(花枯病)', 'Gray_Mold(灰霉病)',
                            'Leaf_Spot(叶斑病)', 'Powdery_Fruit(白粉病果)', 'Powdery_Leaf(白粉病叶)']
         }
-        self.labels = self.kind[kind]
+        # 类别索引必须以权重文件的 names 元数据为准；手写列表一旦漂移，
+        # 就会把正确的 class index 显示成另一种病害。保留 kind 只作为兼容旧权重的兜底。
+        model_names = getattr(self.model, "names", None)
+        if isinstance(model_names, dict) and model_names:
+            self.labels = [str(model_names[index]) for index in sorted(model_names)]
+        elif isinstance(model_names, (list, tuple)) and model_names:
+            self.labels = [str(label) for label in model_names]
+        else:
+            self.labels = self.kind[kind]
 
     def map_confidence(self, original_conf):
         """

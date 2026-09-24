@@ -33,7 +33,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -50,8 +49,8 @@ public class AgentRunService {
     public static final int DEFAULT_TICK_MINUTES = 15;
     public static final long DEFAULT_GREENHOUSE_ID = 77L;
     public static final long DEFAULT_SEED = 20260921L;
-    private static final String MODEL_VERSION = "tomato-greenhouse-v1";
-    private static final String RULE_VERSION = "tomato-policy-v1";
+    private static final String MODEL_VERSION = "tomato-greenhouse-v5";
+    private static final String RULE_VERSION = "tomato-policy-v2";
     private static final LocalDateTime SIMULATION_START = LocalDateTime.of(2026, 9, 21, 6, 0);
     private static final DateTimeFormatter INPUT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -120,8 +119,11 @@ public class AgentRunService {
 
         createDevices(row.id, now);
         createResources(row.id, now);
-        repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
+        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
                 jsonMap("source", "greenhouse:" + greenhouseId, "label", "历史基线，仅用于仿真初始化"), now);
+        saveTwinFrame(baselineSnapshotId, row.id, 0, "LEGACY_HISTORY",
+                initial, row.seed, row.tickMinutes, repository.findDevices(row.id),
+                repository.findResources(row.id), Collections.emptyList());
         repository.insertAudit(row.id, "RUN_CREATED", "RUN", row.id, row.createdBy,
                 UUID.randomUUID().toString(), null, stateJson(initial), now);
         return toRunResponse(row);
@@ -135,6 +137,39 @@ public class AgentRunService {
         AgentJdbcRepository.RunRow run = requireRun(runId, false);
         AgentJdbcRepository.SnapshotRow snapshot = repository.findLatestSnapshot(runId);
         return buildSummary(run, snapshot);
+    }
+
+    public List<Map<String, Object>> getTwinFrames(Long runId) {
+        requireRun(runId, false);
+        List<Map<String, Object>> frames = new ArrayList<>();
+        for (AgentJdbcRepository.SnapshotRow snapshot : repository.findTwinSnapshots(runId)) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("snapshotId", snapshot.id);
+            item.put("stepNo", snapshot.stepNo);
+            item.put("sourceType", snapshot.sourceType);
+            item.put("environment", stateMap(snapshot.state));
+            try {
+                Map<String, Object> recorded = objectMapper.readValue(snapshot.inputJson,
+                        new TypeReference<Map<String, Object>>() { });
+                item.put("recorded", recorded.containsKey("twinFrameVersion"));
+                item.put("modelVersion", recorded.get("modelVersion"));
+                item.put("sensorSource", recorded.get("sensorSource"));
+                item.put("devices", recorded.getOrDefault("devices", Collections.emptyList()));
+                item.put("resources", recorded.getOrDefault("resources", Collections.emptyList()));
+                item.put("consumption", recorded.getOrDefault("consumption", Collections.emptyList()));
+                item.put("sensorReadings", recorded.getOrDefault("sensorReadings", Collections.emptyMap()));
+            } catch (Exception ignored) {
+                item.put("recorded", false);
+                item.put("modelVersion", null);
+                item.put("sensorSource", null);
+                item.put("devices", Collections.emptyList());
+                item.put("resources", Collections.emptyList());
+                item.put("consumption", Collections.emptyList());
+                item.put("sensorReadings", Collections.emptyMap());
+            }
+            frames.add(item);
+        }
+        return frames;
     }
 
     public AgentComparisonResponse getComparison(Long runId) {
@@ -246,8 +281,14 @@ public class AgentRunService {
         } else {
             throw new IllegalArgumentException("设备模式必须是 AUTO 或 MANUAL");
         }
-        device.desiredState = enabled ? "ON" : "OFF";
-        device.actualState = enabled ? "ON" : "OFF";
+        if ("MANUAL".equals(mode)) {
+            if (enabled && !"NORMAL".equalsIgnoreCase(device.healthStatus)) {
+                throw new IllegalStateException("离线或故障设备不能手动启动");
+            }
+            validateManualInterlock(devices, normalizedCode, enabled);
+            device.desiredState = enabled ? "ON" : "OFF";
+            device.actualState = device.desiredState;
+        }
         device.updatedAt = now;
         repository.updateDevice(device);
         repository.insertAudit(runId, "DEVICE_MANUAL_OVERRIDE", "DEVICE", device.id, actor,
@@ -433,6 +474,9 @@ public class AgentRunService {
     }
 
     private void advanceLocked(AgentJdbcRepository.RunRow run, String actor, boolean scheduler) {
+        if (run.stepNo > 0 && !MODEL_VERSION.equals(run.modelVersion)) {
+            throw new IllegalStateException("运行模型版本与当前版本不一致，请重置或新建仿真运行");
+        }
         if (run.stepNo >= TOTAL_STEPS) {
             run.status = "COMPLETED";
             run.updatedAt = LocalDateTime.now();
@@ -444,13 +488,14 @@ public class AgentRunService {
             throw new IllegalStateException("运行缺少初始环境快照");
         }
         List<AgentJdbcRepository.DeviceRow> devices = repository.findDevicesForUpdate(run.id);
+        ensureTwinDevices(run.id, LocalDateTime.now(), devices);
         List<AgentJdbcRepository.ResourceRow> resources = repository.findResourcesForUpdate(run.id);
-        Map<String, BigDecimal> reservedResources = new HashMap<>();
         DecisionPlan plan = decisionPolicy.decide(current.state);
         int nextStep = current.stepNo + 1;
         LocalDateTime now = LocalDateTime.now();
         Map<String, Boolean> effectiveStates = new LinkedHashMap<>();
         List<Map<String, Object>> reasonRows = new ArrayList<>();
+        List<Map<String, Object>> stepConsumption = new ArrayList<>();
         for (DeviceCommand command : plan.getCommands()) {
             AgentJdbcRepository.DeviceRow device = findDevice(devices, command.getDeviceCode());
             if (device == null) {
@@ -466,8 +511,8 @@ public class AgentRunService {
         SimulationState projected = simulationEngine.advance(current.state, Collections.<String, Boolean>emptyMap(),
                 run.tickMinutes, run.seed);
         long snapshotId = repository.insertSnapshot(run.id, nextStep, projected, "SIMULATED",
-                safeJson(jsonMap("previousStep", current.stepNo, "modelVersion", run.modelVersion,
-                        "scheduler", scheduler)), now);
+                jsonMap("previousStep", current.stepNo, "modelVersion", MODEL_VERSION,
+                        "scheduler", scheduler), now);
         long decisionId = repository.insertDecision(run.id, snapshotId, nextStep, "PLAN_" + nextStep, 1,
                 plan.getRiskLevel(), "EVALUATED", plan.getSummary(), safeJson(reasonRows), RULE_VERSION, now);
 
@@ -490,11 +535,30 @@ public class AgentRunService {
                 status = "BLOCKED";
                 blockReason = "DEVICE_" + device.healthStatus;
             }
-            if (canApply && command.isTargetOn() && command.getResourceCode() != null
-                    && !consumeResourcePreview(resources, reservedResources, command.getResourceCode(), command.getResourceAmount())) {
+            boolean padWithoutExhaust = AgentDeviceCodes.COOLING_PAD.equals(command.getDeviceCode())
+                    && !Boolean.TRUE.equals(effectiveStates.get(AgentDeviceCodes.EXHAUST_FAN));
+            if (padWithoutExhaust && command.isTargetOn()) {
                 canApply = false;
                 status = "BLOCKED";
-                blockReason = "RESOURCE_SHORTAGE_" + command.getResourceCode();
+                blockReason = "EXHAUST_REQUIRED";
+            } else if (padWithoutExhaust && "ON".equalsIgnoreCase(device.actualState)) {
+                canApply = true;
+                status = "EXECUTED";
+                blockReason = "SAFETY_INTERLOCK";
+            }
+            boolean airExchange = Boolean.TRUE.equals(effectiveStates.get(AgentDeviceCodes.VENTILATION))
+                    || Boolean.TRUE.equals(effectiveStates.get(AgentDeviceCodes.ROOF_VENT))
+                    || Boolean.TRUE.equals(effectiveStates.get(AgentDeviceCodes.EXHAUST_FAN));
+            if (AgentDeviceCodes.CO2_SUPPLY.equals(command.getDeviceCode()) && airExchange) {
+                if (command.isTargetOn()) {
+                    canApply = false;
+                    status = "BLOCKED";
+                    blockReason = "AIR_EXCHANGE_ACTIVE";
+                } else if ("ON".equalsIgnoreCase(device.actualState)) {
+                    canApply = true;
+                    status = "EXECUTED";
+                    blockReason = "SAFETY_INTERLOCK";
+                }
             }
             if (canApply) {
                 device.desiredState = command.isTargetOn() ? "ON" : "OFF";
@@ -503,7 +567,38 @@ public class AgentRunService {
                     device.lastChangedStep = nextStep;
                 }
             } else {
-                device.desiredState = command.isTargetOn() ? "ON" : "OFF";
+                if (!"MANUAL".equalsIgnoreCase(device.controlMode)) {
+                    device.desiredState = command.isTargetOn() ? "ON" : "OFF";
+                }
+            }
+            if (padWithoutExhaust || AgentDeviceCodes.CO2_SUPPLY.equals(command.getDeviceCode()) && airExchange) {
+                device.actualState = "OFF";
+            }
+            if (!"NORMAL".equalsIgnoreCase(device.healthStatus)) {
+                device.actualState = "OFF";
+            }
+            String resourceCode = resourceCodeFor(device.deviceCode);
+            BigDecimal resourceAmount = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
+                    ? BigDecimal.valueOf(simulationEngine.coolingPadEvaporationLiters(
+                        current.state, run.tickMinutes, run.seed)).setScale(3, java.math.RoundingMode.HALF_UP)
+                    : resourceAmountFor(device.deviceCode);
+            BigDecimal padPumpEnergy = new BigDecimal("0.060");
+            BigDecimal irrigationPumpEnergy = new BigDecimal("0.120");
+            boolean pumpNeedsEnergy = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
+                    || AgentDeviceCodes.IRRIGATION.equals(device.deviceCode);
+            BigDecimal pumpEnergy = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
+                    ? padPumpEnergy : irrigationPumpEnergy;
+            if ("ON".equalsIgnoreCase(device.actualState) && resourceCode != null
+                    && (!consumeResourcePreview(resources, resourceCode, resourceAmount)
+                    || pumpNeedsEnergy && !consumeResourcePreview(resources, "ENERGY", pumpEnergy))) {
+                device.actualState = "OFF";
+                canApply = false;
+                status = "BLOCKED";
+                blockReason = "RESOURCE_SHORTAGE_" + (pumpNeedsEnergy
+                        && consumeResourcePreview(resources, resourceCode, resourceAmount) ? "ENERGY" : resourceCode);
+            }
+            if (!device.actualState.equals(before)) {
+                device.lastChangedStep = nextStep;
             }
             device.updatedAt = now;
             repository.updateDevice(device);
@@ -516,20 +611,24 @@ public class AgentRunService {
             action.deviceId = device.id;
             action.deviceCode = device.deviceCode;
             action.commandId = commandId;
-            action.targetState = command.isTargetOn() ? "ON" : "OFF";
+            action.targetState = device.desiredState;
             action.executionStatus = status;
             action.blockReason = blockReason;
-            action.executorType = canApply ? "AUTO" : "RULE_BLOCKED";
+            action.executorType = "SAFETY_INTERLOCK".equals(blockReason) ? "SAFETY" : canApply ? "AUTO" : "RULE_BLOCKED";
             action.actorUsername = actor;
             action.executedAt = now;
             action.createdAt = now;
             long actionId = repository.insertAction(action);
-            if (canApply && command.isTargetOn() && command.getResourceCode() != null) {
-                BigDecimal reserved = reservedResources.get(command.getResourceCode());
-                reservedResources.put(command.getResourceCode(),
-                        (reserved == null ? BigDecimal.ZERO : reserved).add(command.getResourceAmount()));
-                consumeResource(resources, command.getResourceCode(), command.getResourceAmount(), run.id, actionId,
+            if ("ON".equalsIgnoreCase(device.actualState) && resourceCode != null) {
+                consumeResource(resources, resourceCode, resourceAmount, run.id, actionId,
                         command.getSummary(), now);
+                stepConsumption.add(consumptionItem(device.deviceCode, resourceCode, resourceAmount));
+                if (pumpNeedsEnergy) {
+                    consumeResource(resources, "ENERGY", pumpEnergy, run.id, actionId,
+                            AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
+                                    ? "湿帘循环水泵耗电" : "滴灌水泵耗电", now);
+                    stepConsumption.add(consumptionItem(device.deviceCode, "ENERGY", pumpEnergy));
+                }
             }
             if (!canApply) {
                 repository.upsertAlert(run.id, snapshotId, nextStep, "ACTION_BLOCKED_" + command.getDeviceCode(),
@@ -541,11 +640,14 @@ public class AgentRunService {
         // Recalculate the projected snapshot with the actual constrained device states.
         projected = simulationEngine.advance(current.state, effectiveStates, run.tickMinutes, run.seed);
         repository.replaceSnapshotState(snapshotId, projected);
+        saveTwinFrame(snapshotId, run.id, nextStep, "SIMULATED", projected, run.seed,
+                run.tickMinutes, devices, resources, stepConsumption);
         if (projected.getEnvironmentRisk() >= 70.0 || projected.getDiseasePressure() >= 70.0) {
             repository.upsertAlert(run.id, snapshotId, nextStep, "ENVIRONMENT_HIGH_RISK", "ENVIRONMENT_HIGH_RISK",
                     "HIGH", "环境或病害环境压力达到高风险，需要人工确认", safeJson(stateMap(projected)), now);
         }
         run.stepNo = nextStep;
+        run.modelVersion = MODEL_VERSION;
         run.simulatedAt = projected.getSimulatedAt();
         run.updatedAt = now;
         if (nextStep >= TOTAL_STEPS) {
@@ -561,11 +663,15 @@ public class AgentRunService {
         repository.resetDevices(row.id, now);
         repository.resetResources(row.id, now);
         SimulationState initial = parseState(row.baselineJson);
-        repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
+        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
                 jsonMap("source", "run-baseline", "label", "重置后的固定历史基线"), now);
+        saveTwinFrame(baselineSnapshotId, row.id, 0, "LEGACY_HISTORY",
+                initial, row.seed, row.tickMinutes, repository.findDevices(row.id),
+                repository.findResources(row.id), Collections.emptyList());
         row.status = "PAUSED";
         row.activeSlot = 1;
         row.stepNo = 0;
+        row.modelVersion = MODEL_VERSION;
         row.simulatedAt = initial.getSimulatedAt();
         row.updatedAt = now;
         repository.updateRun(row);
@@ -722,13 +828,24 @@ public class AgentRunService {
     }
 
     private void createDevices(Long runId, LocalDateTime now) {
+        ensureTwinDevices(runId, now, new ArrayList<AgentJdbcRepository.DeviceRow>());
+    }
+
+    private void ensureTwinDevices(Long runId, LocalDateTime now, List<AgentJdbcRepository.DeviceRow> devices) {
         Map<String, String> names = new LinkedHashMap<>();
         names.put(AgentDeviceCodes.IRRIGATION, "灌溉水泵");
         names.put(AgentDeviceCodes.VENTILATION, "通风风机");
         names.put(AgentDeviceCodes.GROW_LIGHT, "补光灯");
         names.put(AgentDeviceCodes.SHADE, "遮阳帘");
         names.put(AgentDeviceCodes.CO2_SUPPLY, "CO2 补给");
+        names.put(AgentDeviceCodes.ROOF_VENT, "屋面通风窗");
+        names.put(AgentDeviceCodes.EXHAUST_FAN, "端墙排风机");
+        names.put(AgentDeviceCodes.COOLING_PAD, "湿帘循环水泵");
+        names.put(AgentDeviceCodes.CIRCULATION_FAN, "HAF 环流风机");
         for (Map.Entry<String, String> entry : names.entrySet()) {
+            if (findDevice(devices, entry.getKey()) != null) {
+                continue;
+            }
             AgentJdbcRepository.DeviceRow row = new AgentJdbcRepository.DeviceRow();
             row.runId = runId;
             row.deviceCode = entry.getKey();
@@ -741,12 +858,100 @@ public class AgentRunService {
             row.version = 0;
             row.createdAt = now;
             row.updatedAt = now;
-            repository.insertDevice(row);
+            row.id = repository.insertDevice(row);
+            devices.add(row);
         }
     }
 
+    private void saveTwinFrame(Long snapshotId, Long runId, int stepNo, String sourceType,
+                               SimulationState state, long seed, int tickMinutes,
+                               List<AgentJdbcRepository.DeviceRow> devices,
+                               List<AgentJdbcRepository.ResourceRow> resources,
+                               List<Map<String, Object>> consumption) {
+        repository.updateSnapshotInput(snapshotId, jsonMap("twinFrameVersion", 2,
+                "runId", runId, "stepNo", stepNo, "sourceType", sourceType,
+                "modelVersion", MODEL_VERSION, "ruleVersion", RULE_VERSION,
+                "devices", deviceMaps(devices), "resources", resourceMaps(resources),
+                "consumption", consumption, "sensorReadings", sensorReadings(state, seed, tickMinutes, devices),
+                "sensorSource", "DERIVED_FROM_SNAPSHOT"));
+    }
+
+    private Map<String, Double> sensorReadings(SimulationState state, long seed, int tickMinutes,
+                                               List<AgentJdbcRepository.DeviceRow> devices) {
+        Map<String, Double> readings = new LinkedHashMap<>();
+        readings.put("SENSOR_OUTDOOR", simulationEngine.outsideTemperature(state.getSimulatedAt(), seed));
+        readings.put("SENSOR_AIR_N", state.getTemperatureC());
+        readings.put("SENSOR_AIR_S", state.getAirHumidityPct());
+        readings.put("SENSOR_CO2", state.getCo2Ppm());
+        readings.put("SENSOR_LIGHT", state.getLightPpfd());
+        for (int bed = 1; bed <= 4; bed++) {
+            readings.put("SENSOR_ROOT_" + bed, state.getSoilMoisturePct());
+        }
+        readings.put("SENSOR_FLOW", isDeviceOn(devices, AgentDeviceCodes.IRRIGATION)
+                ? resourceAmountFor(AgentDeviceCodes.IRRIGATION).doubleValue() / Math.max(1, tickMinutes) : 0.0);
+        return readings;
+    }
+
+    private Map<String, Object> consumptionItem(String deviceCode, String resourceCode, BigDecimal quantity) {
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("deviceCode", deviceCode);
+        item.put("resourceCode", resourceCode);
+        item.put("quantity", quantity);
+        item.put("unit", "WATER".equals(resourceCode) ? "L" : "CO2".equals(resourceCode) ? "kg" : "kWh");
+        return item;
+    }
+
+    private void validateManualInterlock(List<AgentJdbcRepository.DeviceRow> devices, String code, boolean enabled) {
+        if (AgentDeviceCodes.EXHAUST_FAN.equals(code) && !enabled
+                && isDeviceOn(devices, AgentDeviceCodes.COOLING_PAD)) {
+            throw new IllegalStateException("湿帘运行期间不能关闭排风机，请先关闭湿帘");
+        }
+        if (AgentDeviceCodes.COOLING_PAD.equals(code) && enabled
+                && !isDeviceOn(devices, AgentDeviceCodes.EXHAUST_FAN)) {
+            throw new IllegalStateException("必须先启动排风机才能启用湿帘");
+        }
+        if (enabled && AgentDeviceCodes.CO2_SUPPLY.equals(code)
+                && (isDeviceOn(devices, AgentDeviceCodes.VENTILATION)
+                || isDeviceOn(devices, AgentDeviceCodes.ROOF_VENT)
+                || isDeviceOn(devices, AgentDeviceCodes.EXHAUST_FAN))) {
+            throw new IllegalStateException("对外通风期间禁止 CO2 补气");
+        }
+        if (enabled && (AgentDeviceCodes.VENTILATION.equals(code)
+                || AgentDeviceCodes.ROOF_VENT.equals(code)
+                || AgentDeviceCodes.EXHAUST_FAN.equals(code))
+                && isDeviceOn(devices, AgentDeviceCodes.CO2_SUPPLY)) {
+            throw new IllegalStateException("请先关闭 CO2 补气，再开启对外通风");
+        }
+    }
+
+    private boolean isDeviceOn(List<AgentJdbcRepository.DeviceRow> devices, String code) {
+        AgentJdbcRepository.DeviceRow device = findDevice(devices, code);
+        return device != null && "ON".equalsIgnoreCase(device.actualState);
+    }
+
+    private String resourceCodeFor(String code) {
+        if (AgentDeviceCodes.IRRIGATION.equals(code) || AgentDeviceCodes.COOLING_PAD.equals(code)) return "WATER";
+        if (AgentDeviceCodes.CO2_SUPPLY.equals(code)) return "CO2";
+        if (AgentDeviceCodes.VENTILATION.equals(code) || AgentDeviceCodes.GROW_LIGHT.equals(code)
+                || AgentDeviceCodes.SHADE.equals(code) || AgentDeviceCodes.ROOF_VENT.equals(code)
+                || AgentDeviceCodes.EXHAUST_FAN.equals(code) || AgentDeviceCodes.CIRCULATION_FAN.equals(code)) return "ENERGY";
+        return null;
+    }
+
+    private BigDecimal resourceAmountFor(String code) {
+        if (AgentDeviceCodes.IRRIGATION.equals(code)) return new BigDecimal("60.000");
+        if (AgentDeviceCodes.CO2_SUPPLY.equals(code)) return new BigDecimal("0.250");
+        if (AgentDeviceCodes.VENTILATION.equals(code)) return new BigDecimal("0.350");
+        if (AgentDeviceCodes.GROW_LIGHT.equals(code)) return new BigDecimal("1.200");
+        if (AgentDeviceCodes.SHADE.equals(code)) return new BigDecimal("0.100");
+        if (AgentDeviceCodes.ROOF_VENT.equals(code)) return new BigDecimal("0.030");
+        if (AgentDeviceCodes.EXHAUST_FAN.equals(code)) return new BigDecimal("0.420");
+        if (AgentDeviceCodes.CIRCULATION_FAN.equals(code)) return new BigDecimal("0.080");
+        return null;
+    }
+
     private void createResources(Long runId, LocalDateTime now) {
-        addResource(runId, "WATER", "灌溉水", "L", "12.000", "2.000", now);
+        addResource(runId, "WATER", "灌溉与湿帘循环补水", "L", "1200.000", "200.000", now);
         addResource(runId, "CO2", "CO2 气体", "kg", "2.000", "0.300", now);
         addResource(runId, "ENERGY", "虚拟能源", "kWh", "30.000", "5.000", now);
     }
@@ -768,16 +973,13 @@ public class AgentRunService {
     }
 
     private boolean consumeResourcePreview(List<AgentJdbcRepository.ResourceRow> resources,
-                                           Map<String, BigDecimal> reservedResources, String code,
-                                           BigDecimal amount) {
+                                           String code, BigDecimal amount) {
         AgentJdbcRepository.ResourceRow resource = findResource(resources, code);
         if (resource == null || amount == null || amount.signum() <= 0 || resource.availableQuantity == null
                 || resource.availableQuantity.signum() < 0) {
             return false;
         }
-        BigDecimal reserved = reservedResources.get(code);
-        BigDecimal used = reserved == null ? BigDecimal.ZERO : reserved;
-        return resource.availableQuantity.subtract(used).compareTo(amount) >= 0;
+        return resource.availableQuantity.compareTo(amount) >= 0;
     }
 
     private void consumeResource(List<AgentJdbcRepository.ResourceRow> resources, String code, BigDecimal amount,

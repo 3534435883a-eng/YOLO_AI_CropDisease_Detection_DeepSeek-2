@@ -65,8 +65,9 @@ public class AgentJdbcRepository {
 
     public void updateRun(RunRow row) {
         jdbcTemplate.update("UPDATE agent_run SET status = ?, active_slot = ?, step_no = ?, simulated_at = ?, "
-                        + "updated_at = ?, version = version + 1 WHERE id = ?",
-                row.status, row.activeSlot, row.stepNo, timestamp(row.simulatedAt), timestamp(row.updatedAt), row.id);
+                        + "model_version = ?, updated_at = ?, version = version + 1 WHERE id = ?",
+                row.status, row.activeSlot, row.stepNo, timestamp(row.simulatedAt), row.modelVersion,
+                timestamp(row.updatedAt), row.id);
     }
 
     public GreenhouseSeed findGreenhouseSeed(Long greenhouseId) {
@@ -86,6 +87,16 @@ public class AgentJdbcRepository {
     public List<SnapshotRow> findSnapshots(Long runId, int limit) {
         return jdbcTemplate.query("SELECT * FROM agent_environment_snapshot WHERE run_id = ? "
                         + "ORDER BY step_no DESC LIMIT ?", SNAPSHOT_ROW_MAPPER, runId, Math.max(1, limit));
+    }
+
+    public List<SnapshotRow> findTwinSnapshots(Long runId) {
+        return jdbcTemplate.query("SELECT * FROM agent_environment_snapshot WHERE run_id = ? "
+                + "ORDER BY step_no ASC LIMIT 97", SNAPSHOT_ROW_MAPPER, runId);
+    }
+
+    public void updateSnapshotInput(Long snapshotId, String inputJson) {
+        jdbcTemplate.update("UPDATE agent_environment_snapshot SET input_json = ? WHERE id = ?",
+                inputJson, snapshotId);
     }
 
     public long insertSnapshot(Long runId, int stepNo, SimulationState state, String sourceType,

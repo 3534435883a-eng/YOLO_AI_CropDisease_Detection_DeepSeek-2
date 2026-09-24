@@ -42,7 +42,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 		path: '/',
 		name: '/',
 		component: () => import('/@/layout/index.vue'),
-		redirect: '/agentCenter',
+		redirect: '/homePage',
 		meta: {
 			isKeepAlive: true,
 		},
@@ -52,7 +52,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				name: 'homePage',
 				component: () => import('/@/views/homePage/index.vue'),
 				meta: {
-					title: '首页',
+					title: '工作台',
 					isLink: '',
 					isHide: false,
 					isKeepAlive: true,
@@ -157,7 +157,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				name: 'agentChat',
 				component: () => import('/@/views/agentChat/index.vue'),
 				meta: {
-					title: 'AI 决策对话',
+					title: '决策助手',
 					isLink: '',
 					isHide: false,
 					isKeepAlive: true,
@@ -203,7 +203,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 						name: 'imgPredict',
 						component: () => import('/@/views/imgPredict/index.vue'),
 						meta: {
-							title: '图像检测',
+							title: '病害识别',
 							isLink: '',
 							isHide: false,
 							isKeepAlive: true,
@@ -323,11 +323,11 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 			{
 				path: '/smartChat',
 				name: 'smartChat',
-				component: () => import('/@/views/smartChat/index.vue'),
+				redirect: '/agentChat',
 				meta: {
 					title: '智能助手',
 					isLink: '',
-					isHide: false,
+					isHide: true,
 					isKeepAlive: true,
 					isAffix: false,
 					isIframe: false,

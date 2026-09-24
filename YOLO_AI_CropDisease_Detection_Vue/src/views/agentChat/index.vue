@@ -166,7 +166,9 @@
 							</div>
 							<p class="evidence-snippet">{{ item.snippet }}</p>
 							<p class="evidence-source">
-								{{ item.cropType || '—' }} · 来源 {{ item.sourceTable }}#{{ item.sourceId }} · 片段 {{ item.chunkNo }}
+								{{ item.sourceName || '来源未登记' }}<span v-if="item.sourceType"> · {{ item.sourceType }} 类</span>
+								· {{ item.sourceTable }}#{{ item.sourceId }} · 片段 {{ item.chunkNo }}
+								<a v-if="verifiedSourceUrl(item)" :href="verifiedSourceUrl(item)" target="_blank" rel="noopener noreferrer">查看原文</a>
 							</p>
 						</article>
 					</div>
@@ -191,7 +193,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { AgentVisionEvent, getActiveAgentRun, getAgentVisionEvents } from '/@/api/agent';
 import {
@@ -242,6 +244,7 @@ interface Turn {
 }
 
 const router = useRouter();
+const route = useRoute();
 const crops = ['番茄', '玉米', '水稻', '小麦', '马铃薯', '棉花', '苹果', '葡萄', '草莓'];
 const presetGroups = [
 	{
@@ -397,6 +400,16 @@ function citationKey(item: AgentCitation): string {
 	return `${item.sourceTable}|${item.sourceId}|${item.fieldType}|${item.chunkNo}`;
 }
 
+function verifiedSourceUrl(item: AgentCitation): string {
+	if (!item.sourceUrl) return '';
+	try {
+		const url = new URL(item.sourceUrl);
+		return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : '';
+	} catch {
+		return '';
+	}
+}
+
 function scrollToBottom(): void {
 	nextTick(() => {
 		const element = streamRef.value;
@@ -442,9 +455,16 @@ async function loadVision(): Promise<void> {
 			latestVision.value = null;
 			return;
 		}
-		const events = await getAgentVisionEvents(run.id, 1);
-		latestVision.value = events.length ? events[0] : null;
-		attachVision.value = false;
+		const recordId = typeof route.query.recordId === 'string' ? route.query.recordId : '';
+		const events = await getAgentVisionEvents(run.id, recordId ? 20 : 1);
+		latestVision.value = recordId
+			? events.find((event) => String(event.sourceRecordId) === recordId) || null
+			: events[0] || null;
+		attachVision.value = Boolean(recordId && latestVision.value);
+		if (recordId && latestVision.value) {
+			crop.value = crops.includes(latestVision.value.cropType || '') ? latestVision.value.cropType! : crop.value;
+			draft.value = '请解释这次识别结果，并给出有依据的处置建议。';
+		}
 	} catch {
 		latestVision.value = null;
 	} finally {
@@ -593,6 +613,13 @@ function stop(): void {
 }
 
 onMounted(() => {
+	const incomingCrop = typeof route.query.crop === 'string' ? route.query.crop : '';
+	const incomingDetection = typeof route.query.detection === 'string' ? route.query.detection.trim().slice(0, 120) : '';
+	const incomingScore = typeof route.query.score === 'string' ? route.query.score.trim().slice(0, 60) : '';
+	if (crops.includes(incomingCrop)) crop.value = incomingCrop;
+	if (incomingDetection) {
+		draft.value = `图像模型检出的候选类别为“${incomingDetection}”${incomingScore ? `，未校准模型分数为 ${incomingScore}` : ''}。请先核对知识库是否有该作物的对应依据，再解释可能含义；依据不足时请明确说明。`;
+	}
 	void loadVision();
 });
 
@@ -1005,6 +1032,11 @@ h3 {
 	margin: 7px 0 0;
 	color: #93a29a;
 	font-size: 11px;
+}
+.evidence-source a {
+	margin-left: 8px;
+	color: #287c4c;
+	text-decoration: underline;
 }
 .preset-group + .preset-group {
 	margin-top: 12px;

@@ -4,6 +4,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.example.Ece.agent.guard.GuardrailCheck;
 import com.example.Ece.agent.guard.GuardrailService;
+import com.example.Ece.agent.guard.CitationReferenceValidator;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.KnowledgeChunker;
 import com.example.Ece.agent.rag.ScoredChunk;
@@ -83,6 +84,8 @@ public class AgentOrchestrator {
     private final LlmClient llmClient;
     private final CitationFormatter citationFormatter = new CitationFormatter();
     private final GuardrailService guardrailService;
+    private final CitationReferenceValidator citationReferenceValidator = new CitationReferenceValidator();
+    private final SessionHistoryStore sessionHistoryStore = new SessionHistoryStore();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
         private final AtomicInteger counter = new AtomicInteger();
 
@@ -113,8 +116,11 @@ public class AgentOrchestrator {
     @SuppressWarnings("unchecked")
     public AgentResult run(String sessionId, String question, String crop, Consumer<AgentStepEvent> sink) {
         List<AgentStepEvent> events = new ArrayList<AgentStepEvent>();
+        List<Map<String, Object>> priorHistory = sessionHistoryStore.snapshot(sessionId);
         List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
         history.add(message("system", systemPrompt()));
+        // 历史消息放在 system 提示之后，避免旧会话内容覆盖当前编排约束。
+        history.addAll(priorHistory);
         history.add(message("user", userPrompt(question, crop)));
 
         Map<String, Integer> toolCalls = new HashMap<String, Integer>();
@@ -265,6 +271,13 @@ public class AgentOrchestrator {
         }
         GuardrailCheck guardrail = guardrailService.check(answer, evidenceChunks, degradedSeen);
 
+        if (guardrail.isAllowed() && !citationReferenceValidator.hasValidReferences(
+                guardrail.getRewrittenAnswer(), citations.size())) {
+            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                    AgentResult.Status.REFUSED, GuardrailService.REASON_NO_EVIDENCE,
+                    REFUSAL_ANSWER + "（回答未包含可核对的有效引用编号）");
+        }
+
         // 被安全守门判为"越权执行声明"时给一次重写机会：实测多数情况是模型顺手写了"已自动…"，
         // 并非真要越权。重写一次既不放行声明本身，也避免把整段有依据的分析直接丢成拒答。
         if (!guardrail.isAllowed() && GuardrailService.REASON_AUTO_EXECUTION_CLAIM.equals(guardrail.getReason())) {
@@ -277,6 +290,12 @@ public class AgentOrchestrator {
             if (retry != null && !retry.trim().isEmpty()) {
                 GuardrailCheck recheck = guardrailService.check(retry, evidenceChunks, degradedSeen);
                 if (recheck.isAllowed()) {
+                    if (!citationReferenceValidator.hasValidReferences(recheck.getRewrittenAnswer(), citations.size())) {
+                        return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                                AgentResult.Status.REFUSED, GuardrailService.REASON_NO_EVIDENCE,
+                                REFUSAL_ANSWER + "（回答未包含可核对的有效引用编号）");
+                    }
+                    sessionHistoryStore.append(sessionId, question, recheck.getRewrittenAnswer());
                     return finish(events, sink, citations, executed, recheck.getRewrittenAnswer(),
                             AgentResult.Status.DONE, blockReason, null);
                 }
@@ -287,6 +306,7 @@ public class AgentOrchestrator {
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
                     AgentResult.Status.REFUSED, guardrail.getReason(), REFUSAL_ANSWER);
         }
+        sessionHistoryStore.append(sessionId, question, guardrail.getRewrittenAnswer());
         return finish(events, sink, citations, executed, guardrail.getRewrittenAnswer(),
                 AgentResult.Status.DONE, blockReason, null);
     }

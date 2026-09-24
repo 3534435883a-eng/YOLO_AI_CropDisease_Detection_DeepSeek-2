@@ -42,14 +42,19 @@ service.interceptors.response.use(
 		}
 	},
 	(error) => {
-		// 对响应错误做点什么
-		if (error.message.indexOf('timeout') != -1) {
+		const status = error.response?.status;
+		if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
 			ElMessage.error('网络超时');
-		} else if (error.message == 'Network Error') {
-			ElMessage.error('网络连接错误');
+		} else if (!error.response) {
+			ElMessage.error('无法连接服务，请检查后端是否启动');
+		} else if (status === 404) {
+			ElMessage.error('接口不存在（404）');
+		} else if (status >= 500) {
+			ElMessage.error(`服务暂时不可用（${status}），请检查后端日志`);
 		} else {
-			if (error.response.data) ElMessage.error(error.response.statusText);
-			else ElMessage.error('接口路径找不到');
+			const data = error.response.data;
+			const message = data && typeof data === 'object' ? data.msg || data.message : undefined;
+			ElMessage.error(message || `请求失败（${status}）`);
 		}
 		return Promise.reject(error);
 	}

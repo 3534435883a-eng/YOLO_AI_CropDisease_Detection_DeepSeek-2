@@ -89,6 +89,13 @@ public class VisionExplainTool implements AgentTool {
 
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         if (candidates.isEmpty()) {
+            if (canonicalCrop != null && !canonicalCrop.trim().isEmpty() && !match(label, null).isEmpty()) {
+                return unavailable(output, "检测类别与指定作物不匹配（classLabel=" + label + "，crop=" + canonicalCrop + "）",
+                        "该类别只在其他作物模型中登记；请核对识别模型和作物。", null,
+                        "CROP_CLASS_MISMATCH",
+                        "资料库不足：检测类别「" + label + "」与作物「" + canonicalCrop
+                                + "」不匹配，不能借用其他作物的病害解释。请核对识别模型和作物。");
+            }
             return unavailable(output, "未在视觉类别映射表中找到该类别（classLabel=" + label + "）",
                     "该标签不在 9 个检测模型的 56 个类别之内；不得据此推断病害。", null,
                     "KNOWLEDGE_INSUFFICIENT",
@@ -147,7 +154,7 @@ public class VisionExplainTool implements AgentTool {
         output.put("mapping", mapping(row));
         output.put("note", "检测类别 " + row.get("classLabel") + "（模型 " + row.get("modelCode")
                 + "）对应知识库条目《" + disease + "》；映射规则 " + row.get("matchRule")
-                + "，依据：" + row.get("evidence"));
+                + "，依据：" + row.get("evidence") + mappingSourceNote(row));
         output.put("inputDigest", KnowledgeChunker.sha256(NAME + "|" + label + "|"
                 + (canonicalCrop == null ? "" : canonicalCrop) + "|" + topN));
         return output;
@@ -191,6 +198,14 @@ public class VisionExplainTool implements AgentTool {
         return mapping;
     }
 
+    private String mappingSourceNote(Map<String, Object> row) {
+        Object sourceUrl = row.get("sourceUrl");
+        if (sourceUrl != null && !String.valueOf(sourceUrl).trim().isEmpty()) {
+            return "；映射出处：" + sourceUrl;
+        }
+        return "；映射出处：项目内部视觉类别映射表（与项目历史病害库名称核对；无外部原文链接）";
+    }
+
     /** 匹配规则：完全一致 → 中文标签一致 → 英文标签一致（忽略大小写）→ 中文标签互为子串；再按作物过滤。 */
     private List<Map<String, Object>> match(String label, String canonicalCrop) {
         List<Map<String, Object>> exact = new ArrayList<Map<String, Object>>();
@@ -218,6 +233,7 @@ public class VisionExplainTool implements AgentTool {
                 filtered.add(row);
             }
         }
-        return filtered.isEmpty() ? matched : filtered;
+        // 指定了作物却没有匹配项时不得回退到其他作物的同名类别，避免跨作物误解释。
+        return filtered;
     }
 }

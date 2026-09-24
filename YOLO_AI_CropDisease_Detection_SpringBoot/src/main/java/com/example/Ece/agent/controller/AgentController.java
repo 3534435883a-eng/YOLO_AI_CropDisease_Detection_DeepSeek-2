@@ -42,6 +42,11 @@ public class AgentController {
         return Result.success(agentRunService.getSummary(runId));
     }
 
+    @GetMapping("/runs/{runId}/twin-frames")
+    public Result<?> twinFrames(@PathVariable Long runId) {
+        return Result.success(agentRunService.getTwinFrames(runId));
+    }
+
     @GetMapping("/runs/{runId}/comparison")
     public Result<?> comparison(@PathVariable Long runId) {
         return Result.success(agentRunService.getComparison(runId));

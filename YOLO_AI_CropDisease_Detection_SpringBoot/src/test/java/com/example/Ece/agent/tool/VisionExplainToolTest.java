@@ -35,6 +35,10 @@ class VisionExplainToolTest {
         rows.add(row("potato", "马铃薯", "Early_Blight(早疫病)", "Early_Blight", "早疫病", "马铃薯早疫病", "V3",
                 "名称包含：马铃薯早疫病 ⊃ 早疫病"));
         rows.add(row("tomato", "番茄", "Healthy(健康)", "Healthy", "健康", null, "HEALTHY", "健康类别"));
+        Map<String, Object> external = row("tomato", "番茄", "YLCV(黄化卷叶病毒)", "YLCV", "黄化卷叶病毒",
+                "番茄黄化曲叶病", "EXTERNAL", "UC IPM 核验的黄化曲叶病类群");
+        external.put("sourceUrl", "https://ipm.ucanr.edu/agriculture/tomato/tomato-yellow-leaf-curl/");
+        rows.add(external);
         return rows;
     }
 
@@ -67,7 +71,9 @@ class VisionExplainToolTest {
                 new KnowledgeChunk("disease", 85L, "番茄", "番茄早疫病", KnowledgeChunk.FieldType.SYMPTOM,
                         0, 0, "作物：番茄；病害：番茄早疫病；字段：症状。病初现水渍状暗褐色病斑，扩大后近圆形，有同心轮纹", "h85"),
                 new KnowledgeChunk("disease", 44L, "马铃薯", "马铃薯早疫病", KnowledgeChunk.FieldType.SYMPTOM,
-                        0, 0, "作物：马铃薯；病害：马铃薯早疫病；字段：症状。叶片出现褐黑色小斑点，逐渐形成同心轮纹", "h44")));
+                        0, 0, "作物：马铃薯；病害：马铃薯早疫病；字段：症状。叶片出现褐黑色小斑点，逐渐形成同心轮纹", "h44"),
+                new KnowledgeChunk("curated_tomato", 2L, "番茄", "番茄黄化曲叶病", KnowledgeChunk.FieldType.SYMPTOM,
+                        0, 0, "作物：番茄；病害：番茄黄化曲叶病；字段：症状。叶片变小并向上卷曲", "hylcv")));
         return new VisionExplainTool(repository, retriever, new CitationFormatter(), new KnowledgeEntityLexicon());
     }
 
@@ -97,7 +103,17 @@ class VisionExplainToolTest {
         String note = String.valueOf(output.get("note"));
         assertTrue(note.contains("番茄早疫病"), "说明里应写明对应知识库条目：" + note);
         assertTrue(note.contains("V3"), "说明里应写明映射依据：" + note);
+        assertTrue(note.contains("项目内部视觉类别映射表"), "无外部链接的映射应标明内部出处：" + note);
         assertNotNull(output.get("mapping"));
+    }
+
+    @Test
+    void includesExternalMappingSourceInModelNote() throws ToolException {
+        Map<String, Object> output = tool().execute(input("YLCV(黄化卷叶病毒)", "番茄"));
+
+        assertFalse(((List<?>) output.get("citations")).isEmpty());
+        assertTrue(String.valueOf(output.get("note")).contains(
+                "https://ipm.ucanr.edu/agriculture/tomato/tomato-yellow-leaf-curl/"));
     }
 
     /** 用别名传作物也要能消歧（复用别名词典归一化）。 */
@@ -106,6 +122,18 @@ class VisionExplainToolTest {
         Map<String, Object> output = tool().execute(input("早疫病", "土豆"));
         assertEquals(Boolean.FALSE, output.get("lowScore"));
         assertTrue(String.valueOf(output.get("note")).contains("马铃薯早疫病"));
+    }
+
+    @Test
+    void doesNotFallBackToAnotherCropWhenCropDoesNotMatch() throws ToolException {
+        Map<String, Object> output = tool().execute(input("早疫病", "水稻"));
+
+        assertEquals(Boolean.TRUE, output.get("lowScore"));
+        assertTrue(((List<?>) output.get("citations")).isEmpty());
+        assertEquals(Boolean.TRUE, output.get("terminal"));
+        assertTrue(String.valueOf(output.get("terminalAnswer")).contains("资料库不足"));
+        assertTrue(String.valueOf(output.get("terminalAnswer")).contains("水稻"));
+        assertFalse(String.valueOf(output.get("terminalAnswer")).contains("不在已登记"));
     }
 
     /**

@@ -216,7 +216,7 @@ public class PerformanceEvaluationService {
     }
 
     /**
-     * 智能体档：在规则候选与几个对照候选上做 8 步（2 小时）短程沙盘推演，
+     * 候选前瞻仿真档：在规则候选与几个对照候选上做 8 步（2 小时）短程沙盘推演，
      * 按"生长增益 − 热胁迫 − 水耗 − 能耗 − CO₂ 消耗"择优。这是与规则档唯一的差别。
      */
     private Map<String, Boolean> chooseByProjection(Map<String, Boolean> ruled, SimulationState env, SoilState soil,
@@ -262,7 +262,7 @@ public class PerformanceEvaluationService {
         // 一级筛选的锚点是【规则基线】，而不是"本轮最优"或"绝对阈值"——这两者都被实测证伪：
         //   · 以本轮最优为门槛 → 最极端候选（不灌溉、只通风）定义标准，逐底竞争，灌溉被压到近乎为零；
         //   · 用绝对湿度阈值 → 灌溉这一类候选被整类排除（灌溉与蒸腾会推高湿度），产量塌到 P2 的 4%。
-        // 锚定规则基线后，智能体在结构上不可能比规则档更冒险，却仍可在生长与成本上取胜——
+        // 锚定规则基线后，候选前瞻仿真在结构上不可能比规则档更冒险，却仍可在生长与成本上取胜——
         // 这正是"AI 比规则强"最干净的证法。
         CandidateProjection baseline = project(ruled, env, soil, crop, disease, seed, heatwaveOffsetC,
                 transpirationOffsetPct);

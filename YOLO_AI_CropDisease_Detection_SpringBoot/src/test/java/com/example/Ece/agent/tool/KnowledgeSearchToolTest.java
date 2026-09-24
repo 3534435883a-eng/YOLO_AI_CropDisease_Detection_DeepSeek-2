@@ -90,4 +90,27 @@ class KnowledgeSearchToolTest {
         assertEquals(Boolean.FALSE, output.get("lowScore"));
         assertNull(output.get("note"), "有依据时不应给出缺依据的说明");
     }
+
+    @Test
+    void clampsRequestedTopNToSafeBounds() throws ToolException {
+        List<KnowledgeChunk> chunks = new java.util.ArrayList<KnowledgeChunk>();
+        for (int i = 0; i < 15; i++) {
+            chunks.add(new KnowledgeChunk("disease", i + 1L, "番茄", "病害" + i,
+                    KnowledgeChunk.FieldType.SYMPTOM, 0, 0, "番茄叶片出现褐色轮纹斑", "hash" + i));
+        }
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) {
+                return new double[]{1.0, 0.0};
+            }
+        });
+        retriever.rebuild(chunks);
+        KnowledgeSearchTool tool = new KnowledgeSearchTool(retriever, new CitationFormatter());
+        Map<String, Object> input = new HashMap<String, Object>();
+        input.put("query", "褐色轮纹斑");
+        input.put("topN", Integer.valueOf(1000));
+        Map<String, Object> output = tool.execute(input);
+
+        assertEquals(10, ((List<?>) output.get("citations")).size(),
+                "工具不得按模型参数无限放大返回条数");
+    }
 }

@@ -1,6 +1,7 @@
 <template>
 	<div class="system-predict-container layout-padding">
 		<div class="system-predict-padding layout-padding-auto layout-padding-view">
+			<DetectionNav mode="image" view="detect" />
 			<div class="header">
 				<div class="weight">
 					<el-select v-model="kind" placeholder="请选择作物种类" size="large" style="width: 200px" @change="getData">
@@ -24,10 +25,10 @@
 					<el-button type="primary" @click="upData" class="predict-button">开始预测</el-button>
 				</div>
 			</div>
-			<!-- 图片显示区域修改 -->
+			<!-- 图片检测结果是候选信号，诊断建议统一由决策助手检索后给出。 -->
 			<el-row :gutter="10" class="image-display">
 				<!-- 原图展示 -->
-				<el-col :span="8">
+				<el-col :xs="24" :sm="12">
 					<el-card shadow="hover" class="card">
 						<div class="image-title">原图片</div>
 						<el-upload v-model="state.img" ref="uploadFile" class="avatar-uploader"
@@ -45,7 +46,7 @@
 				</el-col>
 
 				<!-- 预测结果图 -->
-				<el-col :span="8">
+				<el-col :xs="24" :sm="12">
 					<el-card shadow="hover" class="card">
 						<div class="image-title">预测结果</div>
 						<el-image v-if="predictedImageUrl" :src="predictedImageUrl" class="preview-image"
@@ -58,22 +59,11 @@
 						</div>
 					</el-card>
 				</el-col>
-				<!-- 智能建议 -->
-				<el-col :span="8">
-					<el-card shadow="hover" class="card">
-						<div class="image-title">智能建议</div>
-						<div class="suggestion-content" v-if="state.aiSuggestion">
-							<div class="suggestion-text">{{ state.aiSuggestion }}</div>
-						</div>
-						<div v-else class="placeholder">
-							<el-icon>
-								<ChatLineRound />
-							</el-icon>
-							<span>预测完成后将自动生成智能建议</span>
-						</div>
-					</el-card>
-				</el-col>
 			</el-row>
+			<div v-if="state.predictionResult.label" class="review-action">
+				<span>模型识别仅为候选结果，建议结合知识库核对。</span>
+				<el-button type="primary" :icon="ChatLineRound" @click="reviewPrediction">到决策助手核对</el-button>
+			</div>
 			<el-row class="result-section">
 				<el-col :span="24">
 					<el-card>
@@ -85,7 +75,7 @@
 								</div>
 							</div>
 							<div class="result-column">
-								<div class="result-title">预测概率：</div>
+								<div class="result-title">模型分数（未校准）：</div>
 								<div v-for="(conf, index) in formatConfidenceArray(state.predictionResult.confidence)" :key="index" class="result-item">
 									<span class="result-value">{{ conf }}</span>
 								</div>
@@ -113,6 +103,7 @@
 
 <script setup lang="ts" name="personal">
 import { reactive, ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import type { UploadInstance, UploadProps } from 'element-plus';
 import { ElMessage } from 'element-plus';
 import request from '/@/utils/request';
@@ -120,8 +111,9 @@ import { Plus, ChatLineRound, Picture } from '@element-plus/icons-vue';
 import { useUserInfo } from '/@/stores/userInfo';
 import { storeToRefs } from 'pinia';
 import { formatDate } from '/@/utils/formatTime';
-import { requestAiChat } from '/@/services/ai';
+import DetectionNav from '/@/components/detectionNav/index.vue';
 
+const router = useRouter();
 const imageUrl = ref('');
 const conf = ref('');
 const weight = ref('');
@@ -185,8 +177,6 @@ const state = reactive({
 		kind: '',
 		startTime: ''
 	},
-	aiSuggestion: '',
-	suggestionLoading: false,
 });
 
 const formatTooltip = (val: number) => {
@@ -253,57 +243,17 @@ const upData = () => {
 				console.error('解析 JSON 时出错:', error);
 			}
 			ElMessage.success('预测成功！');
-			// 自动获取AI建议
-			getAISuggestion();
 		} else {
 			ElMessage.error(res.msg);
 		}
 	});
 };
-// 获取AI建议
-const getAISuggestion = async () => {
-	if (!state.predictionResult.label) {
-		ElMessage.warning('请先进行预测');
-		return;
-	}
-	
-	state.suggestionLoading = true;
-	try {
-		// 构建更详细的提示信息
-		const prompt = `作为一个专业的农作物病害专家，请对以下情况进行详细分析：
-
-1. 基本信息：
-- 作物类型：${state.kind_items.find(item => item.value === kind.value)?.label || kind.value}
-- 检测到的病害：${state.predictionResult.label}
-- 检测置信度：${state.predictionResult.confidence}
-
-2. 请提供以下方面的专业分析：
-(1) 病害危害程度：
-1.当前病害的严重程度评估
-2.对作物生长的影响
-3.可能造成的产量损失
-
-(2) 防治建议：
-1.立即可采取的防治措施
-2.推荐使用的农药或生物防治方法
-3.施药注意事项和防护措施
-
-(3) 预防措施：
-1.日常管理建议
-2.环境控制要点
-3.预防性保护措施
-
-请用专业但易懂的语言回答，并尽可能提供具体的操作建议。`;
-
-		const result = await requestAiChat([{ role: 'user', content: prompt }]);
-		state.aiSuggestion = result.content;
-		ElMessage.success('分析完成');
-	} catch (error) {
-		console.error('获取AI建议出错:', error);
-		ElMessage.error(error instanceof Error ? error.message : '获取建议失败，请稍后重试');
-	} finally {
-		state.suggestionLoading = false;
-	}
+const reviewPrediction = () => {
+	const label = formatLabelArray(state.predictionResult.label).filter((item) => item && item !== '未知').slice(0, 3).join('、');
+	const crop = state.kind_items.find((item) => item.value === kind.value)?.label || '';
+	if (!label || !crop) return;
+	const score = formatConfidenceArray(state.predictionResult.confidence).slice(0, 3).join('、');
+	void router.push({ path: '/agentChat', query: { crop, detection: label, score } });
 };
 
 // 格式化函数
@@ -491,6 +441,7 @@ onMounted(() => {
 		}
 	}
 }
+.review-action { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 12px; padding: 12px 16px; background: #fff; color: #66776c; font-size: 13px; }
 .result-section {
 	margin-top: 10px;
 	padding: 0;

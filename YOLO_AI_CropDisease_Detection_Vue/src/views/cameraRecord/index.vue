@@ -1,6 +1,7 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<DetectionNav mode="camera" view="history" />
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.search1" size="default" placeholder="请输入农作物类型" style="max-width: 180px"> </el-input>
 				<!-- <el-input v-model="state.tableData.param.search3" size="default" placeholder="请输入最低阈值" style="max-width: 180px; margin-left: 15px"></el-input> -->
@@ -46,6 +47,7 @@ import { ElMessageBox, ElMessage } from 'element-plus';
 import request from '/@/utils/request';
 import { useUserInfo } from '/@/stores/userInfo';
 import { storeToRefs } from 'pinia';
+import DetectionNav from '/@/components/detectionNav/index.vue';
 
 const stores = useUserInfo();
 const { userInfos } = storeToRefs(stores);

@@ -7,7 +7,8 @@
 				<p class="header-copy">以规则推演驱动虚拟设备，所有数值均为来源明确的模拟结果。</p>
 			</div>
 			<div class="header-side">
-				<el-button link type="primary" @click="goChat">AI 决策对话 →</el-button>
+				<el-button link type="primary" @click="goChat">决策助手 →</el-button>
+				<el-button link type="primary" @click="router.push('/digitalTwin?mode=agent')">三维场景 →</el-button>
 				<div class="run-status">
 					<span class="status-dot" :class="`status-${runStatus.toLowerCase()}`"></span>
 					<div>

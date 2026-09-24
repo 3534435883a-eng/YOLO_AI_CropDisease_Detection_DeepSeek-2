@@ -38,4 +38,21 @@ class CitationFormatterTest {
         assertTrue(block.contains("早疫病"));
         assertTrue(block.contains("叶片出现褐色轮纹斑"));
     }
+
+    @Test
+    void promptAndCitationCarryVerifiableProvenance() {
+        KnowledgeChunk chunk = new KnowledgeChunk("curated_tomato", 2L, "番茄", "番茄黄化曲叶病",
+                KnowledgeChunk.FieldType.SYMPTOM, 0, 0, "叶片变小并向上卷曲", "curated-2",
+                "ucipm-tomato-yellow-leaf-curl", "UC IPM: Tomato Yellow Leaf Curl", "B",
+                "https://ipm.ucanr.edu/agriculture/tomato/tomato-yellow-leaf-curl/", "2026-09-24-reviewed");
+        ScoredChunk hit = new ScoredChunk(chunk, 0.03, 1);
+
+        Map<String, Object> citation = formatter.toCitations(Arrays.asList(hit)).get(0);
+        assertEquals("UC IPM: Tomato Yellow Leaf Curl", citation.get("sourceName"));
+        assertEquals(chunk.getSourceUrl(), citation.get("sourceUrl"));
+        String block = formatter.toPromptBlock(Arrays.asList(hit));
+        assertTrue(block.contains("UC IPM: Tomato Yellow Leaf Curl"));
+        assertTrue(block.contains("2026-09-24-reviewed"));
+        assertTrue(block.contains(chunk.getSourceUrl()));
+    }
 }

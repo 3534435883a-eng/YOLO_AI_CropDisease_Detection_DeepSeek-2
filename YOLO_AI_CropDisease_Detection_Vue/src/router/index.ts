@@ -119,7 +119,7 @@ router.beforeEach(async (to, from, next) => {
 	ensureLocalDemoSession();
 	const token = Session.get('token');
 	if (to.path === '/login' || to.path === '/register') {
-		next('/agentCenter');
+		next('/homePage');
 		NProgress.done();
 	} else if (to.path === '/videoShow' && token) {
 		next();

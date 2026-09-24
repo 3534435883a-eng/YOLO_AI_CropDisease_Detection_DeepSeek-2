@@ -1,6 +1,7 @@
 <template>
 	<div class="system-predict-container layout-padding">
 		<div class="system-predict-padding layout-padding-auto layout-padding-view">
+			<DetectionNav mode="video" view="detect" />
 			<div class="header">
 				<div class="kind">
 					<el-select v-model="kind" placeholder="请选择作物种类" size="large" style="width: 180px" @change="getData">
@@ -53,6 +54,7 @@ import { storeToRefs } from 'pinia';
 import type { UploadInstance, UploadProps } from 'element-plus';
 import { SocketService } from '/@/utils/socket';
 import { formatDate } from '/@/utils/formatTime';
+import DetectionNav from '/@/components/detectionNav/index.vue';
 
 const uploadFile = ref<UploadInstance>();
 const stores = useUserInfo();

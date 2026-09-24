@@ -129,7 +129,7 @@ export const STRATEGY_LABELS: Record<string, string> = {
 	P0_NONE: 'P0 无干预',
 	P1_FIXED_MANUAL: 'P1 定时人工',
 	P2_RULE_ENGINE: 'P2 规则引擎',
-	P3_AGENT: 'P3 智能体',
+	P3_AGENT: 'P3 候选前瞻仿真',
 };
 
 export const DISEASE_ORDER: DiseaseCode[] = ['BOTRYTIS', 'LATE_BLIGHT', 'POWDERY_MILDEW', 'LEAF_MOLD'];

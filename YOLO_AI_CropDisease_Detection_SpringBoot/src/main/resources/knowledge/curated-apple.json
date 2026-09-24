@@ -1,0 +1,20 @@
+{
+  "edition": "reviewed-2026-09-24",
+  "entries": [
+    {
+      "id": 1,
+      "sourceCode": "ucipm-apple-scab",
+      "sourceName": "UC IPM Apple Pest Management Guidelines: Apple Scab",
+      "sourceType": "B",
+      "authorityLevel": 2,
+      "sourceUrl": "https://ipm.ucanr.edu/agriculture/apple/apple-scab/",
+      "sourceVersion": "text-2015-10-reviewed-2026-09-24",
+      "licenseNote": "University of California Regents 版权所有；仅收录人工改写的短摘要及原文链接，非全文转载",
+      "crop": "苹果",
+      "name": "苹果黑星病",
+      "symptom": "叶片和果实初现暗橄榄色至黑色的绒状斑，果斑后期可呈结痂状，受侵组织也可能畸形；仅凭图像结果不能确认病原。",
+      "cause": "UC IPM 记载病原可在地面落叶中存活，春季降雨时释放初侵染孢子；叶片和幼果持续潮湿会增加侵染风险，已有病斑还能产生再次传播的孢子。",
+      "control": "管理重点是降低落叶中的初侵染源，并结合春季降雨、叶面湿润时长和果园监测决定措施；加州地区用药时机与药剂不直接套用于中国果园。"
+    }
+  ]
+}

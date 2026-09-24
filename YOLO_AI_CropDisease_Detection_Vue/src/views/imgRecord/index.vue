@@ -1,6 +1,7 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<DetectionNav mode="image" view="history" />
 			<div class="agent-vision-note mb15">
 				<div>
 					<el-tag size="small" effect="plain" type="info">视觉信号</el-tag>
@@ -65,7 +66,7 @@
 									:disabled="!agentStore.hasActiveRun || importingId !== null"
 									@click="importVisionEvent(scope.row)"
 								>
-									导入信号
+									导入并核对
 								</el-button>
 							</span>
 						</el-tooltip>
@@ -90,6 +91,7 @@ import request from '/@/utils/request';
 import { useUserInfo } from '/@/stores/userInfo';
 import { useAgentRunStore } from '/@/stores/agentRun';
 import { storeToRefs } from 'pinia';
+import DetectionNav from '/@/components/detectionNav/index.vue';
 
 const router = useRouter();
 const stores = useUserInfo();
@@ -186,6 +188,7 @@ const importVisionEvent = async (row: { id: number | string }) => {
 		}
 		ElMessage.success('已导入为待核验视觉信号');
 		await agentStore.loadActiveRun();
+		await router.push({ path: '/agentChat', query: { recordId: String(row.id) } });
 	} catch (error) {
 		ElMessage.error(error instanceof Error ? error.message : '导入视觉事件失败');
 	} finally {

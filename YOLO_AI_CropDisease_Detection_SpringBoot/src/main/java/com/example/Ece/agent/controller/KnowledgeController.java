@@ -10,6 +10,7 @@ import com.example.Ece.agent.rag.KnowledgeIngestService;
 import com.example.Ece.agent.rag.KnowledgeSource;
 import com.example.Ece.agent.rag.KnowledgeSourceRepository;
 import com.example.Ece.agent.rag.LegacyDiseaseKnowledgeReader;
+import com.example.Ece.agent.rag.CuratedCropKnowledgeReader;
 import com.example.Ece.common.Result;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,6 +44,9 @@ public class KnowledgeController {
 
     @Resource
     private LegacyDiseaseKnowledgeReader legacyReader;
+
+    @Resource
+    private CuratedCropKnowledgeReader curatedReader;
 
     @Resource
     private EmbeddingClient embeddingClient;
@@ -94,6 +98,7 @@ public class KnowledgeController {
             row.put("sourceType", source.getSourceType());
             row.put("authorityLevel", Integer.valueOf(source.getAuthorityLevel()));
             row.put("version", source.getVersion());
+            row.put("url", source.getUrl());
             row.put("licenseNote", source.getLicenseNote());
             sources.add(row);
         }
@@ -119,25 +124,46 @@ public class KnowledgeController {
         return Result.success(payload);
     }
 
-    /**
-     * 重新 ingest 历史病害库并重建索引。幂等：内容哈希已存在的块会被跳过（返回 skipped 计数）。
-     * 权威语料（ICAMA / NY-T 标准 / 公开知识图谱）接入后续会复用同一管线。
-     */
+    /** 重新 ingest 历史病害库和已核验作物资料，并重建索引。 */
     @PostMapping("/reingest")
     public Result<?> reingest() {
-        IngestReport report = ingestService.ingest(legacyReader.source(), legacyReader.readAll());
+        List<IngestReport> reports = new ArrayList<IngestReport>();
+        reports.add(ingestService.ingest(legacyReader.source(), legacyReader.readAll()));
+        for (CuratedCropKnowledgeReader.SourceEntry entry : curatedReader.readAll()) {
+            reports.add(ingestService.ingest(entry.getSource(), java.util.Collections.singletonList(entry.getRecord())));
+        }
         KnowledgeIndexService.KnowledgeLoadSummary summary = knowledgeIndexService.reload();
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
-        payload.put("accepted", Integer.valueOf(report.getAccepted()));
-        payload.put("chunksRemoved", Integer.valueOf(report.getChunksRemoved()));
-        payload.put("rejected", Integer.valueOf(report.getRejected()));
-        payload.put("chunksNewlyWritten", Integer.valueOf(report.getChunksNewlyWritten()));
-        payload.put("chunksSkipped", Integer.valueOf(report.getChunksSkipped()));
-        payload.put("embeddingDegraded", Boolean.valueOf(report.isEmbeddingDegraded()));
+        int accepted = 0;
+        int removed = 0;
+        int rejected = 0;
+        int written = 0;
+        int skipped = 0;
+        long deleteMillis = 0;
+        long embedMillis = 0;
+        long writeMillis = 0;
+        boolean degraded = false;
+        for (IngestReport report : reports) {
+            accepted += report.getAccepted();
+            removed += report.getChunksRemoved();
+            rejected += report.getRejected();
+            written += report.getChunksNewlyWritten();
+            skipped += report.getChunksSkipped();
+            deleteMillis += report.getDeleteMillis();
+            embedMillis += report.getEmbedMillis();
+            writeMillis += report.getWriteMillis();
+            degraded |= report.isEmbeddingDegraded();
+        }
+        payload.put("accepted", Integer.valueOf(accepted));
+        payload.put("chunksRemoved", Integer.valueOf(removed));
+        payload.put("rejected", Integer.valueOf(rejected));
+        payload.put("chunksNewlyWritten", Integer.valueOf(written));
+        payload.put("chunksSkipped", Integer.valueOf(skipped));
+        payload.put("embeddingDegraded", Boolean.valueOf(degraded));
         // 阶段耗时：定位 ingest 瓶颈用。**别靠猜**——实测 338 块里最大的那段不是向量化。
-        payload.put("deleteMillis", Long.valueOf(report.getDeleteMillis()));
-        payload.put("embedMillis", Long.valueOf(report.getEmbedMillis()));
-        payload.put("writeMillis", Long.valueOf(report.getWriteMillis()));
+        payload.put("deleteMillis", Long.valueOf(deleteMillis));
+        payload.put("embedMillis", Long.valueOf(embedMillis));
+        payload.put("writeMillis", Long.valueOf(writeMillis));
         payload.put("indexReloadMillis", Long.valueOf(summary.getReloadMillis()));
         payload.put("chunkCount", Integer.valueOf(summary.getChunkCount()));
         payload.put("vectorCount", Integer.valueOf(summary.getVectorCount()));

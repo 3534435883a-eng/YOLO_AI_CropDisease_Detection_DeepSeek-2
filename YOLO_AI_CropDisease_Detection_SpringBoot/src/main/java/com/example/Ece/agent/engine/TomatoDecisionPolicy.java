@@ -30,6 +30,24 @@ public class TomatoDecisionPolicy {
                     "VENTILATE", 1, summary, "ENERGY", "0.350", urgent));
             reasons.add(summary);
         }
+        if (state.getTemperatureC() >= 27.0 || state.getAirHumidityPct() >= 80.0) {
+            commands.put(AgentDeviceCodes.ROOF_VENT, command(AgentDeviceCodes.ROOF_VENT, true,
+                    "ROOF_AIR_EXCHANGE", 2, "屋窗辅助自然换气", "ENERGY", "0.030", urgent));
+        }
+        if (state.getTemperatureC() >= 32.0 || state.getAirHumidityPct() >= 88.0) {
+            commands.put(AgentDeviceCodes.EXHAUST_FAN, command(AgentDeviceCodes.EXHAUST_FAN, true,
+                    "EXHAUST_HEAT_HUMIDITY", 1, "强制排风形成穿堂气流", "ENERGY", "0.420", urgent));
+            reasons.add("强制排风");
+        }
+        if (state.getTemperatureC() >= 33.0 && state.getAirHumidityPct() < 80.0) {
+            commands.put(AgentDeviceCodes.COOLING_PAD, command(AgentDeviceCodes.COOLING_PAD, true,
+                    "EVAPORATIVE_COOLING", 2, "高温且湿度允许，排风配合湿帘降温", "WATER", "18.000", urgent));
+            reasons.add("湿帘蒸发降温");
+        }
+        if (state.getAirHumidityPct() >= 75.0 || state.getTemperatureC() >= 27.0) {
+            commands.put(AgentDeviceCodes.CIRCULATION_FAN, command(AgentDeviceCodes.CIRCULATION_FAN, true,
+                    "MIX_CANOPY_AIR", 3, "环流混合冠层空气", "ENERGY", "0.080", false));
+        }
         if (state.getTemperatureC() >= 30.0 || state.getLightPpfd() >= 900.0) {
             commands.put(AgentDeviceCodes.SHADE, command(AgentDeviceCodes.SHADE, true,
                     "SHADE_HEAT", 2, "高温或强光，启用遮阳降低热负荷", "ENERGY", "0.100", urgent));
@@ -37,7 +55,7 @@ public class TomatoDecisionPolicy {
         }
         if (state.getSoilMoisturePct() <= 45.0) {
             commands.put(AgentDeviceCodes.IRRIGATION, command(AgentDeviceCodes.IRRIGATION, true,
-                    "IRRIGATE_DRY", 1, "土壤水分偏低，执行小水滴灌", "WATER", "0.600", urgent));
+                    "IRRIGATE_DRY", 1, "土壤水分偏低，执行小水滴灌", "WATER", "60.000", urgent));
             reasons.add("补充土壤水分");
         }
         if (state.getLightPpfd() <= 280.0 && !commands.get(AgentDeviceCodes.SHADE).isTargetOn()) {
@@ -45,14 +63,18 @@ public class TomatoDecisionPolicy {
                     "SUPPLEMENT_LIGHT", 3, "有效光照不足，开启补光", "ENERGY", "1.200", false));
             reasons.add("补充有效光照");
         }
-        if (state.getCo2Ppm() <= 650.0 && !commands.get(AgentDeviceCodes.VENTILATION).isTargetOn()) {
+        if (state.getCo2Ppm() <= 650.0 && !commands.get(AgentDeviceCodes.VENTILATION).isTargetOn()
+                && !commands.get(AgentDeviceCodes.ROOF_VENT).isTargetOn()
+                && !commands.get(AgentDeviceCodes.EXHAUST_FAN).isTargetOn()) {
             commands.put(AgentDeviceCodes.CO2_SUPPLY, command(AgentDeviceCodes.CO2_SUPPLY, true,
-                    "SUPPLY_CO2", 4, "CO2 浓度偏低，补充 CO2", "CO2", "0.080", false));
+                    "SUPPLY_CO2", 4, "CO2 浓度偏低，补充 CO2", "CO2", "0.250", false));
             reasons.add("补充 CO2");
         }
 
         // Ventilation always wins over CO2 supply in automatic mode.
-        if (commands.get(AgentDeviceCodes.VENTILATION).isTargetOn()) {
+        if (commands.get(AgentDeviceCodes.VENTILATION).isTargetOn()
+                || commands.get(AgentDeviceCodes.ROOF_VENT).isTargetOn()
+                || commands.get(AgentDeviceCodes.EXHAUST_FAN).isTargetOn()) {
             commands.put(AgentDeviceCodes.CO2_SUPPLY, command(AgentDeviceCodes.CO2_SUPPLY, false,
                     "CO2_BLOCKED_BY_VENTILATION", 2, "通风期间禁止自动 CO2 补给", null, null, true));
         }

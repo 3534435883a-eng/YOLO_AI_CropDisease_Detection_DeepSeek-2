@@ -40,6 +40,11 @@ public class CitationFormatter {
             citation.put("score", Double.valueOf(item.getScore()));
             citation.put("sourceTable", chunk.getSourceTable());
             citation.put("sourceId", Long.valueOf(chunk.getSourceId()));
+            citation.put("sourceCode", chunk.getSourceCode());
+            citation.put("sourceName", chunk.getSourceName() == null ? "来源未登记" : chunk.getSourceName());
+            citation.put("sourceType", chunk.getSourceType());
+            citation.put("sourceUrl", chunk.getSourceUrl());
+            citation.put("sourceVersion", chunk.getSourceVersion());
             citation.put("snippet", snippet(chunk.getContent()));
             citation.put("label", buildLabel(index, chunk.getDiseaseName(),
                     chunk.getFieldType() == null ? null : chunk.getFieldType().name(), chunk.getChunkNo()));
@@ -120,7 +125,19 @@ public class CitationFormatter {
                     .append(" · ").append(fieldLabel(fieldType))
                     .append(" · 片段").append(citation.get("chunkNo") == null ? 0 : citation.get("chunkNo"))
                     .append("：").append(citation.get("snippet") == null ? "" : citation.get("snippet"))
-                    .append("\n");
+                    .append("。出处：").append(citation.get("sourceName") == null ? "来源未登记" : citation.get("sourceName"));
+            if (citation.get("sourceType") != null) {
+                builder.append("（资料层级 ").append(citation.get("sourceType")).append("）");
+            }
+            if (citation.get("sourceVersion") != null) {
+                builder.append("；核验版本：").append(citation.get("sourceVersion"));
+            }
+            if (citation.get("sourceUrl") != null) {
+                builder.append("；原文：").append(citation.get("sourceUrl"));
+            } else {
+                builder.append("；原文链接未登记");
+            }
+            builder.append("\n");
         }
         return builder.toString().trim();
     }

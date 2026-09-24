@@ -8,6 +8,7 @@ import { useUserInfo } from '/@/stores/userInfo';
 import { useTagsViewRoutes } from '/@/stores/tagsViewRoutes';
 import { useRoutesList } from '/@/stores/routesList';
 import { NextLoading } from '/@/utils/loading';
+import { buildWorkspaceMenu } from '/@/router/workspaceMenu';
 
 // 前端控制路由
 
@@ -120,7 +121,7 @@ export function setFilterMenuAndCacheTagsViewRoutes() {
 	const stores = useUserInfo(pinia);
 	const storesRoutesList = useRoutesList(pinia);
 	const { userInfos } = storeToRefs(stores);
-	storesRoutesList.setRoutesList(setFilterHasRolesMenu(dynamicRoutes[0].children, userInfos.value.roles));
+	storesRoutesList.setRoutesList(buildWorkspaceMenu(setFilterHasRolesMenu(dynamicRoutes[0].children, userInfos.value.roles)));
 	setCacheTagsViewRoutes();
 }
 

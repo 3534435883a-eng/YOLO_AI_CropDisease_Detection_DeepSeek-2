@@ -36,6 +36,11 @@ export interface AgentCitation {
 	score?: number;
 	sourceTable?: string;
 	sourceId?: number | string;
+	sourceCode?: string;
+	sourceName?: string;
+	sourceType?: string;
+	sourceUrl?: string;
+	sourceVersion?: string;
 	snippet?: string;
 	label?: string;
 }

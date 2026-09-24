@@ -6,6 +6,8 @@ export type AgentRunStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAI
 
 export interface AgentRun {
 	id: AgentRunId;
+	runCode?: string;
+	runCode?: string;
 	name?: string;
 	runName?: string;
 	greenhouseName?: string;
@@ -79,6 +81,48 @@ export interface AgentRunSummary {
 	[key: string]: unknown;
 }
 
+export interface AgentTwinDevice {
+	code: string;
+	name: string;
+	actualState: 'ON' | 'OFF';
+	desiredState: 'ON' | 'OFF';
+	controlMode: string;
+	healthStatus: string;
+}
+
+export interface AgentTwinResource {
+	code: string;
+	name: string;
+	unit: string;
+	value: number;
+	openingQuantity?: number;
+	availableQuantity?: number;
+}
+
+export interface AgentTwinFrame {
+	snapshotId: number;
+	stepNo: number;
+	sourceType: string;
+	recorded: boolean;
+	modelVersion?: string | null;
+	sensorSource?: string | null;
+	environment: {
+		simulatedAt: string;
+		temperatureC: number;
+		airHumidityPct: number;
+		soilMoisturePct: number;
+		co2Ppm: number;
+		lightPpfd: number;
+		environmentRisk: number;
+		diseasePressure: number;
+		riskLevel: string;
+	};
+	devices: AgentTwinDevice[];
+	resources: AgentTwinResource[];
+	consumption: Array<{ deviceCode: string; resourceCode: string; quantity: number; unit: string }>;
+	sensorReadings: Record<string, number>;
+}
+
 export interface AgentComparisonItem {
 	code?: string;
 	label?: string;
@@ -136,11 +180,23 @@ const unwrap = <T>(response: unknown): T => {
 const runPath = (runId: AgentRunId) => `/api/agent/runs/${encodeURIComponent(String(runId))}`;
 
 export const getActiveAgentRun = async (): Promise<AgentRun | null> => {
-	return unwrap<AgentRun | null>(await request.get('/api/agent/runs/active'));
+	const run = unwrap<AgentRun | null>(await request.get('/api/agent/runs/active', { timeout: 5000 }));
+	if (run !== null && (!run || typeof run !== 'object' || run.id === undefined)) {
+		throw new Error('仿真接口返回了无效运行记录，请启动后端服务');
+	}
+	return run;
 };
 
 export const getAgentRunSummary = async (runId: AgentRunId): Promise<AgentRunSummary> => {
 	return unwrap<AgentRunSummary>(await request.get(`${runPath(runId)}/summary`));
+};
+
+export const getAgentTwinFrames = async (runId: AgentRunId): Promise<AgentTwinFrame[]> => {
+	const frames = unwrap<AgentTwinFrame[]>(await request.get(`${runPath(runId)}/twin-frames`, { timeout: 5000 }));
+	if (!Array.isArray(frames) || frames.some((frame) => !frame || typeof frame.stepNo !== 'number' || !frame.environment)) {
+		throw new Error('仿真快照接口返回无效数据，请确认后端已更新');
+	}
+	return frames;
 };
 
 export const getAgentRunComparison = async (runId: AgentRunId): Promise<AgentRunComparison> => {

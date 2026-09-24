@@ -1,9 +1,9 @@
 <template>
 	<div ref="shellRef" class="twin-shell" :style="{ '--twin-h': shellHeight + 'px' }">
-		<canvas ref="canvasRef" class="twin-canvas"></canvas>
+		<canvas ref="canvasRef" class="twin-canvas" tabindex="0"></canvas>
 
 		<!-- 病害悬浮标签 -->
-		<div class="disease-layer">
+		<div v-show="showHud && twinDataMode === 'daily'" class="disease-layer">
 			<div
 				v-for="m in diseaseMarkers"
 				:key="m.code"
@@ -29,32 +29,29 @@
 
 			<div class="sim-badge">
 				<i class="pulse"></i>
-				SIMULATED · 数字孪生（推演值，非实测）
+				{{ twinDataMode === 'agent' ? 'AGENT RUN · 15分钟规则推演（非实测）' : 'SIMULATED · 日级评测（非实测）' }}
 			</div>
 
 			<div class="top-right">
-				<span class="chip" :class="source === 'demo' ? 'warn' : 'ok'">
+				<span v-if="twinDataMode === 'agent'" class="chip ok">{{ agentRun?.status || '未创建运行' }}</span>
+				<span v-else class="chip" :class="source === 'demo' ? 'warn' : 'ok'">
 					{{ source === 'demo' ? '示例数据' : '接口数据' }}
 				</span>
-				<span class="chip mono" :title="batchId">{{ batchId }}</span>
+				<span v-if="twinDataMode === 'daily'" class="chip mono" :title="batchId">{{ batchId }}</span>
 				<span class="chip mono">{{ stats.fps > 0 ? stats.fps.toFixed(0) + ' FPS' : '— FPS' }} · {{ stats.drawCalls }} DC</span>
 				<span v-if="stats.degraded" class="chip warn">已自动降级</span>
-				<el-button size="small" :loading="loading" @click="reload">重新加载</el-button>
+				<el-button size="small" :loading="twinDataMode === 'agent' ? agentLoading : loading" @click="twinDataMode === 'agent' ? loadAgentRun() : reload()">重新加载</el-button>
 			</div>
 		</header>
 
-		<el-alert
-			v-if="source === 'demo'"
-			class="demo-alert"
-			type="warning"
-			:closable="false"
-			show-icon
-			:title="`接口 /api/eval/${batchId}/series 不可用（${apiError || '未知原因'}）—— 当前全屏数据均为内置「示例数据」`"
-			description="示例数据由离线番茄作物模型生成，用于离线演示界面；它不是实测值，也不是后端推演结果。3D 场景与全部指标卡片都随该数据集联动。"
-		/>
+		<div v-if="twinDataMode === 'daily' && source === 'demo' && showHud" class="demo-alert">
+			<span>示例数据 · 接口不可用（{{ apiError || '未知原因' }}）</span>
+			<button type="button" @click="showDemoDetails = !showDemoDetails">{{ showDemoDetails ? '收起' : '数据说明' }}</button>
+			<p v-if="showDemoDetails">/api/eval/{{ batchId }}/series 不可用。当前指标由离线作物模型生成，非实测、非后端推演结果；三维模型与此数据集联动，额外设备开关仅本地演示。</p>
+		</div>
 
 		<!-- ─────────────── 左栏 ─────────────── -->
-		<aside class="hud hud-left">
+		<aside v-show="showHud && twinDataMode === 'daily'" class="hud hud-left">
 			<section class="panel">
 				<div class="panel-hd">
 					<span class="ttl">环境</span>
@@ -101,7 +98,7 @@
 		</aside>
 
 		<!-- ─────────────── 右栏 ─────────────── -->
-		<aside class="hud hud-right">
+		<aside v-show="showHud && twinDataMode === 'daily'" class="hud hud-right">
 			<section class="panel">
 				<div class="panel-hd">
 					<span class="ttl">土壤与病虫害</span>
@@ -130,7 +127,7 @@
 				<div class="panel-hd">
 					<span class="ttl">设备</span>
 					<span class="sub">ACTUATORS</span>
-					<span class="cur mono">{{ onCount }}/5 运行</span>
+					<span class="cur mono">{{ onCount }}/{{ devices.length }} 运行</span>
 				</div>
 				<div class="dev-grid">
 					<div v-for="d in devices" :key="d.code" class="dev" :class="{ on: d.on }">
@@ -139,6 +136,15 @@
 						<span class="st">{{ d.on ? 'ON' : 'OFF' }}</span>
 					</div>
 				</div>
+			</section>
+
+			<section v-if="twinDataMode === 'daily'" class="panel">
+				<div class="panel-hd"><span class="ttl">模型设备演示</span><span class="sub">LOCAL · SIMULATED</span></div>
+				<p class="eco-note">以下开关仅驱动三维模型，不代表日级评测或真实设备命令。</p>
+				<div class="model-switch"><span>HAF 环流风机</span><el-switch v-model="demoActuators.circulationFan" size="small" /></div>
+				<div class="model-switch"><span>端墙强制排风</span><el-switch v-model="demoActuators.exhaustFan" size="small" @change="onExhaustToggle" /></div>
+				<div class="model-switch"><span>湿帘循环水</span><el-switch v-model="demoActuators.coolingPad" size="small" @change="onCoolingToggle" /></div>
+				<div class="model-switch"><span>屋面通风窗</span><el-switch v-model="demoActuators.roofVent" size="small" /></div>
 			</section>
 
 			<section class="panel">
@@ -175,7 +181,7 @@
 					</div>
 					<div class="metric">
 						<span class="lb">渲染画质</span>
-						<span class="vl mono">{{ stats.quality === 'high' ? '高' : '已降级' }}</span>
+						<span class="vl mono">{{ { high: '高', medium: '中', low: '低' }[stats.quality] }}</span>
 					</div>
 					<div class="metric">
 						<span class="lb">Draw calls</span>
@@ -194,8 +200,15 @@
 						<span class="vl mono">×{{ stats.pixelRatio.toFixed(2) }}</span>
 					</div>
 				</div>
+				<div class="quality-choice">
+					<span>画质档位</span>
+					<el-select v-model="qualityPreference" size="small" @change="updateQuality">
+						<el-option label="自动" value="auto" /><el-option label="高" value="high" />
+						<el-option label="中" value="medium" /><el-option label="低" value="low" />
+					</el-select>
+				</div>
 				<p class="eco-note">
-					帧率按真实帧间隔统计。连续 2.5s 低于 38fps 会自动降级：关闭泛光、降低像素比、玻璃换廉价材质、阴影贴图 512。
+					自动档持续 2.5s 低于 38fps 时降为中档；手动档保留所选画质。设备不随档位隐藏。
 				</p>
 			</section>
 
@@ -224,20 +237,99 @@
 			</section>
 		</aside>
 
+		<aside v-if="showHud && twinDataMode === 'agent'" class="hud hud-left agent-hud">
+			<section class="panel">
+				<div class="panel-hd"><span class="ttl">运行快照</span><span class="sub">15 MIN · SAVED</span></div>
+				<p class="eco-note">{{ agentRun?.runCode || '尚无运行' }} · {{ agentFrame?.environment.simulatedAt || '—' }}</p>
+				<p v-if="agentFrame?.modelVersion" class="eco-note">模型 {{ agentFrame.modelVersion }} · 规则推演，未经过现场标定</p>
+				<p class="eco-note">{{ agentFrame?.recorded ? '设备和库存取自该步保存的快照；番茄植株形态仅作固定示意' : '无完整设备快照：执行器统一待机，作物仅作固定示意；环境数值仅在有历史快照时显示' }}。所有指标为模拟值。</p>
+				<p v-if="agentError" class="agent-error">{{ agentError }}</p>
+				<div class="agent-actions">
+					<el-button v-if="!agentRun" size="small" type="primary" :loading="agentLoading" @click="createTwinRun">创建仿真运行</el-button>
+					<template v-else>
+						<el-button v-if="agentRun.status !== 'RUNNING'" size="small" type="primary" :disabled="agentRun.status === 'COMPLETED'" :loading="agentLoading" @click="operateTwinRun('start')">自动运行</el-button>
+						<el-button v-else size="small" type="warning" :loading="agentLoading" @click="operateTwinRun('pause')">暂停</el-button>
+						<el-button size="small" :loading="agentLoading" :disabled="agentRun.status === 'COMPLETED' || agentRun.status === 'RUNNING'" @click="advanceTwinRun">推进15分钟</el-button>
+						<el-button size="small" :loading="agentLoading" @click="operateTwinRun('reset')">重置</el-button>
+						<el-button size="small" :loading="agentLoading" @click="loadAgentRun">同步快照</el-button>
+						<el-button v-if="agentFrames.some((item) => !item.recorded)" size="small" :loading="agentLoading" @click="createTwinRun">新建兼容运行</el-button>
+					</template>
+				</div>
+			</section>
+			<section v-if="agentFrame" class="panel">
+				<div class="panel-hd"><span class="ttl">环境测点</span><span class="sub">SIMULATED</span><span class="risk" :class="'risk-' + agentFrame.environment.riskLevel.toLowerCase()">{{ agentFrame.environment.riskLevel }}</span></div>
+				<div class="agent-row"><span>室内温度</span><b>{{ fmt(agentFrame.environment.temperatureC, 1) }} ℃</b></div>
+				<div class="agent-row"><span>空气湿度</span><b>{{ fmt(agentFrame.environment.airHumidityPct, 1) }} %</b></div>
+				<div class="agent-row"><span>根区含水率</span><b>{{ fmt(agentFrame.environment.soilMoisturePct, 1) }} %</b></div>
+				<div class="agent-row"><span>冠层 CO₂</span><b>{{ fmt(agentFrame.environment.co2Ppm, 0) }} ppm</b></div>
+				<div class="agent-row"><span>PPFD</span><b>{{ fmt(agentFrame.environment.lightPpfd, 0) }} μmol/m²/s</b></div>
+				<div class="agent-row"><span>病害环境压力</span><b>{{ fmt(agentFrame.environment.diseasePressure, 1) }} %</b></div>
+				<template v-if="agentFrame.recorded">
+					<div class="agent-row"><span>室外温度（推导）</span><b>{{ fmt(agentFrame.sensorReadings?.SENSOR_OUTDOOR, 1) }} ℃</b></div>
+					<div class="agent-row"><span>滴灌流量（推导）</span><b>{{ fmt(agentFrame.sensorReadings?.SENSOR_FLOW, 1) }} L/min</b></div>
+					<p class="eco-note">测点由保存状态和场景假设计算，不是传感器采集。</p>
+				</template>
+			</section>
+			<section v-if="agentFrame?.recorded" class="panel">
+				<div class="panel-hd"><span class="ttl">虚拟库存</span><span class="sub">PER RUN</span></div>
+				<div v-for="item in agentFrame.resources" :key="item.code" class="agent-row"><span>{{ item.name }}</span><b>{{ fmt(item.value, 3) }} {{ item.unit }}<small> / 已用 {{ fmt((item.openingQuantity ?? item.value) - item.value, 3) }}</small></b></div>
+			</section>
+			<section v-if="agentFrame?.consumption?.length" class="panel">
+				<div class="panel-hd"><span class="ttl">本步资源用量</span><span class="sub">15 MIN · LEDGER</span></div>
+				<div v-for="(item, index) in agentFrame.consumption" :key="`${item.deviceCode}-${item.resourceCode}-${index}`" class="agent-row"><span>{{ agentFrame.devices.find((device) => device.code === item.deviceCode)?.name || item.deviceCode }} · {{ item.resourceCode }}</span><b>{{ fmt(item.quantity, 3) }} {{ item.unit }}</b></div>
+			</section>
+		</aside>
+		<aside v-if="showHud && twinDataMode === 'agent' && agentFrame?.recorded" class="hud hud-right agent-hud">
+			<section class="panel">
+				<div class="panel-hd"><span class="ttl">执行设备</span><span class="sub">ACTUAL STATE</span></div>
+				<div v-for="item in agentFrame.devices" :key="item.code" class="agent-row"><span>{{ item.name }} <small>{{ item.controlMode }}</small></span><b :class="item.actualState === 'ON' ? 'agent-on' : ''">{{ item.actualState }}</b></div>
+				<p class="eco-note">湿帘需要排风；对外换气期间禁止 CO₂ 补气。设备状态仅是保存的仿真动作。</p>
+			</section>
+		</aside>
+
 		<!-- ─────────────── 相机预设 ─────────────── -->
-		<div class="cam-bar">
+		<div class="cam-bar" :class="{ 'is-immersive': !showHud }">
+			<el-button-group>
+				<el-button size="small" :type="twinDataMode === 'agent' ? 'primary' : ''" @click="selectTwinMode('agent')">15分钟仿真</el-button>
+				<el-button size="small" :type="twinDataMode === 'daily' ? 'primary' : ''" @click="selectTwinMode('daily')">日级评测</el-button>
+			</el-button-group>
+			<el-button size="small" @click="toggleHud">{{ showHud ? '隐藏数据面板' : '显示数据面板' }}</el-button>
+			<el-button size="small" :type="showEquipmentList ? 'success' : ''" @click="showEquipmentList = !showEquipmentList">设备目录</el-button>
+			<el-button size="small" :type="navigationMode === 'fly' ? 'success' : 'primary'" @click="toggleNavigationMode">
+				{{ navigationMode === 'fly' ? '退出自由漫游' : '进入自由漫游' }}
+			</el-button>
+			<span v-if="navigationMode === 'fly'" class="flight-guide">WASD 移动 · Q/E 升降 · Shift 加速 · 鼠标转向 · 未锁定时按住拖动 · Esc 退出锁定</span>
+			<el-select v-model="shellMode" size="small" class="shell-select" @change="updateShellMode">
+				<el-option label="完整薄膜" value="solid" /><el-option label="透视薄膜" value="translucent" /><el-option label="结构剖切" value="cutaway" />
+			</el-select>
 			<el-button-group>
 				<el-button v-for="p in presets" :key="p.v" size="small" :type="preset === p.v ? 'primary' : ''" @click="setPreset(p.v)">
 					{{ p.l }}
 				</el-button>
 			</el-button-group>
-			<el-button size="small" :type="autoRotate ? 'primary' : ''" @click="toggleAutoRotate">自动旋转</el-button>
-			<el-button size="small" :type="diurnal ? 'primary' : ''" @click="diurnal = !diurnal">昼夜循环</el-button>
+			<el-button size="small" :type="autoRotate ? 'primary' : ''" :disabled="navigationMode === 'fly'" @click="toggleAutoRotate">自动旋转</el-button>
+			<el-button size="small" :type="diurnal ? 'primary' : ''" :disabled="twinDataMode === 'agent'" @click="diurnal = !diurnal">昼夜循环</el-button>
 			<span class="clock mono">{{ clockText }}</span>
+		</div>
+		<div v-if="showEquipmentList" class="equipment-directory">
+			<div class="directory-heading"><strong>设备与测点</strong><span>点击定位 · 可继续自由漫游</span></div>
+			<button v-for="item in equipmentOptions" :key="item.code" type="button" @click="inspectEquipment(item.code)">
+				<span>{{ item.kind === 'sensor' ? '◇' : '●' }} {{ item.name }}</span><small>{{ item.zone }}</small>
+			</button>
+		</div>
+		<div v-if="navigationMode === 'fly'" class="flight-reticle"></div>
+		<div v-if="inspected" class="inspection-panel">
+			<div class="inspection-top"><span>{{ inspected.kind === 'sensor' ? '感知节点' : '执行设备' }} · SIMULATED</span><button type="button" @click="inspected = null">×</button></div>
+			<strong>{{ inspected.name }}</strong>
+			<span class="inspection-zone">{{ inspected.zone }} · {{ inspected.code }}</span>
+			<p>{{ inspected.description }}</p>
+			<b v-if="inspected.kind === 'sensor'">{{ fmt(inspected.value, 1) }} {{ inspected.unit }}</b>
+			<b v-else :class="{ active: inspected.active }">{{ inspected.active ? '模型运行中' : '模型待机' }}</b>
+			<small>{{ twinDataMode === 'agent' ? '保存快照驱动的仿真状态 · 非实物遥测' : '本地模型状态 · 非实物遥测/控制命令' }}</small>
 		</div>
 
 		<!-- ─────────────── 播放条 ─────────────── -->
-		<footer class="playbar">
+		<footer v-show="showHud && twinDataMode === 'daily'" class="playbar">
 			<el-button class="pp" :type="playing ? 'warning' : 'primary'" circle @click="togglePlay">
 				{{ playing ? '❚❚' : '▶' }}
 			</el-button>
@@ -267,6 +359,14 @@
 				<el-button v-for="s in speedOptions" :key="s" size="small" :type="speed === s ? 'primary' : ''" @click="speed = s">
 					{{ s }}×
 				</el-button>
+			</div>
+		</footer>
+		<footer v-if="showHud && twinDataMode === 'agent'" class="playbar agent-playbar">
+			<el-button class="pp" :type="agentPlaying ? 'warning' : 'primary'" circle :disabled="agentFrames.length < 2" @click="toggleAgentPlayback">{{ agentPlaying ? '❚❚' : '▶' }}</el-button>
+			<span class="chip ok">历史快照回放</span>
+			<div class="scrub">
+				<div class="scrub-top"><span class="mono day">第 {{ agentFrame?.stepNo ?? 0 }} / {{ Math.max(0, agentFrames.length - 1) }} 步</span><span class="mono date">{{ agentFrame?.environment.simulatedAt || '—' }}</span></div>
+				<el-slider v-model="agentIndex" :min="0" :max="Math.max(1, agentFrames.length - 1)" :step="1" :disabled="agentFrames.length < 2" :show-tooltip="false" @input="agentPlaying = false" />
 			</div>
 		</footer>
 
@@ -302,10 +402,22 @@
  *   · HUD 上的所有指标都直接取「当前整天」的推演值，不做估算
  *   · 3D 场景使用相邻两天之间的线性插值，保证植株不会跳变
  */
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import * as echarts from 'echarts';
-import { GreenhouseTwin, type CameraPreset, type TwinStats } from './scene';
+import { ElMessageBox } from 'element-plus';
+import { GreenhouseTwin, type CameraPreset, type InspectionInfo, type TwinStats } from './scene';
+import {
+	createAgentRun,
+	getActiveAgentRun,
+	getAgentTwinFrames,
+	pauseAgentRun,
+	resetAgentRun,
+	startAgentRun,
+	stepAgentRun,
+	type AgentRun,
+	type AgentTwinFrame,
+} from '/@/api/agent';
 import {
 	DEFAULT_BATCH_ID,
 	DEFAULT_DAYS,
@@ -332,9 +444,10 @@ import {
 /* ------------------------------ 常量 ------------------------------ */
 
 const BASE_DAYS_PER_SEC = 1.15; // 1× 播放速度：天/秒
-const DIURNAL_SECONDS_PER_DAY = 96; // 昼夜演示：96 秒走完一个完整昼夜
+const route = useRoute();
+const DIURNAL_SECONDS_PER_DAY = 240;
 /** 昼夜时钟累积的模拟小时数（非响应式，避免每帧触发重渲染） */
-let diurnalHours = 0;
+let diurnalHours = 6;
 const DISEASE_COLORS: Record<string, string> = {
 	BOTRYTIS: '#a7b4a4',
 	LATE_BLIGHT: '#7f9149',
@@ -349,9 +462,19 @@ const canvasRef = ref<HTMLCanvasElement>();
 const chartRef = ref<HTMLElement>();
 
 const shellHeight = ref(720);
-const loading = ref(true);
+const loading = ref(false);
 const webglError = ref('');
 const source = ref<'api' | 'demo'>('demo');
+const twinDataMode = ref<'agent' | 'daily'>('daily');
+const agentRun = ref<AgentRun | null>(null);
+const agentFrames = ref<AgentTwinFrame[]>([]);
+const agentIndex = ref(0);
+const agentLoading = ref(false);
+const agentError = ref('');
+const agentPlaying = ref(false);
+let agentPlaybackTime = 0;
+let agentSyncTimer: ReturnType<typeof setInterval> | null = null;
+const agentFrame = computed(() => agentFrames.value[agentIndex.value] ?? null);
 const apiError = ref('');
 const batchId = ref(DEFAULT_BATCH_ID);
 const seed = DEFAULT_SEED;
@@ -373,9 +496,18 @@ const sliderPos = ref(1);
 
 const playing = ref(false);
 const speed = ref(1);
-const diurnal = ref(true);
+const diurnal = ref(false);
 const preset = ref<CameraPreset>('overview');
 const autoRotate = ref(false);
+const navigationMode = ref<'orbit' | 'fly'>('orbit');
+const shellMode = ref<'solid' | 'translucent' | 'cutaway'>('translucent');
+const qualityPreference = ref<'auto' | TwinStats['quality']>('high');
+const showHud = ref(false);
+const showDemoDetails = ref(false);
+const showEquipmentList = ref(false);
+const equipmentOptions = ref<Array<{ code: string; name: string; zone: string; kind: 'sensor' | 'actuator' }>>([]);
+const inspected = ref<InspectionInfo | null>(null);
+const demoActuators = reactive({ circulationFan: true, exhaustFan: false, coolingPad: false, roofVent: false });
 const clockHour = ref(12);
 
 const outcomes = ref<EvalRunsResponse | null>(null);
@@ -488,6 +620,13 @@ const diseaseBars = computed(() => {
 });
 
 const devices = computed(() => {
+	if (twinDataMode.value === 'agent' && agentFrame.value?.recorded) {
+		return agentFrame.value.devices.map((item) => ({
+			code: item.code,
+			name: item.name,
+			on: item.actualState === 'ON',
+		}));
+	}
 	const d = currentDay.value;
 	return DEVICE_ORDER.map((code) => ({ code, name: DEVICE_LABELS[code] || code, on: Boolean(d?.devices?.[code]) }));
 });
@@ -530,11 +669,14 @@ const sceneHourAt = (dayValue: number): number => {
 	const idx = Math.min(pts.length, Math.max(1, Math.round(dayValue)));
 	const stampHour = hourFromSimulatedAt(pts[idx - 1]?.simulatedAt || '', 6);
 	if (!flatHours.value) return stampHour;
-	if (!diurnal.value) return stampHour;
 	return (stampHour + diurnalHours) % 24;
 };
 
 const clockText = computed(() => {
+	if (twinDataMode.value === 'agent') {
+		const stamp = agentFrame.value?.environment.simulatedAt;
+		return stamp ? `${stamp.slice(11, 16)} · 15分钟快照` : '等待仿真运行';
+	}
 	const h = clockHour.value;
 	const hh = Math.floor(h) % 24;
 	const mm = Math.floor((h - Math.floor(h)) * 60);
@@ -544,6 +686,7 @@ const clockText = computed(() => {
 /* ------------------------- 3D 场景 / 播放循环 ------------------------- */
 
 let twin: GreenhouseTwin | null = null;
+let shellResizeObserver: ResizeObserver | null = null;
 let raf = 0;
 let lastT = 0;
 let markerTick = 0;
@@ -551,6 +694,27 @@ let statsTick = 0;
 
 const pushScene = () => {
 	if (!twin) return;
+	if (twinDataMode.value === 'agent') {
+		const recorded = agentFrame.value?.recorded ? agentFrame.value : null;
+		const environment = agentFrame.value?.environment;
+		const enabled = (code: string) => recorded?.devices.some((device) => device.code === code && device.actualState === 'ON') ?? false;
+		const at = environment?.simulatedAt || '';
+		twin.applyState({
+			lai: 3, plantHeightCm: 180, fruitCount: 4, singleFruitWeightG: 70,
+			fruitSetRate: 0.7, mature: false, ripeness: 0.45,
+			lightPpfd: environment?.lightPpfd ?? 650,
+			irrigation: enabled('IRRIGATION'), ventilation: enabled('VENTILATION'),
+			supplementalLight: enabled('SUPPLEMENTAL_LIGHT'), shade: enabled('SHADE'),
+			co2: enabled('CO2_SUPPLY'), circulationFan: enabled('CIRCULATION_FAN'),
+			exhaustFan: enabled('EXHAUST_FAN'), coolingPad: enabled('COOLING_PAD'),
+			roofVent: enabled('ROOF_VENT'),
+			temperatureC: environment?.temperatureC ?? 24, airHumidityPct: environment?.airHumidityPct ?? 70,
+			co2Ppm: environment?.co2Ppm ?? 720, soilMoisturePct: environment?.soilMoisturePct ?? 55,
+			sensorReadings: recorded?.sensorReadings,
+			severity: {}, hour: hourFromSimulatedAt(at, 12), dayOfYear: dayOfYearFromSimulatedAt(at, 264),
+		});
+		return;
+	}
 	const pts = points.value;
 	if (!pts.length) return;
 	const snap = interpolateDayPoint(pts, dayAnim);
@@ -571,6 +735,14 @@ const pushScene = () => {
 		supplementalLight: snap.devices.SUPPLEMENTAL_LIGHT,
 		shade: snap.devices.SHADE,
 		co2: snap.devices.CO2_SUPPLY,
+		circulationFan: demoActuators.circulationFan,
+		exhaustFan: demoActuators.exhaustFan,
+		coolingPad: demoActuators.coolingPad,
+		roofVent: demoActuators.roofVent,
+		temperatureC: snap.temperatureC,
+		airHumidityPct: snap.airHumidityPct,
+		co2Ppm: snap.co2Ppm,
+		soilMoisturePct: snap.soilMoisturePct,
 		severity: { ...snap.severity },
 		hour: sceneHourAt(dayAnim),
 		dayOfYear: dayOfYearFromSimulatedAt(pts[idx - 1]?.simulatedAt || '', 264),
@@ -579,6 +751,10 @@ const pushScene = () => {
 
 const refreshMarkers = () => {
 	if (!twin) return;
+	if (twinDataMode.value === 'agent') {
+		diseaseMarkers.value = [];
+		return;
+	}
 	const d = currentDay.value;
 	diseaseMarkers.value = twin.getDiseaseMarkers().map((m) => ({
 		code: m.code,
@@ -597,9 +773,18 @@ const frame = (now: number) => {
 	lastT = now;
 
 	// 昼夜演示时钟：与播放状态无关地持续走时
-	if (diurnal.value && flatHours.value) diurnalHours = (diurnalHours + dt * (24 / DIURNAL_SECONDS_PER_DAY)) % 24;
+	if (twinDataMode.value === 'daily' && diurnal.value && flatHours.value) diurnalHours = (diurnalHours + dt * (24 / DIURNAL_SECONDS_PER_DAY)) % 24;
 
-	if (playing.value && maxDay.value > 1) {
+	if (twinDataMode.value === 'agent' && agentPlaying.value && agentFrames.value.length > 1) {
+		agentPlaybackTime += dt;
+		if (agentPlaybackTime >= 0.65) {
+			agentPlaybackTime = 0;
+			agentIndex.value = Math.min(agentFrames.value.length - 1, agentIndex.value + 1);
+			if (agentIndex.value === agentFrames.value.length - 1) agentPlaying.value = false;
+		}
+	}
+
+	if (twinDataMode.value === 'daily' && playing.value && maxDay.value > 1) {
 		const next = dayAnim + dt * BASE_DAYS_PER_SEC * speed.value;
 		if (next >= maxDay.value) {
 			dayAnim = maxDay.value;
@@ -620,12 +805,17 @@ const frame = (now: number) => {
 		markerTick = 0;
 		refreshMarkers();
 		sliderPos.value = dayAnim;
-		clockHour.value = sceneHourAt(dayAnim);
+		clockHour.value = twinDataMode.value === 'agent'
+			? hourFromSimulatedAt(agentFrame.value?.environment.simulatedAt || '', 12) : sceneHourAt(dayAnim);
 	}
 	statsTick += dt;
 	if (statsTick >= 0.5) {
 		statsTick = 0;
-		if (twin) stats.value = twin.getStats();
+		if (twin) {
+			stats.value = twin.getStats();
+			navigationMode.value = twin.getNavigationMode();
+			if (inspected.value) inspected.value = twin.getInspectionInfo(inspected.value.code);
+		}
 	}
 };
 
@@ -730,6 +920,17 @@ const updateChart = () => {
 	chart.setOption(buildChartOption(), true);
 };
 
+const toggleHud = async () => {
+	showHud.value = !showHud.value;
+	if (!showHud.value) return;
+	await nextTick();
+	if (twinDataMode.value === 'daily') {
+		if (chartRef.value && !chart) chart = echarts.init(chartRef.value, undefined, { renderer: 'canvas' });
+		chart?.resize();
+		updateChart();
+	}
+};
+
 /* ------------------------------ 数据 ------------------------------ */
 
 const loadData = async () => {
@@ -749,8 +950,8 @@ const loadData = async () => {
 		} else {
 			outcomes.value = null;
 		}
-		setDay(1);
-		playing.value = maxDay.value > 1;
+		setDay(Math.max(1, Math.round(maxDay.value * 0.72)));
+		playing.value = false;
 	} catch (e) {
 		// fetchEvalSeries / buildDemoDataset 本身不会 reject，这里只是最后兜底
 		source.value = 'demo';
@@ -785,6 +986,114 @@ const reload = async () => {
 	await loadData();
 };
 
+const loadAgentRun = async () => {
+	if (agentLoading.value) return;
+	agentLoading.value = true;
+	agentError.value = '';
+	try {
+		const previousIndex = agentIndex.value;
+		const previousLength = agentFrames.value.length;
+		const run = await getActiveAgentRun();
+		agentRun.value = run;
+		agentFrames.value = run ? await getAgentTwinFrames(run.id) : [];
+		agentIndex.value = agentPlaying.value || previousLength > 0 && previousIndex < previousLength - 1
+			? Math.min(previousIndex, Math.max(0, agentFrames.value.length - 1))
+			: Math.max(0, agentFrames.value.length - 1);
+		if (agentFrames.value.some((item) => !item.recorded)) {
+			agentError.value = '旧运行包含不完整快照；建议创建新运行以回放设备与库存。';
+		}
+	} catch (error) {
+		agentRun.value = null;
+		agentError.value = `仿真服务不可用：${String((error as Error)?.message || error)}`;
+		agentFrames.value = [];
+	} finally {
+		agentLoading.value = false;
+	}
+};
+
+const createTwinRun = async () => {
+	if (agentLoading.value) return;
+	agentLoading.value = true;
+	try {
+		await createAgentRun();
+		agentFrames.value = [];
+		agentIndex.value = 0;
+		agentPlaying.value = false;
+		agentLoading.value = false;
+		await loadAgentRun();
+	} catch (error) {
+		agentError.value = String((error as Error)?.message || error);
+	} finally {
+		agentLoading.value = false;
+	}
+};
+
+const advanceTwinRun = async () => {
+	if (!agentRun.value || agentLoading.value) return;
+	agentLoading.value = true;
+	try {
+		await stepAgentRun(agentRun.value.id);
+		agentLoading.value = false;
+		await loadAgentRun();
+	} catch (error) {
+		agentError.value = String((error as Error)?.message || error);
+	} finally {
+		agentLoading.value = false;
+	}
+};
+
+const operateTwinRun = async (action: 'start' | 'pause' | 'reset') => {
+	if (!agentRun.value || agentLoading.value) return;
+	if (action === 'reset') {
+		try {
+			await ElMessageBox.confirm('重置会清空本次仿真的历史快照、动作与资源流水。确定继续？', '重置虚拟运行', { type: 'warning' });
+		} catch {
+			return;
+		}
+	}
+	agentLoading.value = true;
+	try {
+		if (action === 'start') await startAgentRun(agentRun.value.id);
+		else if (action === 'pause') await pauseAgentRun(agentRun.value.id);
+		else {
+			await resetAgentRun(agentRun.value.id);
+			agentFrames.value = [];
+			agentIndex.value = 0;
+			agentPlaying.value = false;
+		}
+		agentLoading.value = false;
+		await loadAgentRun();
+	} catch (error) {
+		agentError.value = String((error as Error)?.message || error);
+	} finally {
+		agentLoading.value = false;
+	}
+};
+
+const selectTwinMode = async (mode: 'agent' | 'daily') => {
+	if (mode === twinDataMode.value) return;
+	twinDataMode.value = mode;
+	playing.value = false;
+	agentPlaying.value = false;
+	showHud.value = true;
+	await nextTick();
+	if (mode === 'daily') {
+		if (chartRef.value && !chart) chart = echarts.init(chartRef.value, undefined, { renderer: 'canvas' });
+		chart?.resize();
+		if (!points.value.length) await loadData();
+		updateChart();
+	} else {
+		await loadAgentRun();
+	}
+};
+
+const toggleAgentPlayback = () => {
+	if (agentFrames.value.length < 2) return;
+	if (!agentPlaying.value && agentIndex.value >= agentFrames.value.length - 1) agentIndex.value = 0;
+	agentPlaybackTime = 0;
+	agentPlaying.value = !agentPlaying.value;
+};
+
 /* ------------------------------ 交互 ------------------------------ */
 
 const togglePlay = () => {
@@ -814,7 +1123,25 @@ const onStrategyChange = () => {
 };
 const setPreset = (p: CameraPreset) => {
 	preset.value = p;
+	autoRotate.value = false;
 	twin?.setCameraPreset(p);
+};
+const toggleNavigationMode = () => {
+	navigationMode.value = navigationMode.value === 'fly' ? 'orbit' : 'fly';
+	autoRotate.value = false;
+	twin?.setNavigationMode(navigationMode.value);
+};
+const updateShellMode = () => twin?.setShellMode(shellMode.value);
+const updateQuality = () => twin?.setQuality(qualityPreference.value);
+const inspectEquipment = (code: string) => {
+	inspected.value = twin?.focusEquipment(code) || null;
+	showEquipmentList.value = false;
+};
+const onCoolingToggle = (on: string | number | boolean) => {
+	if (on) demoActuators.exhaustFan = true;
+};
+const onExhaustToggle = (on: string | number | boolean) => {
+	if (!on) demoActuators.coolingPad = false;
 };
 const toggleAutoRotate = () => {
 	autoRotate.value = !autoRotate.value;
@@ -827,7 +1154,7 @@ const measureHeight = () => {
 	const el = shellRef.value;
 	if (!el) return;
 	const rect = el.getBoundingClientRect();
-	const avail = window.innerHeight - Math.max(0, rect.top) - 14;
+	const avail = Math.max(window.innerHeight - Math.max(0, rect.top), el.parentElement?.clientHeight || 0) - 14;
 	shellHeight.value = Math.max(560, Math.floor(avail));
 };
 
@@ -840,7 +1167,6 @@ const onResize = () => {
 /** 路由参数可覆盖 batchId：/digitalTwin/:batchId */
 const resolveBatchId = () => {
 	try {
-		const route = useRoute();
 		const fromParams = (route.params as Record<string, unknown>)?.batchId;
 		const fromQuery = (route.query as Record<string, unknown>)?.batchId;
 		const v = String(fromParams || fromQuery || '').trim();
@@ -859,10 +1185,14 @@ watch(currentIndex, () => {
 
 onMounted(async () => {
 	resolveBatchId();
+	if (route.query.mode === 'agent') {
+		twinDataMode.value = 'agent';
+		showHud.value = true;
+	}
 	measureHeight();
 	await nextTick();
 
-	if (chartRef.value) {
+	if (chartRef.value && showHud.value && twinDataMode.value === 'daily') {
 		chart = echarts.init(chartRef.value, undefined, { renderer: 'canvas' });
 		updateChart();
 	}
@@ -870,21 +1200,37 @@ onMounted(async () => {
 	if (canvasRef.value && shellRef.value) {
 		try {
 			twin = new GreenhouseTwin(canvasRef.value, shellRef.value);
+			twin.setQuality(qualityPreference.value);
+			twin.setShellMode(shellMode.value);
+			twin.onInspect((entry) => { inspected.value = entry; });
+			equipmentOptions.value = twin.getEquipmentList();
 			twin.setCameraPreset('overview');
-			window.setTimeout(() => twin?.setAutoRotate(true), 1400);
-			autoRotate.value = true;
 		} catch (e) {
 			webglError.value = String((e as Error)?.message || e);
 		}
 	}
 
 	window.addEventListener('resize', onResize);
+	agentSyncTimer = setInterval(() => {
+		if (twinDataMode.value === 'agent' && agentRun.value?.status === 'RUNNING' && !agentLoading.value) {
+			void loadAgentRun();
+		}
+	}, 4000);
+	if (shellRef.value?.parentElement && typeof ResizeObserver !== 'undefined') {
+		shellResizeObserver = new ResizeObserver(onResize);
+		shellResizeObserver.observe(shellRef.value.parentElement);
+	}
 	raf = requestAnimationFrame(frame);
 
-	await loadData();
+	if (twinDataMode.value === 'agent') await loadAgentRun();
+	else await loadData();
 });
 
 onUnmounted(() => {
+	if (agentSyncTimer) clearInterval(agentSyncTimer);
+	agentSyncTimer = null;
+	shellResizeObserver?.disconnect();
+	shellResizeObserver = null;
 	window.removeEventListener('resize', onResize);
 	if (raf) cancelAnimationFrame(raf);
 	raf = 0;
@@ -922,6 +1268,7 @@ onUnmounted(() => {
 	height: 100%;
 	display: block;
 	z-index: 1;
+	outline: none;
 }
 
 .mono {
@@ -1056,28 +1403,34 @@ onUnmounted(() => {
 
 .demo-alert {
 	position: absolute;
-	top: 58px;
+	top: 54px;
 	left: 50%;
 	transform: translateX(-50%);
 	z-index: 7;
-	width: min(760px, calc(100% - 720px));
-	min-width: 360px;
-	border-radius: 10px;
-	background: rgba(48, 32, 8, 0.86);
-	border: 1px solid rgba(255, 180, 70, 0.4);
+	width: max-content;
+	max-width: min(640px, calc(100% - 40px));
+	padding: 5px 10px;
+	border-radius: 8px;
+	background: rgba(45, 31, 15, 0.9);
+	border: 1px solid rgba(255, 180, 70, 0.32);
 	backdrop-filter: blur(10px);
+	color: #f5cf92;
+	font-size: 10px;
+	text-align: center;
 
-	:deep(.el-alert__title) {
-		font-size: 12px;
-		font-weight: 700;
-		color: #ffcf87;
+	button {
+		margin-left: 12px;
+		padding: 1px 4px;
+		border: 0;
+		background: none;
+		color: #9ee4d1;
+		cursor: pointer;
 	}
 
-	:deep(.el-alert__description) {
-		font-size: 11px;
+	p {
+		margin: 7px 2px 3px;
 		line-height: 1.6;
-		color: #e0b98a;
-		margin: 4px 0 0;
+		text-align: left;
 	}
 }
 
@@ -1118,6 +1471,37 @@ onUnmounted(() => {
 .hud-right {
 	right: 16px;
 	width: 344px;
+}
+
+.agent-hud {
+	.agent-row {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 14px;
+		padding: 8px 1px;
+		border-bottom: 1px solid rgba(130, 170, 185, 0.12);
+		color: #b9cdd5;
+		font-size: 11px;
+
+		b { color: #e1f3ed; font-variant-numeric: tabular-nums; white-space: nowrap; }
+		b.agent-on { color: #79efb0; }
+		small { color: #799b9e; font-size: 9px; }
+	}
+
+	.agent-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: 12px;
+	}
+
+	.agent-error {
+		color: #f2bd81;
+		font-size: 11px;
+		line-height: 1.5;
+		word-break: break-word;
+	}
 }
 
 .panel {
@@ -1406,6 +1790,27 @@ onUnmounted(() => {
 	}
 }
 
+.model-switch,
+.quality-choice {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	min-height: 32px;
+	padding: 5px 2px;
+	border-bottom: 1px solid rgba(110, 160, 200, 0.12);
+	color: #acc6d7;
+	font-size: 11px;
+}
+
+.quality-choice {
+	margin-top: 8px;
+
+	.el-select {
+		width: 112px;
+	}
+}
+
 /* 经济 */
 .eco {
 	display: flex;
@@ -1545,6 +1950,18 @@ onUnmounted(() => {
 	border: 1px solid rgba(110, 175, 225, 0.18);
 	backdrop-filter: blur(14px);
 	box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+	max-width: calc(100% - 32px);
+	flex-wrap: wrap;
+	justify-content: flex-end;
+
+	&.is-immersive {
+		bottom: 20px;
+	}
+
+	.flight-guide {
+		color: #b8e9c7;
+		font-size: 11px;
+	}
 
 	.clock {
 		font-size: 11px;
@@ -1554,6 +1971,134 @@ onUnmounted(() => {
 		min-width: 92px;
 		text-align: right;
 	}
+}
+
+.shell-select {
+	width: 112px;
+}
+
+.equipment-directory {
+	position: absolute;
+	right: 16px;
+	top: 146px;
+	z-index: 7;
+	width: 280px;
+	max-height: min(380px, calc(100% - 260px));
+	overflow-y: auto;
+	padding: 10px;
+	border: 1px solid rgba(107, 224, 189, 0.3);
+	border-radius: 12px;
+	background: rgba(7, 22, 30, 0.95);
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.44);
+	backdrop-filter: blur(18px);
+
+	.directory-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 6px;
+		padding: 4px 5px 10px;
+		color: #e3f6ec;
+
+		span { font-size: 10px; color: #7daca6; }
+	}
+
+	button {
+		display: flex;
+		width: 100%;
+		justify-content: space-between;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 6px;
+		border: 0;
+		border-top: 1px solid rgba(110, 160, 200, 0.13);
+		background: none;
+		color: #c2dfdf;
+		font-size: 11px;
+		text-align: left;
+		cursor: pointer;
+
+		&:hover { background: rgba(40, 110, 88, 0.25); }
+		small { flex: none; color: #779ca5; font-size: 9px; }
+	}
+}
+
+.flight-reticle {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	z-index: 5;
+	width: 16px;
+	height: 16px;
+	transform: translate(-50%, -50%);
+	pointer-events: none;
+	background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1px, transparent 2px);
+	filter: drop-shadow(0 1px 2px #031016);
+
+	&::before,
+	&::after {
+		content: '';
+		position: absolute;
+		background: rgba(220, 255, 240, 0.82);
+	}
+
+	&::before {
+		width: 16px;
+		height: 1px;
+		top: 7px;
+	}
+
+	&::after {
+		width: 1px;
+		height: 16px;
+		left: 7px;
+	}
+}
+
+.inspection-panel {
+	position: absolute;
+	left: max(326px, 22%);
+	top: 135px;
+	z-index: 7;
+	width: min(290px, calc(100% - 344px));
+	padding: 15px 16px;
+	border: 1px solid rgba(107, 224, 189, 0.38);
+	border-radius: 12px;
+	background: rgba(7, 22, 30, 0.94);
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.44);
+	backdrop-filter: blur(18px);
+	line-height: 1.5;
+
+	.inspection-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		color: #68d5aa;
+		font-size: 10px;
+		letter-spacing: 1px;
+
+		button {
+			border: 0;
+			background: none;
+			color: #afcbd5;
+			font-size: 20px;
+			cursor: pointer;
+		}
+	}
+
+	strong,
+	.inspection-zone,
+	b,
+	small {
+		display: block;
+	}
+
+	strong { margin: 4px 0; font-size: 15px; color: #ecf7f4; }
+	.inspection-zone { color: #9fb9c5; font-size: 10px; }
+	p { margin: 12px 0; color: #c6d8dd; }
+	b { color: #a5c7d1; font-size: 14px; }
+	b.active { color: #69e4a5; }
+	small { margin-top: 10px; color: #7999a3; font-size: 10px; }
 }
 
 /* ============================ 播放条 ============================ */
@@ -1857,5 +2402,23 @@ onUnmounted(() => {
 	.demo-alert {
 		width: calc(100% - 380px);
 	}
+
+	.inspection-panel {
+		left: 326px;
+	}
+}
+@media (max-width: 640px) {
+	.topbar { flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 12px 12px; background: rgba(3, 7, 12, .86); }
+	.brand { flex: 0 0 100%; }
+	.brand .brand-txt h1 { font-size: 13px; letter-spacing: 0; }
+	.brand .brand-txt p { display: none; }
+	.sim-badge { order: 2; margin: 0; padding: 5px 8px; font-size: 9px; letter-spacing: 0; box-shadow: none; }
+	.top-right { order: 3; margin-left: auto; }
+	.top-right .chip.mono, .top-right > .el-button { display: none; }
+	.hud { top: 102px; bottom: 315px; left: 12px; width: calc(100% - 24px); max-width: 366px; }
+	.hud-right { display: none; }
+	.cam-bar { left: 12px; right: 12px; bottom: 94px; max-width: none; max-height: 150px; overflow-y: auto; justify-content: center; }
+	.cam-bar.is-immersive { bottom: 12px; }
+	.playbar { gap: 10px; padding: 10px 12px 14px; }
 }
 </style>

@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TomatoSimulationEngine {
+    private static final double BED_ROOT_VOLUME_L = 4.0 * 21.0 * 1.7 * 0.25 * 1000.0;
+    private static final double GREENHOUSE_AIR_VOLUME_M3 = 26.0 * 13.0 * (4.0 + 1.7 * 2.0 / Math.PI);
+    private static final double IRRIGATION_L_PER_TICK = 60.0;
 
     public SimulationState evaluate(LocalDateTime simulatedAt, double temperatureC, double airHumidityPct,
                                     double soilMoisturePct, double co2Ppm, double lightPpfd, double soilPh) {
@@ -73,28 +76,45 @@ public class TomatoSimulationEngine {
         double factor = Math.max(1, tickMinutes) / 15.0;
         LocalDateTime nextAt = current.getSimulatedAt().plusMinutes(tickMinutes);
         double clockHour = nextAt.getHour() + nextAt.getMinute() / 60.0;
-        double phase = Math.floorMod(seed, 360L) * Math.PI / 180.0;
         double daylight = Math.max(0.0, Math.sin((clockHour - 6.0) * Math.PI / 12.0));
-        double weatherBias = Math.sin(phase) * 1.2;
-        double outsideTemperature = 17.0 + 12.0 * daylight + weatherBias + outsideTemperatureOffsetC;
-        double outsideHumidity = 84.0 - 32.0 * daylight + Math.cos(phase) * 3.0 + interiorHumidityOffsetPct;
+        double outsideTemperature = outsideTemperature(nextAt, seed) + outsideTemperatureOffsetC;
+        double outsideHumidity = outsideHumidity(nextAt, seed);
         double outsideLight = 820.0 * daylight;
 
-        double temperature = current.getTemperatureC() + (outsideTemperature - current.getTemperatureC()) * 0.12 * factor;
-        double humidity = current.getAirHumidityPct() + (outsideHumidity - current.getAirHumidityPct()) * 0.09 * factor;
-        double soil = current.getSoilMoisturePct() - (0.42 + Math.max(0.0, temperature - 20.0) * 0.025) * factor;
-        double co2 = current.getCo2Ppm() + (420.0 - current.getCo2Ppm()) * 0.08 * factor;
-        double light = current.getLightPpfd() + (outsideLight - current.getLightPpfd()) * 0.45 * factor;
+        double outsideVapor = saturationVaporPressure(outsideTemperature) * outsideHumidity / 100.0;
+        double vapor = saturationVaporPressure(current.getTemperatureC()) * current.getAirHumidityPct() / 100.0;
+        double temperature = exchange(current.getTemperatureC(), outsideTemperature, 0.12, factor);
+        vapor = exchange(vapor, outsideVapor + saturationVaporPressure(outsideTemperature)
+                * interiorHumidityOffsetPct / 100.0, 0.09, factor);
+        double soil = current.getSoilMoisturePct() - (0.016 + Math.max(0.0, temperature - 20.0) * 0.001) * factor;
+        double co2 = exchange(current.getCo2Ppm(), 420.0, 0.08, factor);
+        double light = exchange(current.getLightPpfd(), outsideLight, 0.45, factor);
         double soilPh = current.getSoilPh();
 
         if (isOn(states, AgentDeviceCodes.IRRIGATION)) {
-            soil += 5.6 * factor;
-            humidity += 1.1 * factor;
+            soil += 100.0 * IRRIGATION_L_PER_TICK / BED_ROOT_VOLUME_L * factor;
+            vapor += saturationVaporPressure(temperature) * 0.011 * factor;
         }
         if (isOn(states, AgentDeviceCodes.VENTILATION)) {
-            temperature -= 1.6 * factor;
-            humidity -= 5.2 * factor;
-            co2 -= 48.0 * factor;
+            temperature = exchange(temperature, outsideTemperature, 0.35, factor);
+            vapor = exchange(vapor, outsideVapor, 0.35, factor);
+            co2 = exchange(co2, 420.0, 0.35, factor);
+        }
+        if (isOn(states, AgentDeviceCodes.ROOF_VENT)) {
+            temperature = exchange(temperature, outsideTemperature, 0.15, factor);
+            vapor = exchange(vapor, outsideVapor, 0.15, factor);
+            co2 = exchange(co2, 420.0, 0.15, factor);
+        }
+        if (isOn(states, AgentDeviceCodes.EXHAUST_FAN)) {
+            double inletTemperature = outsideTemperature;
+            double inletVapor = outsideVapor;
+            if (isOn(states, AgentDeviceCodes.COOLING_PAD)) {
+                inletTemperature = padInletTemperature(outsideTemperature, outsideVapor);
+                inletVapor = padInletVapor(outsideTemperature, outsideVapor, inletTemperature);
+            }
+            temperature = exchange(temperature, inletTemperature, 0.35, factor);
+            vapor = exchange(vapor, inletVapor, 0.35, factor);
+            co2 = exchange(co2, 420.0, 0.35, factor);
         }
         if (isOn(states, AgentDeviceCodes.GROW_LIGHT)) {
             light += 190.0 * factor;
@@ -104,18 +124,79 @@ public class TomatoSimulationEngine {
             temperature -= 0.9 * factor;
             light -= 125.0 * factor;
         }
-        if (isOn(states, AgentDeviceCodes.CO2_SUPPLY) && !isOn(states, AgentDeviceCodes.VENTILATION)) {
-            co2 += 115.0 * factor;
+        if (isOn(states, AgentDeviceCodes.CO2_SUPPLY) && !isOn(states, AgentDeviceCodes.VENTILATION)
+                && !isOn(states, AgentDeviceCodes.ROOF_VENT)
+                && !isOn(states, AgentDeviceCodes.EXHAUST_FAN)) {
+            co2 += 0.250 / 0.04401 * 8.314 * (current.getTemperatureC() + 273.15)
+                    / (101325.0 * GREENHOUSE_AIR_VOLUME_M3) * 1000000.0 * factor;
         }
 
+        double humidity = 100.0 * vapor / saturationVaporPressure(temperature);
         return evaluate(nextAt, clamp(temperature, 8.0, 45.0), clamp(humidity, 25.0, 99.0),
                 clamp(soil, 5.0, 100.0), clamp(co2, 250.0, 1800.0), clamp(light, 0.0, 1800.0),
                 clamp(soilPh, 4.0, 8.5));
     }
 
     public double calculateVpd(double temperatureC, double airHumidityPct) {
-        double saturationVaporPressure = 0.6108 * Math.exp((17.27 * temperatureC) / (temperatureC + 237.3));
-        return saturationVaporPressure * (1.0 - clamp(airHumidityPct, 0.0, 100.0) / 100.0);
+        return saturationVaporPressure(temperatureC) * (1.0 - clamp(airHumidityPct, 0.0, 100.0) / 100.0);
+    }
+
+    private double saturationVaporPressure(double temperatureC) {
+        return 0.6108 * Math.exp((17.27 * temperatureC) / (temperatureC + 237.3));
+    }
+
+    private double exchange(double current, double target, double fractionPerTick, double tickFactor) {
+        return current + (target - current) * (1.0 - Math.pow(1.0 - fractionPerTick, tickFactor));
+    }
+
+    private double wetBulbTemperature(double dryBulb, double vaporPressure) {
+        double low = -20.0;
+        double high = dryBulb;
+        for (int iteration = 0; iteration < 30; iteration++) {
+            double midpoint = (low + high) / 2.0;
+            if (saturationVaporPressure(midpoint) - 0.066 * (dryBulb - midpoint) > vaporPressure) {
+                high = midpoint;
+            } else {
+                low = midpoint;
+            }
+        }
+        return (low + high) / 2.0;
+    }
+
+    public double coolingPadEvaporationLiters(SimulationState current, int tickMinutes, long seed) {
+        LocalDateTime nextAt = current.getSimulatedAt().plusMinutes(tickMinutes);
+        double outsideTemperature = outsideTemperature(nextAt, seed);
+        double outsideVapor = saturationVaporPressure(outsideTemperature) * outsideHumidity(nextAt, seed) / 100.0;
+        double inletTemperature = padInletTemperature(outsideTemperature, outsideVapor);
+        double inletVapor = padInletVapor(outsideTemperature, outsideVapor, inletTemperature);
+        double incomingDensity = 2167.0 * inletVapor / (inletTemperature + 273.15);
+        double outsideDensity = 2167.0 * outsideVapor / (outsideTemperature + 273.15);
+        double exchangedFraction = 1.0 - Math.pow(0.65, Math.max(1, tickMinutes) / 15.0);
+        return Math.max(0.0, incomingDensity - outsideDensity)
+                * GREENHOUSE_AIR_VOLUME_M3 * exchangedFraction / 1000.0;
+    }
+
+    private double padInletTemperature(double outsideTemperature, double outsideVapor) {
+        return outsideTemperature - 0.8 * (outsideTemperature - wetBulbTemperature(outsideTemperature, outsideVapor));
+    }
+
+    private double padInletVapor(double outsideTemperature, double outsideVapor, double inletTemperature) {
+        return Math.min(saturationVaporPressure(inletTemperature),
+                outsideVapor + 0.066 * (outsideTemperature - inletTemperature));
+    }
+
+    private double outsideHumidity(LocalDateTime at, long seed) {
+        double clockHour = at.getHour() + at.getMinute() / 60.0;
+        double daylight = Math.max(0.0, Math.sin((clockHour - 6.0) * Math.PI / 12.0));
+        double phase = Math.floorMod(seed, 360L) * Math.PI / 180.0;
+        return clamp(84.0 - 32.0 * daylight + Math.cos(phase) * 3.0, 25.0, 98.0);
+    }
+
+    public double outsideTemperature(LocalDateTime at, long seed) {
+        double clockHour = at.getHour() + at.getMinute() / 60.0;
+        double daylight = Math.max(0.0, Math.sin((clockHour - 6.0) * Math.PI / 12.0));
+        double phase = Math.floorMod(seed, 360L) * Math.PI / 180.0;
+        return round(17.0 + 12.0 * daylight + Math.sin(phase) * 1.2, 2);
     }
 
     private boolean isOn(Map<String, Boolean> deviceStates, String code) {

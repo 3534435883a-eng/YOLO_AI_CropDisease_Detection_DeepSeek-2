@@ -59,6 +59,8 @@ public class KnowledgeSearchTool implements AgentTool {
         if (rawTopN instanceof Number) {
             topN = ((Number) rawTopN).intValue();
         }
+        // 工具参数由模型生成，必须设上限，避免异常规划造成过大响应和无谓检索。
+        topN = Math.max(1, Math.min(10, topN));
         RetrievalResult result = retriever.retrieve(query, crop, topN);
         boolean lowScore = retriever.isLowScore(result);
         Map<String, Object> output = new LinkedHashMap<String, Object>();

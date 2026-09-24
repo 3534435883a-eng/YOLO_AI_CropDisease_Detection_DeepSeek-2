@@ -16,6 +16,7 @@ YOLO_AI_CropDisease_Detection_SpringBoot/files/
 # Frontend dependencies and build output
 YOLO_AI_CropDisease_Detection_Vue/node_modules/
 YOLO_AI_CropDisease_Detection_Vue/dist/
+YOLO_AI_CropDisease_Detection_Vue/dist-*/
 
 # Bundled third-party runtime; restore separately from its official distribution
 ffmpeg-7.1-full_build/

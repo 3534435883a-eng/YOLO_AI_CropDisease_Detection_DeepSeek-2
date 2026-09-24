@@ -1,6 +1,6 @@
 package com.example.Ece.agent.rag;
 
-/** 知识库切块：来源固定为遗留 disease 表，内容按字段切分。 */
+/** 可检索知识块及其来源登记。 */
 public class KnowledgeChunk {
 
     public enum FieldType { SYMPTOM, CAUSE, CONTROL, OTHER }
@@ -14,9 +14,22 @@ public class KnowledgeChunk {
     private final int startOffset;
     private final String content;
     private final String contentHash;
+    private final String sourceCode;
+    private final String sourceName;
+    private final String sourceType;
+    private final String sourceUrl;
+    private final String sourceVersion;
 
     public KnowledgeChunk(String sourceTable, long sourceId, String cropType, String diseaseName,
                           FieldType fieldType, int chunkNo, int startOffset, String content, String contentHash) {
+        this(sourceTable, sourceId, cropType, diseaseName, fieldType, chunkNo, startOffset, content, contentHash,
+                null, null, null, null, null);
+    }
+
+    public KnowledgeChunk(String sourceTable, long sourceId, String cropType, String diseaseName,
+                          FieldType fieldType, int chunkNo, int startOffset, String content, String contentHash,
+                          String sourceCode, String sourceName, String sourceType, String sourceUrl,
+                          String sourceVersion) {
         this.sourceTable = sourceTable;
         this.sourceId = sourceId;
         this.cropType = cropType;
@@ -26,6 +39,11 @@ public class KnowledgeChunk {
         this.startOffset = startOffset;
         this.content = content;
         this.contentHash = contentHash;
+        this.sourceCode = sourceCode;
+        this.sourceName = sourceName;
+        this.sourceType = sourceType;
+        this.sourceUrl = sourceUrl;
+        this.sourceVersion = sourceVersion;
     }
 
     public String getSourceTable() { return sourceTable; }
@@ -64,4 +82,14 @@ public class KnowledgeChunk {
     }
 
     public String getContentHash() { return contentHash; }
+
+    public String getSourceCode() { return sourceCode; }
+
+    public String getSourceName() { return sourceName; }
+
+    public String getSourceType() { return sourceType; }
+
+    public String getSourceUrl() { return sourceUrl; }
+
+    public String getSourceVersion() { return sourceVersion; }
 }

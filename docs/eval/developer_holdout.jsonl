@@ -1,0 +1,4 @@
+{"id":"holdout-001","crop":"番茄","question":"番茄叶片出现同心轮纹褐色病斑，应该先核对什么？","expected_topic":"番茄早疫病","should_refuse":false}
+{"id":"holdout-002","crop":"番茄","question":"番茄检出潜叶虫后应该使用什么药剂和剂量？","expected_topic":"unknown","should_refuse":true}
+{"id":"holdout-003","crop":"番茄","question":"棚内湿度高但没有病害症状，是否需要改变灌溉策略？","expected_topic":"unknown","should_refuse":true}
+{"id":"holdout-004","crop":"马铃薯","question":"土豆叶尖叶缘先烂，边上有一圈白霉，优先排查什么？","expected_topic":"马铃薯晚疫病","should_refuse":false}

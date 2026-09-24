@@ -7,6 +7,9 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
+import java.util.List;
+
 /**
  * 知识库启动装配：**让知识在真实运行时真的进得去、索引真的建得起来**。
  *
@@ -30,19 +33,28 @@ public class KnowledgeBootstrap implements ApplicationRunner {
     private final KnowledgeChunkRepository chunkRepository;
     private final KnowledgeIngestService ingestService;
     private final LegacyDiseaseKnowledgeReader legacyReader;
+    private final CuratedCropKnowledgeReader curatedReader;
+    private final KnowledgeSourceRepository sourceRepository;
+    private final KnowledgeChunker chunker;
     private final KnowledgeIndexService indexService;
 
     public KnowledgeBootstrap(KnowledgeChunkRepository chunkRepository, KnowledgeIngestService ingestService,
-                              LegacyDiseaseKnowledgeReader legacyReader, KnowledgeIndexService indexService) {
+                              LegacyDiseaseKnowledgeReader legacyReader, CuratedCropKnowledgeReader curatedReader,
+                              KnowledgeSourceRepository sourceRepository, KnowledgeChunker chunker,
+                              KnowledgeIndexService indexService) {
         this.chunkRepository = chunkRepository;
         this.ingestService = ingestService;
         this.legacyReader = legacyReader;
+        this.curatedReader = curatedReader;
+        this.sourceRepository = sourceRepository;
+        this.chunker = chunker;
         this.indexService = indexService;
     }
 
     public void run(ApplicationArguments args) {
         try {
-            if (chunkRepository.loadAll().isEmpty()) {
+            List<KnowledgeChunk> existing = chunkRepository.loadAll();
+            if (existing.isEmpty()) {
                 LOGGER.info("知识库为空，开始从历史病害库 ingest（来源 {}，版本 {}）",
                         LegacyDiseaseKnowledgeReader.SOURCE_CODE, LegacyDiseaseKnowledgeReader.DATA_VERSION);
                 IngestReport report = ingestService.ingest(legacyReader.source(), legacyReader.readAll());
@@ -52,6 +64,24 @@ public class KnowledgeBootstrap implements ApplicationRunner {
                         report.isEmbeddingDegraded());
                 for (String reason : report.getRejectedReasons()) {
                     LOGGER.warn("ingest 拒绝记录：{}", reason);
+                }
+            }
+            for (CuratedCropKnowledgeReader.SourceEntry entry : curatedReader.readAll()) {
+                KnowledgeSource source = entry.getSource();
+                int loadedChunks = 0;
+                for (KnowledgeChunk chunk : existing) {
+                    if (source.getSourceCode().equals(chunk.getSourceCode())) {
+                        loadedChunks++;
+                    }
+                }
+                IngestRecord record = entry.getRecord();
+                int expectedChunks = chunker.chunk(record.getSourceTable(), record.getSourceId(),
+                        record.getCropType(), record.getDiseaseName(), record.getFields()).size();
+                if (sourceRepository.findByCode(source.getSourceCode(), source.getVersion()) == null
+                        || loadedChunks != expectedChunks) {
+                    IngestReport report = ingestService.ingest(source, Collections.singletonList(entry.getRecord()));
+                    LOGGER.info("已载入核验资料 {}：{} 个知识块，向量降级={}", source.getSourceCode(),
+                            report.getChunksNewlyWritten(), report.isEmbeddingDegraded());
                 }
             }
             KnowledgeIndexService.KnowledgeLoadSummary summary = indexService.reload();

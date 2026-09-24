@@ -216,7 +216,6 @@ export const fruitRadiusFromMass = (gram: number): number => {
 	return Math.cbrt((3 * volumeM3) / (4 * Math.PI));
 };
 
-const HIDE = 1e-4; // 隐藏实例使用极小缩放而不是 0，避免法线矩阵退化
 
 /* -------------------------------------------------------------------------- */
 /*                                  植株布局                                   */
@@ -304,6 +303,7 @@ class Organ {
 	private m = new THREE.Matrix4();
 	private s = new THREE.Vector3();
 	private p = new THREE.Vector3();
+	private visibleCount = 0;
 
 	constructor(geometry: THREE.BufferGeometry, material: THREE.Material, capacity: number, castShadow: boolean, receiveShadow = false) {
 		this.mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, capacity));
@@ -318,30 +318,27 @@ class Organ {
 		this.entries.push({ origin, rel, quat, scale, plant, slot });
 	}
 
-	/** 写入实例矩阵；factor <= 0 时用极小缩放把实例“藏起来” */
+	begin() {
+		this.visibleCount = 0;
+	}
+
 	write(index: number, factor: number, posScale = factor) {
 		const e = this.entries[index];
-		const f = factor <= 0 ? HIDE : factor;
-		const ps = posScale <= 0 ? HIDE : posScale;
-		this.s.set(e.scale.x * f, e.scale.y * f, e.scale.z * f);
-		this.p.set(e.origin.x + e.rel.x * ps, e.origin.y + e.rel.y * ps, e.origin.z + e.rel.z * ps);
+		this.s.set(e.scale.x * factor, e.scale.y * factor, e.scale.z * factor);
+		this.p.set(e.origin.x + e.rel.x * posScale, e.origin.y + e.rel.y * posScale, e.origin.z + e.rel.z * posScale);
 		this.m.compose(this.p, e.quat, this.s);
-		this.mesh.setMatrixAt(index, this.m);
+		this.mesh.setMatrixAt(this.visibleCount, this.m);
+		return this.visibleCount++;
 	}
 
 	/** 取实例当前世界坐标（用于相机跟随果实） */
 	worldPos(index: number, posScale: number, target: THREE.Vector3) {
 		const e = this.entries[index];
-		const ps = posScale <= 0 ? HIDE : posScale;
-		return target.set(e.origin.x + e.rel.x * ps, e.origin.y + e.rel.y * ps, e.origin.z + e.rel.z * ps);
-	}
-
-	hide(index: number) {
-		this.write(index, -1);
+		return target.set(e.origin.x + e.rel.x * posScale, e.origin.y + e.rel.y * posScale, e.origin.z + e.rel.z * posScale);
 	}
 
 	commit() {
-		this.mesh.count = this.entries.length;
+		this.mesh.count = this.visibleCount;
 		this.mesh.instanceMatrix.needsUpdate = true;
 	}
 
@@ -503,7 +500,7 @@ export class TomatoCanopy {
 				);
 
 				// 叶片：挂在叶柄末端，向外下方铺展
-				const bladeLen = 0.46 * sizeProfile * (0.92 + 0.16 * rnd());
+				const bladeLen = 0.55 * sizeProfile * (0.92 + 0.16 * rnd());
 				const bladeWid = bladeLen / 1.34;
 				const bElev = (-14 - 10 * rnd()) * DEG;
 				const bDir = new THREE.Vector3(Math.cos(az) * Math.cos(bElev), Math.sin(bElev), Math.sin(az) * Math.cos(bElev)).normalize();
@@ -586,6 +583,7 @@ export class TomatoCanopy {
 		].join('|');
 		if (key === this.lastKey) return;
 		this.lastKey = key;
+		for (const organ of [this.stem, this.petiole, this.leaf, this.truss, this.fruit, this.calyx, this.flower]) organ.begin();
 
 		const { maxLeaves, maxTrusses, maxFruitPerTruss, maxFlowers } = this.opts;
 		const heightM = Math.min(3.4, Math.max(0.015, s.plantHeightCm / 100));
@@ -596,7 +594,7 @@ export class TomatoCanopy {
 		this.uPlantH.value = Math.max(0.05, heightM);
 
 		// LAI → 叶片数量；lai < 0.1 时只有 2 片叶，呈幼苗状
-		const visibleLeaves = Math.min(maxLeaves, Math.max(2, Math.round(s.lai * 6.2)));
+		const visibleLeaves = Math.min(maxLeaves, Math.max(2, Math.round(s.lai * 8.1)));
 		const fruitCount = Math.max(0, Math.min(maxTrusses * maxFruitPerTruss, Math.round(s.fruitCount)));
 		const nTrussesNeeded = fruitCount > 0 ? Math.max(1, Math.ceil(fruitCount / maxFruitPerTruss)) : 0;
 		const perTruss = fruitCount > 0 ? Math.ceil(fruitCount / nTrussesNeeded) : 0;
@@ -620,9 +618,6 @@ export class TomatoCanopy {
 				if (k < visibleLeaves) {
 					this.petiole.write(i, sizeFactor, posScale);
 					this.leaf.write(i, sizeFactor, posScale);
-				} else {
-					this.petiole.hide(i);
-					this.leaf.hide(i);
 				}
 				i++;
 			}
@@ -635,7 +630,6 @@ export class TomatoCanopy {
 		for (let p = 0; p < n; p++) {
 			for (let j = 0; j < maxTrusses; j++) {
 				if (j < nTrussesNeeded) this.truss.write(i, posScale, posScale);
-				else this.truss.hide(i);
 				i++;
 			}
 		}
@@ -661,16 +655,12 @@ export class TomatoCanopy {
 					const show = fruitCount > 0 && j < nTrussesNeeded && k < perTruss && j * perTruss + k < fruitCount;
 					if (show && radius > 0.002) {
 						// 果实尺寸 = 物理半径（不随株高缩放），位置随株高缩放
-						this.fruit.write(i, radius, posScale);
+						const instanceIndex = this.fruit.write(i, radius, posScale);
 						this.calyx.write(i, radius * 0.9, posScale);
-						this.fruit.mesh.setColorAt(i, color);
+						this.fruit.mesh.setColorAt(instanceIndex, color);
 						this.fruit.worldPos(i, posScale, this.tmpVec2);
 						this.fruitAccum.add(this.tmpVec2);
 						visibleFruit++;
-					} else {
-						this.fruit.hide(i);
-						this.calyx.hide(i);
-						if (!this.fruit.mesh.instanceColor) this.fruit.mesh.setColorAt(i, color);
 					}
 					i++;
 				}
@@ -685,7 +675,6 @@ export class TomatoCanopy {
 		for (let p = 0; p < n; p++) {
 			for (let k = 0; k < maxFlowers; k++) {
 				if (k < flowerCount) this.flower.write(i, sizeFactor, posScale);
-				else this.flower.hide(i);
 				i++;
 			}
 		}
@@ -722,5 +711,3 @@ export class TomatoCanopy {
 		this.group.clear();
 	}
 }
-
-
