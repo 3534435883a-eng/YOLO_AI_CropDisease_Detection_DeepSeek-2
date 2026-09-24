@@ -240,6 +240,8 @@ export interface CanopyState {
 	mature: boolean;
 	/** 0~1 成熟度（用于果色渐变） */
 	ripeness: number;
+	/** 空气湿度百分比；按湿度阈值模拟叶片露水，不代表实测叶面湿度 */
+	airHumidityPct: number;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -393,6 +395,8 @@ export class TomatoCanopy {
 	private fruit!: Organ;
 	private calyx!: Organ;
 	private flower!: Organ;
+	private dew!: Organ;
+	private dewMat!: THREE.MeshPhysicalMaterial;
 
 	private geometries: THREE.BufferGeometry[] = [];
 	private materials: THREE.Material[] = [];
@@ -426,7 +430,8 @@ export class TomatoCanopy {
 		const fruitGeo = new THREE.SphereGeometry(1, 12, 8);
 		const calyxGeo = new THREE.ConeGeometry(1, 1, 5, 1, true).translate(0, 0.5, 0);
 		const flowerGeo = new THREE.PlaneGeometry(1, 1);
-		this.geometries.push(stemGeo, petioleGeo, bladeGeo, fruitGeo, calyxGeo, flowerGeo);
+		const dewGeo = new THREE.SphereGeometry(0.5, 8, 6);
+		this.geometries.push(stemGeo, petioleGeo, bladeGeo, fruitGeo, calyxGeo, flowerGeo, dewGeo);
 
 		/* ---------- 材质 ---------- */
 		const leafTex = createLeafTexture(256);
@@ -443,7 +448,17 @@ export class TomatoCanopy {
 			emissive: new THREE.Color(0x0e2a06),
 			emissiveIntensity: 0.5,
 		});
-		const fruitMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.28, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+		const fruitMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.55, metalness: 0, clearcoat: 0.22, clearcoatRoughness: 0.42 });
+		this.dewMat = new THREE.MeshPhysicalMaterial({
+			color: 0xd9f5e7,
+			transparent: true,
+			opacity: 0,
+			roughness: 0.06,
+			metalness: 0,
+			transmission: 0.8,
+			ior: 1.33,
+			depthWrite: false,
+		});
 		const flowerMat = new THREE.MeshStandardMaterial({
 			map: flowerTex,
 			alphaTest: 0.45,
@@ -457,7 +472,7 @@ export class TomatoCanopy {
 		injectWind(leafMat, this.uTime, this.uWind, this.uPlantH, 'twin-leaf');
 		injectWind(fruitMat, this.uTime, this.uWind, this.uPlantH, 'twin-fruit');
 		injectWind(flowerMat, this.uTime, this.uWind, this.uPlantH, 'twin-flower');
-		this.materials.push(barkMat, leafMat, fruitMat, flowerMat);
+		this.materials.push(barkMat, leafMat, fruitMat, flowerMat, this.dewMat);
 
 		/* ---------- 分配容量 ---------- */
 		this.stem = new Organ(stemGeo, barkMat, n, true, true);
@@ -468,6 +483,7 @@ export class TomatoCanopy {
 		this.fruit = new Organ(fruitGeo, fruitMat, fruitCapacity, false, true);
 		this.calyx = new Organ(calyxGeo, barkMat, fruitCapacity, false);
 		this.flower = new Organ(flowerGeo, flowerMat, n * maxFlowers, false);
+		this.dew = new Organ(dewGeo, this.dewMat, n * maxLeaves, false, true);
 
 		/* ---------- 逐株生成静态布局（H_MAX 下的米制坐标） ---------- */
 		for (let p = 0; p < n; p++) {
@@ -508,6 +524,8 @@ export class TomatoCanopy {
 				q.multiply(new THREE.Quaternion().setFromAxisAngle(UP, Math.PI / 2 + (rnd() - 0.5) * 1.5));
 				const relBlade = rel.clone().add(dir.clone().multiplyScalar(petioleLen));
 				this.leaf.add(base.clone(), relBlade, q, new THREE.Vector3(bladeWid, bladeLen, 1), p, i);
+				const dewPosition = relBlade.clone().add(new THREE.Vector3(0, bladeLen * 0.45, 0).applyQuaternion(q)).add(new THREE.Vector3(0, 0.008, 0));
+				this.dew.add(base.clone(), dewPosition, new THREE.Quaternion(), new THREE.Vector3(0.018, 0.018, 0.018), p, i);
 			}
 
 			for (let j = 0; j < maxTrusses; j++) {
@@ -559,13 +577,14 @@ export class TomatoCanopy {
 		this.fruit.commit();
 		this.calyx.commit();
 		this.flower.commit();
+		this.dew.commit();
 
-		const child = [this.stem, this.petiole, this.leaf, this.truss, this.fruit, this.calyx, this.flower];
+		const child = [this.stem, this.petiole, this.leaf, this.truss, this.fruit, this.calyx, this.flower, this.dew];
 		for (const o of child) this.group.add(o.mesh);
 		this.group.name = 'tomato-canopy';
 
 		// 初始全部隐藏，等第一帧数据到来
-		this.update({ lai: 0.06, plantHeightCm: 5.2, fruitCount: 0, singleFruitWeightG: 0, fruitSetRate: 0, mature: false, ripeness: 0 });
+		this.update({ lai: 0.06, plantHeightCm: 5.2, fruitCount: 0, singleFruitWeightG: 0, fruitSetRate: 0, mature: false, ripeness: 0, airHumidityPct: 68 });
 	}
 
 	/* ---------------------------------------------------------------------- */
@@ -580,10 +599,11 @@ export class TomatoCanopy {
 			s.fruitSetRate.toFixed(3),
 			s.mature ? 1 : 0,
 			s.ripeness.toFixed(3),
+			Math.round(s.airHumidityPct),
 		].join('|');
 		if (key === this.lastKey) return;
 		this.lastKey = key;
-		for (const organ of [this.stem, this.petiole, this.leaf, this.truss, this.fruit, this.calyx, this.flower]) organ.begin();
+		for (const organ of [this.stem, this.petiole, this.leaf, this.truss, this.fruit, this.calyx, this.flower, this.dew]) organ.begin();
 
 		const { maxLeaves, maxTrusses, maxFruitPerTruss, maxFlowers } = this.opts;
 		const heightM = Math.min(3.4, Math.max(0.015, s.plantHeightCm / 100));
@@ -601,6 +621,9 @@ export class TomatoCanopy {
 		const flowerCount =
 			s.fruitSetRate > 0.02 ? Math.max(0, Math.min(maxFlowers, Math.round(maxFlowers * s.fruitSetRate * (1 - s.ripeness)))) : 0;
 		const radius = fruitRadiusFromMass(s.singleFruitWeightG);
+		const dewFactor = Math.min(1, Math.max(0, (s.airHumidityPct - 72) / 18));
+		this.dewMat.opacity = dewFactor * 0.86;
+		this.dewMat.visible = dewFactor > 0.01;
 
 		let i = 0;
 		const n = this.opts.slots.length;
@@ -624,6 +647,15 @@ export class TomatoCanopy {
 		}
 		this.petiole.commit();
 		this.leaf.commit();
+
+		i = 0;
+		for (let p = 0; p < n; p++) {
+			for (let k = 0; k < maxLeaves; k++) {
+				if (dewFactor > 0.01 && k < visibleLeaves && k % 2 === 0) this.dew.write(i, dewFactor, posScale);
+				i++;
+			}
+		}
+		this.dew.commit();
 
 		// 果穗穗轴
 		i = 0;
@@ -708,6 +740,7 @@ export class TomatoCanopy {
 		this.fruit.dispose();
 		this.calyx.dispose();
 		this.flower.dispose();
+		this.dew.dispose();
 		this.group.clear();
 	}
 }

@@ -1466,6 +1466,7 @@ export class GreenhouseTwin {
 		c.fruitSetRate = lerp(c.fruitSetRate, t.fruitSetRate, k);
 		c.ripeness = lerp(c.ripeness, t.ripeness, k);
 		c.lightPpfd = lerp(c.lightPpfd, t.lightPpfd, k);
+		c.airHumidityPct = lerp(c.airHumidityPct ?? 68, t.airHumidityPct ?? 68, k);
 		c.mature = t.mature;
 		c.hour = t.hour;
 		c.dayOfYear = t.dayOfYear;
@@ -1479,6 +1480,7 @@ export class GreenhouseTwin {
 			fruitSetRate: c.fruitSetRate,
 			mature: c.mature,
 			ripeness: c.ripeness,
+			airHumidityPct: c.airHumidityPct ?? 68,
 		});
 		this.canopy.setTime(this.elapsed);
 
