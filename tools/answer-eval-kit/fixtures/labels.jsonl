@@ -1,0 +1,3 @@
+{"id": "dev-001", "partition": "dev", "d1": 4, "d2": 4, "d3": 3, "d4": 3, "d5": 4, "note": "依据对应清楚", "skipped": false}
+{"id": "dev-004", "partition": "dev", "d1": 4, "d2": 3, "d3": 4, "d4": 4, "d5": 4, "note": "拒答得当", "skipped": false}
+{"id": "holdout-001", "partition": "holdout", "d1": 3, "d2": 4, "d3": 2, "d4": 3, "d5": 3, "note": "结论过短", "skipped": false}

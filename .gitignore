@@ -28,3 +28,11 @@ ffmpeg-7.1-full_build/
 *.local
 .env.local
 .env.*.local
+
+# 会话历史的本地兜底文件（数据库不可用时才产生，属本机运行产物）
+**/logs/agent-chat-history-fallback.jsonl
+
+# CodeGraph 本地索引（约 16MB 的 sqlite + 守护进程 pid/日志）。
+# 该工具自带的 .gitignore 已声明 "These are local to each machine and should not be committed"，
+# 因此整目录忽略，而不是只提交它的 .gitignore。
+.codegraph/
