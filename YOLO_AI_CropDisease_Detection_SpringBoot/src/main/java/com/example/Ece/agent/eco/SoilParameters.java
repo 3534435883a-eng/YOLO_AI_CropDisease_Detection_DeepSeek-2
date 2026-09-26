@@ -100,15 +100,25 @@ public final class SoilParameters {
     public static final double WILTING_POINT_PCT = 30.0;
 
     /**
+     * 种植床总面积（m²）：4 条 × 21 m × 1.7 m = 142.8 m²。
+     *
+     * <p>棚体本身是 26 m × 13 m（见 {@code docs/tomato-greenhouse-agent.md}），但作物只种在四条床上，
+     * 因此**与作物相关的折算（单位面积产量、灌溉水深）都该用床面积而非棚体面积**。
+     * 提取成常量是因为此前这个乘积被内联在灌溉量算式里，报告侧要再算一次单位面积产量时
+     * 容易各写各的——面积这种几何数只能有一个定义。</p>
+     */
+    public static final double BED_AREA_M2 = 4.0 * 21.0 * 1.7;
+
+    /**
      * 一次滴灌事件的水量（mm）。
      *
      * <p><b>2026-09-26 新增，取值 0.42 mm 是由项目自身参数推出的</b>，不是文献值：
-     * 引擎 {@code IRRIGATION_L_PER_TICK = 60 L} 浇在 4 条 × 21 m × 1.7 m = 142.8 m² 种植床上，
+     * 引擎 {@code IRRIGATION_L_PER_TICK = 60 L} 浇在 {@link #BED_AREA_M2} = 142.8 m² 种植床上，
      * 折合水深 60 / 142.8 = 0.4202 mm。用这个值是为了让土壤模型与引擎**浇同样多的水**——
      * 此前土壤模型按 {@code IRRIGATION_MM_PER_STEP}（注释写 mm/day）算，与引擎各浇各的，
      * 是两个水分状态能差到 49 个百分点的成因之一。</p>
      */
-    public static final double IRRIGATION_MM_PER_EVENT = 60.0 / (4.0 * 21.0 * 1.7);
+    public static final double IRRIGATION_MM_PER_EVENT = 60.0 / BED_AREA_M2;
 
     /**
      * 场地纬度（度）。FAO-56 计算日序天文辐射 Ra 需要它。

@@ -36,6 +36,7 @@ class AgentToolRegistryWiringTest {
         assertTrue(names.contains(VisionExplainTool.NAME), "缺少视觉映射工具");
         assertTrue(names.contains(GreenhouseStateTool.NAME), "缺少温室状态工具：智能体将看不见棚");
         assertTrue(names.contains(PrescriptionDraftTool.NAME), "缺少处方拟制工具：智能体将给不出方案");
+        assertTrue(names.contains(ProductionReportTool.NAME), "缺少生产规划报告工具：智能体将出不了报告");
     }
 
     @Test
@@ -63,9 +64,9 @@ class AgentToolRegistryWiringTest {
             used.add(tool.permission());
         }
         assertTrue(used.contains(ToolPermission.READ_ONLY), "应有只读工具");
-        assertTrue(used.contains(ToolPermission.DRAFT), "应有草案级工具（处方拟制）");
+        assertTrue(used.contains(ToolPermission.DRAFT), "应有草案级工具（处方拟制、报告生成）");
         assertTrue(!used.contains(ToolPermission.WRITE_REQUIRES_APPROVAL),
                 "当前不应存在写工具；引入写权限须是明确决策并配套人工确认流程");
-        assertEquals(4, registry.all().size(), "工具数量变化时应显式更新本测试，避免漏注册或误删");
+        assertEquals(5, registry.all().size(), "工具数量变化时应显式更新本测试，避免漏注册或误删");
     }
 }

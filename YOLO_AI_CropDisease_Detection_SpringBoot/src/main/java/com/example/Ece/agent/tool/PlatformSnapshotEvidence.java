@@ -53,17 +53,26 @@ public class PlatformSnapshotEvidence {
      * @param content 正文，会被渲染进证据块供模型引用
      */
     public List<ScoredChunk> items(long runId, int stepNo, String crop, String title, String content) {
-        int chunkNo = Math.max(0, stepNo);
-        KnowledgeChunk chunk = new KnowledgeChunk(
-                SOURCE_TABLE, runId, crop, title, KnowledgeChunk.FieldType.OTHER,
-                chunkNo, 0, content, KnowledgeChunker.sha256(content),
+        return items(runId, Math.max(0, stepNo), crop, title, content,
                 "SIM-RUN-" + runId,
                 // 只用「推演值 / 实测」这一对词，不再同时出现"现场传感器""推演""显示"等近义表述。
                 // 实测中模型会把相邻术语混成"现场传感器推演显示"这类句子——术语越少越不容易串。
                 "场景推演快照（SIMULATED，不是实测）",
-                "SIMULATED",
-                null,
                 "run=" + runId + ";step=" + stepNo);
+    }
+
+    /**
+     * 自定义来源标识的重载。
+     *
+     * <p>给报告这类**不是运行快照**的来源用：若沿用 {@code run=..;step=..} 的版本串，
+     * 会生成 {@code run=0;step=0} 这种无意义标识，把"可回查"变成假的。</p>
+     */
+    public List<ScoredChunk> items(long sourceId, int chunkNo, String crop, String title, String content,
+                                   String sourceCode, String sourceName, String sourceVersion) {
+        KnowledgeChunk chunk = new KnowledgeChunk(
+                SOURCE_TABLE, sourceId, crop, title, KnowledgeChunk.FieldType.OTHER,
+                Math.max(0, chunkNo), 0, content, KnowledgeChunker.sha256(content),
+                sourceCode, sourceName, "SIMULATED", null, sourceVersion);
         List<ScoredChunk> items = new ArrayList<ScoredChunk>();
         items.add(new ScoredChunk(chunk, AUTHORITATIVE_SCORE, 1));
         return items;
