@@ -55,8 +55,27 @@ public final class EpidemicParameters {
     /** 初始病原基数（各病害相同）。 */
     public static final double INITIAL_INOCULUM = 0.05;
 
-    /** 严重度总和换算为产量损失因子的分母。 */
-    public static final double DAMAGE_SEVERITY_DIVISOR = 200.0;
+    /**
+     * 判为**绝收**时，合计严重度占「全部病种同时达到上限」的比例。
+     *
+     * <p><b>2026-09-26 显式化。</b>此前唯一相关的是 {@code DAMAGE_SEVERITY_DIVISOR = 200}，
+     * 而单病上限是 100、共 {@code DiseaseKind.values().length} 种病，合计上限 400——
+     * 于是"合计 200 就绝收"看起来像把除数写错了 2 倍。**复查后判定它不是错配，
+     * 而是一个从未写出来的设计选择**：绝收不应等到四种病**同时**满格，取合计上限的一半即可。
+     * 该比例是否合理仍无出处，但把它命名并显式参与计算之后，除数不再是凭空出现的数字。</p>
+     */
+    public static final double TOTAL_LOSS_SEVERITY_FRACTION = 0.5;
+
+    /**
+     * 严重度总和换算为产量损失因子的分母 = 单病上限 × 病种数 × 绝收比例。
+     *
+     * <p>由 {@link #MAX_SEVERITY}、{@code DiseaseKind.values().length} 与
+     * {@link #TOTAL_LOSS_SEVERITY_FRACTION} 推出，**不再是一个孤立的字面量**：
+     * 改病种数或改绝收比例时它会跟着变，不会留下一个与新口径不符的旧数。
+     * 当前值 = 100 × 4 × 0.5 = 200，与显式化之前一致。</p>
+     */
+    public static final double DAMAGE_SEVERITY_DIVISOR =
+            MAX_SEVERITY * DiseaseKind.values().length * TOTAL_LOSS_SEVERITY_FRACTION;
 
     /** 病原基数随侵染速率增长的日增长系数（以 minutes/1440 为步长积分）。 */
     public static final double INOCULUM_BUILDUP_PER_DAY = 1.0;

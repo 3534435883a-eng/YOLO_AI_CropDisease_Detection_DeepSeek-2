@@ -100,4 +100,26 @@ class PestDiseaseEpidemicModelTest {
         assertEquals(first.getDiseaseDamageFactor(), second.getDiseaseDamageFactor(), 1e-9);
         assertEquals(first.getPestPopulation(), second.getPestPopulation(), 1e-9);
     }
+
+    /**
+     * 伤害因子的分母必须与"病种数 × 单病上限"这一口径**自洽**。
+     *
+     * <p>锁的是一个曾经看起来像 bug 的地方：单病上限 100、共 4 种病、合计上限 400，
+     * 而除数是 200——看上去像把除数写错了 2 倍。实际是一个没写出来的选择
+     * （绝收取合计上限的一半）。本测试把该关系固定下来：改病种数或改绝收比例时，
+     * 除数必须跟着变，不得留下一个与新口径不符的旧字面量。</p>
+     */
+    @Test
+    void damageDivisorIsDerivedFromSeverityScale() {
+        assertEquals(100.0, EpidemicParameters.MAX_SEVERITY, 1e-9);
+        assertEquals(4, DiseaseKind.values().length, "病种数变了就要重新核对绝收口径");
+        assertEquals(EpidemicParameters.MAX_SEVERITY * DiseaseKind.values().length
+                        * EpidemicParameters.TOTAL_LOSS_SEVERITY_FRACTION,
+                EpidemicParameters.DAMAGE_SEVERITY_DIVISOR, 1e-9);
+        assertEquals(200.0, EpidemicParameters.DAMAGE_SEVERITY_DIVISOR, 1e-9,
+                "显式化不得改变数值——否则全部档位的减产幅度会跟着变");
+        assertTrue(EpidemicParameters.DAMAGE_SEVERITY_DIVISOR
+                        < EpidemicParameters.MAX_SEVERITY * DiseaseKind.values().length,
+                "绝收应早于「所有病同时满格」，否则 TOTAL_LOSS_SEVERITY_FRACTION 失去意义");
+    }
 }
