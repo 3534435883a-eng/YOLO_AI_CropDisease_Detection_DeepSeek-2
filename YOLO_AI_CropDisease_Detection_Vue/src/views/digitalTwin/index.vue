@@ -429,7 +429,7 @@ import {
 	RISK_LABELS,
 	STAGE_LABELS,
 	STRATEGY_LABELS,
-	STRATEGY_ORDER,
+	PRODUCT_STRATEGY_ORDER,
 	buildDemoOutcomes,
 	dayOfYearFromSimulatedAt,
 	fetchEvalSeries,
@@ -481,7 +481,7 @@ const seed = DEFAULT_SEED;
 const days = DEFAULT_DAYS;
 
 const seriesMap = ref<Record<string, EvalDayPoint[]>>({});
-const availableStrategies = ref<string[]>([...STRATEGY_ORDER]);
+const availableStrategies = ref<string[]>([...PRODUCT_STRATEGY_ORDER]);
 const strategy = ref<string>('P3_AGENT');
 
 /**
@@ -940,8 +940,12 @@ const loadData = async () => {
 		source.value = res.source;
 		apiError.value = res.error || '';
 		seriesMap.value = res.data.series || {};
-		const list = res.data.strategies?.length ? res.data.strategies : [...STRATEGY_ORDER];
-		availableStrategies.value = list;
+		// 后端会返回全部 7 档（含 P4–P6 离线消融档），这里按**产品档位**过滤：
+		// 消融档只在离线评测矩阵里展示，不进产品下拉框——农业平台的使用者
+		// 不需要在"连续比例积分"与"完整 PID"之间做选择。
+		const returned = res.data.strategies?.length ? res.data.strategies : [...PRODUCT_STRATEGY_ORDER];
+		const list = PRODUCT_STRATEGY_ORDER.filter((code) => returned.includes(code));
+		availableStrategies.value = list.length ? list : [...PRODUCT_STRATEGY_ORDER];
 		if (!list.includes(strategy.value)) strategy.value = list[0] || 'P3_AGENT';
 		if (res.source === 'demo') {
 			const demo = buildDemoOutcomes(batchId.value, days);

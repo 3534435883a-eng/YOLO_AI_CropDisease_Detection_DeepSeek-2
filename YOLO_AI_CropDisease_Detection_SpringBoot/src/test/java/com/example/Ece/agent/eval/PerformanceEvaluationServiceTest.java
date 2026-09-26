@@ -22,9 +22,9 @@ class PerformanceEvaluationServiceTest {
             new SoilWaterNutrientModel(), new PestDiseaseEpidemicModel(), new ManagementEconomicsModel());
 
     @Test
-    void producesAllFourStrategies() {
+    void producesEveryDeclaredStrategy() {
         EvaluationBatch batch = service.runBatch("batch-a", 20260921L, 3);
-        assertEquals(4, batch.getOutcomes().size());
+        assertEquals(EvaluationStrategy.values().length, batch.getOutcomes().size());
         for (EvaluationStrategy strategy : EvaluationStrategy.values()) {
             assertTrue(batch.getOutcomes().containsKey(strategy), "缺少策略 " + strategy);
         }

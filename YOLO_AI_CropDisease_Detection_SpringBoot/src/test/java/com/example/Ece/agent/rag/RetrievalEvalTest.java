@@ -43,6 +43,45 @@ class RetrievalEvalTest {
     };
 
     /**
+     * **难负样本**：看起来像农业问题、但知识库确实没有依据，因此应当被拒答。
+     *
+     * <p>为什么另立一组：上面那 10 条里有 9 条是完全离题的（写诗、足球、量子计算、手机电池），
+     * 拒答它们几乎不费力气，于是"拒答准确率 100%"这个数字会让人**严重高估**系统的拒答能力。
+     * 而 `docs/eval/developer_holdout.jsonl` 里两条应拒答问题实测 **2/2 被误接纳**——
+     * 那才更接近真实误用场景。本组就是为度量这个落差而设。</p>
+     *
+     * <p><b>标签怎么来的（逐条可核验，不凭印象）</b>：全部取自知识库**实际不存在**的主题。
+     * 前 16 条对应 `docs/vision-class-kb-mapping.md` §四列出的"无任何线索"类别，
+     * 每一条都用脚本核验过知识库（`cropdisease.sql` + `curated-*.json`，共 108 条）中
+     * **不存在同作物同名条目**。刻意**排除**了 §四 的 `小麦 Loose_Smut(松秕病)`：
+     * 文档记载它与知识库"小麦散黑穗病"属"疑似对应但未获证据"，
+     * 正确答案是"不能断言是同一种"（对冲），而非"无依据"（拒答），标签会模糊。
+     * 后 2 条直接取自 `developer_holdout.jsonl` 中已标注 `should_refuse=true` 的题目。</p>
+     *
+     * <p>每行 {作物, 查询, 依据}。作物会一并传入检索器（真实调用会带作物上下文）。</p>
+     */
+    private static final String[][] HARD_NEGATIVE_QUERIES = {
+            {"苹果", "苹果黑根腐病怎么防治？", "§四 apple/RootRot 无依据（库中仅有棉花黑根腐病）"},
+            {"玉米", "玉米枯萎病用什么药？", "§四 corn/Blight 无依据"},
+            {"玉米", "玉米灰叶斑病怎么治？", "§四 corn/Gray_Spot 无依据（库中仅有玉米灰斑病、番茄灰叶斑病）"},
+            {"玉米", "玉米秋军虫幼虫怎么防治？", "§四 corn/FAW_Lv 无依据"},
+            {"玉米", "玉米条斑病怎么识别？", "§四 corn/Streak 无依据"},
+            {"玉米", "玉米黄秆虫怎么防治？", "§四 corn/Stem_Borer 无依据"},
+            {"玉米", "玉米黄秆虫幼虫打什么药？", "§四 corn/StemBorer_Lv 无依据"},
+            {"葡萄", "葡萄黑腐病怎么防治？", "§四 grape/Black_Rot 无依据"},
+            {"葡萄", "葡萄木材腐烂病怎么治？", "§四 grape/Esca 无依据"},
+            {"葡萄", "葡萄叶枯病怎么识别？", "§四 grape/Leaf_Blight 无依据"},
+            {"水稻", "水稻细菌枯病怎么防治？", "§四 rice/Bact_L_Blight 无依据"},
+            {"水稻", "水稻稻铁甲虫怎么防治？", "§四 rice/Hispa 无依据"},
+            {"小麦", "小麦黑秆病怎么治？", "§四 wheat/Bacterial_Streak 无依据"},
+            {"小麦", "小麦穗霉病怎么防治？", "§四 wheat/Head_Scab 无依据"},
+            {"小麦", "小麦赤霉病用什么药？", "§四 wheat/Septoria_Blotch 无依据（库中为小麦斑枯病）"},
+            {"小麦", "小麦茎锈病怎么防治？", "§四 wheat/Stem_Rust 无依据"},
+            {"番茄", "番茄检出潜叶虫后应该使用什么药剂和剂量？", "developer_holdout.jsonl 标注 should_refuse=true"},
+            {"番茄", "棚内湿度高但没有病害症状，是否需要改变灌溉策略？", "developer_holdout.jsonl 标注 should_refuse=true"},
+    };
+
+    /**
      * 口语化检索（非照抄）：种植户的真实问法，用词与语料原文不同。
      *
      * <p>前缀/中段题是原文切片，覆盖率必然接近 1.0，测不出拒答判据的上界；
@@ -246,6 +285,34 @@ class RetrievalEvalTest {
         }
         for (String miss : negativeMisses) {
             System.out.println("  [漏判负样本] " + miss);
+        }
+        System.out.println();
+
+        // 难负样本诊断：**刻意不设断言**。
+        // 断言失败会弄脏构建，断言通过则是说谎——该组当前的实测表现正是需要被看见的缺口
+        // （与 developer_holdout 的 2/2 误接纳同型）。实测值记录在 docs/eval/README.md 的「当前发现」，
+        // 与项目既有的记录方式保持一致：先如实记数，再由人决定怎么改判据。
+        int hardRefused = 0;
+        List<String> hardMisses = new ArrayList<String>();
+        for (String[] row : HARD_NEGATIVE_QUERIES) {
+            RetrievalResult outcome = retriever.retrieve(row[1], row[0], 3);
+            if (retriever.isLowScore(outcome)) {
+                hardRefused++;
+            } else {
+                hardMisses.add(String.format("「%s」(%s) 覆盖率 %.2f / 首条 %s / 依据：%s",
+                        row[1], row[0], outcome.getQueryCoverage(),
+                        outcome.getItems().isEmpty() ? "空"
+                                : outcome.getItems().get(0).getChunk().getDiseaseName(),
+                        row[2]));
+            }
+        }
+        double hardRefuseRate = rate(hardRefused, HARD_NEGATIVE_QUERIES.length);
+        System.out.printf("  难负样本拒答（%d 题，农业外表但库中无依据）  拒答准确率 %.1f%%  ← 无断言，见代码注释%n",
+                HARD_NEGATIVE_QUERIES.length, hardRefuseRate * 100);
+        System.out.printf("    对照：离题负样本 %.1f%%（%d 题）—— 两者落差即「拒答能力被高估」的幅度%n",
+                refuseRate * 100, NEGATIVE_QUERIES.length);
+        for (String miss : hardMisses) {
+            System.out.println("  [难负样本未拒答] " + miss);
         }
         System.out.println();
 

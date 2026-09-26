@@ -11,6 +11,7 @@ import com.example.Ece.agent.eco.PestDiseaseEpidemicModel;
 import com.example.Ece.agent.eco.ResourceUsage;
 import com.example.Ece.agent.eco.SoilState;
 import com.example.Ece.agent.eco.SoilWaterNutrientModel;
+import com.example.Ece.agent.engine.PidControlPolicy;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.model.AgentDeviceCodes;
@@ -29,11 +30,15 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * AI 性能评测平台：在同一初始状态、同一天气相位与同一时间步长下，让四档策略各跑一遍完整生长季，
+ * AI 性能评测平台：在同一初始状态、同一天气相位与同一时间步长下，让各档策略各跑一遍完整生长季，
  * 输出多目标指标矩阵与逐日序列。
  *
  * <p>五子系统在同一 15 分钟步长上耦合推进：微气候 → 水肥土壤 → 作物生长 → 病虫害流行 → 管理经济；
- * 决策作用于全部子系统，后果由同一套模型计算，因此"AI 更强"是可复算的数字而不是主观描述。</p>
+ * 决策作用于全部子系统，后果由同一套模型计算，因此"更强"是可复算的数字而不是主观描述。</p>
+ *
+ * <p>P0–P3 为原有四档对照；P4–P6 为连续控制消融（仅 P / P+I / P+I+D），
+ * 三者共用同一个 PID 控制器与同一套设备，唯一差别是保留哪些控制项，
+ * 用于在本模型上直接检验"比例控制留稳态偏差、积分项消偏、微分项抑制超调"。</p>
  *
  * <p>全程无随机数：{@code seed} 只决定天气相位，同 seed 同参数必然逐值一致。</p>
  */
@@ -50,6 +55,12 @@ public class PerformanceEvaluationService {
     private static final double HIGH_TEMPERATURE_C = 28.0;
     private static final double HIGH_HUMIDITY_PCT = 85.0;
     private static final double HIGH_VPD_KPA = 2.0;
+    /**
+     * 超温/超湿量的参考设定值：取连续控制器的设定值，使各档在**同一把尺子**下比较。
+     * 只累加正向偏差，因为降温与排湿是设备唯一能作用的方向（加热不在设备集内）。
+     */
+    private static final double CONTROL_TEMPERATURE_SET_C = PidControlPolicy.TEMPERATURE_SET_C;
+    private static final double CONTROL_HUMIDITY_SET_PCT = PidControlPolicy.HUMIDITY_SET_PCT;
     private static final LocalDateTime SIMULATION_START = LocalDateTime.of(2026, 9, 21, 6, 0);
 
     /** 场景设定（示例）：第 45–55 天与第 85–95 天为夏季高温期，外界温度上浮 6℃。 */
@@ -102,6 +113,8 @@ public class PerformanceEvaluationService {
     }
 
     private EvaluationOutcome simulate(EvaluationStrategy strategy, long seed, int days) {
+        // 控制器带积分/微分记忆，必须每次运行新建并清零，否则档与档之间会互相污染，且同种子不再可复算。
+        PidControlPolicy pidPolicy = pidPolicyOf(strategy);
         SimulationState air = engine.evaluate(SIMULATION_START, 22.0, 72.0, 62.0, 600.0, 0.0, 6.2);
         SoilState soil = soilModel.initial();
         TomatoCropState crop = cropModel.initial();
@@ -112,6 +125,8 @@ public class PerformanceEvaluationService {
         long highHumidityMinutes = 0L;
         long highVpdMinutes = 0L;
         double diseasePressureIntegral = 0.0;
+        double temperatureExceedanceSum = 0.0;
+        double humidityExceedanceSum = 0.0;
         int constraintViolations = 0;
         List<Map<String, Object>> series = new ArrayList<Map<String, Object>>();
 
@@ -119,15 +134,17 @@ public class PerformanceEvaluationService {
             Map<String, Boolean> lastDevices = emptyDevices();
             SimulationState lastCoupled = air;
             for (int step = 0; step < STEPS_PER_DAY; step++) {
-                Map<String, Boolean> devices = decide(strategy, air, soil, crop, disease, step, day, seed);
+                Decision decision = decide(strategy, air, soil, crop, disease, pidPolicy, step, day, seed);
+                Map<String, Boolean> devices = decision.devices;
                 double heatwaveOffsetC = heatwaveOffsetC(day);
                 double transpirationOffsetPct = transpirationOffsetPct(crop);
-                air = engine.advance(air, devices, STEP_MINUTES, seed, heatwaveOffsetC, transpirationOffsetPct);
+                air = engine.advance(air, devices, STEP_MINUTES, seed, heatwaveOffsetC, transpirationOffsetPct,
+                        decision.duties);
                 SimulationState coupled = engine.evaluate(air.getSimulatedAt(), air.getTemperatureC(),
                         air.getAirHumidityPct(), soil.getSoilMoisturePct(), air.getCo2Ppm(),
                         air.getLightPpfd(), soil.getSoilPh());
 
-                ResourceUsage usage = usageOf(devices);
+                ResourceUsage usage = usageOf(devices, decision.duties);
                 double stress = clamp(soil.getNutrientFactor(), 0.0, 1.0)
                         * clamp(disease.getDiseaseDamageFactor(), 0.0, 1.0);
                 crop = cropModel.advance(crop, coupled, STEP_MINUTES, stress);
@@ -147,6 +164,8 @@ public class PerformanceEvaluationService {
                     highVpdMinutes += STEP_MINUTES;
                 }
                 diseasePressureIntegral += coupled.getDiseasePressure() * STEP_MINUTES;
+                temperatureExceedanceSum += Math.max(0.0, coupled.getTemperatureC() - CONTROL_TEMPERATURE_SET_C);
+                humidityExceedanceSum += Math.max(0.0, coupled.getAirHumidityPct() - CONTROL_HUMIDITY_SET_PCT);
                 // 真实互斥只有两组：通风 ⊥ CO₂（开了通风还补气等于白烧钱）、补光 ⊥ 遮阳（同时开互相抵消）。
                 // 灌溉与 CO₂ 并不冲突，早期版本把这一对也算作冲突是定义错误。
                 if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.VENTILATION))
@@ -163,13 +182,16 @@ public class PerformanceEvaluationService {
             series.add(seriesEntry(day, lastCoupled, soil, crop, disease, economics, lastDevices));
         }
 
+        int totalSteps = days * STEPS_PER_DAY;
         return new EvaluationOutcome(round(crop.getWFruit()), round(crop.getSingleFruitWeightG()),
                 round(crop.getFruitSetRate()), round(economics.getYieldKg()), round(economics.getMarketableYieldKg()),
                 round(economics.getWaterUsedM3()), round(economics.getEnergyKWh()), round(economics.getCo2UsedKg()),
                 round(economics.getFertilizerUsedKg()), round(economics.getCostYuan()),
                 round(economics.getRevenueYuan()), round(economics.getProfitYuan()),
                 highTemperatureMinutes, highHumidityMinutes, highVpdMinutes,
-                round(diseasePressureIntegral), constraintViolations, round(totalSeverity(disease)), series);
+                round(diseasePressureIntegral), constraintViolations, round(totalSeverity(disease)),
+                totalSteps == 0 ? 0.0 : round(temperatureExceedanceSum / totalSteps),
+                totalSteps == 0 ? 0.0 : round(humidityExceedanceSum / totalSteps), series);
     }
 
     /**
@@ -192,10 +214,11 @@ public class PerformanceEvaluationService {
         return 0.0;
     }
 
-    private Map<String, Boolean> decide(EvaluationStrategy strategy, SimulationState env, SoilState soil,
-                                        TomatoCropState crop, DiseaseState disease, int step, int day, long seed) {
+    private Decision decide(EvaluationStrategy strategy, SimulationState env, SoilState soil,
+                            TomatoCropState crop, DiseaseState disease, PidControlPolicy pidPolicy,
+                            int step, int day, long seed) {
         if (strategy == EvaluationStrategy.P0_NONE) {
-            return emptyDevices();
+            return Decision.legacy(emptyDevices());
         }
         if (strategy == EvaluationStrategy.P1_FIXED_MANUAL) {
             Map<String, Boolean> fixed = emptyDevices();
@@ -205,14 +228,73 @@ public class PerformanceEvaluationService {
             if (step >= 48 && step < 50) {
                 fixed.put(AgentDeviceCodes.VENTILATION, Boolean.TRUE);
             }
-            return fixed;
+            return Decision.legacy(fixed);
         }
         Map<String, Boolean> ruled = devicesOf(policy.decide(env));
         if (strategy == EvaluationStrategy.P2_RULE_ENGINE) {
-            return ruled;
+            return Decision.legacy(ruled);
         }
-        return chooseByProjection(ruled, env, soil, crop, disease, seed, heatwaveOffsetC(day),
-                transpirationOffsetPct(crop));
+        if (pidPolicy != null) {
+            return pidDecision(pidPolicy, ruled, env);
+        }
+        return Decision.legacy(chooseByProjection(ruled, env, soil, crop, disease, seed, heatwaveOffsetC(day),
+                transpirationOffsetPct(crop)));
+    }
+
+    /**
+     * 连续控制档的决策：气候设备（屋窗、通风、排风、湿帘、遮阳、补光、CO₂）由 PID 出力驱动，
+     * 灌溉与环流仍沿用规则层结果。
+     *
+     * <p>不让 PID 接管灌溉是有意为之：灌溉同时耦合土壤水肥、施肥台账与成本模型，
+     * 若一并交给控制器，"连续调节更优"就无法与"灌溉制度变化"区分开。
+     * 保留规则侧灌溉后，本档与 P2 规则档的差异**只剩气候调节方式一项**。</p>
+     */
+    private Decision pidDecision(PidControlPolicy pidPolicy, Map<String, Boolean> ruled, SimulationState env) {
+        PidControlPolicy.Control control = pidPolicy.decide(env);
+        Map<String, Double> duties = control.getDuties();
+        Map<String, Boolean> devices = emptyDevices();
+        for (String code : AgentDeviceCodes.all()) {
+            Double duty = duties.get(code);
+            devices.put(code, Boolean.valueOf(duty != null && duty.doubleValue() > 0.0));
+        }
+        // 规则侧保留的两台设备：开关与出力都按规则结果折算。
+        for (String code : new String[]{AgentDeviceCodes.IRRIGATION, AgentDeviceCodes.CIRCULATION_FAN}) {
+            boolean on = Boolean.TRUE.equals(ruled.get(code));
+            devices.put(code, Boolean.valueOf(on));
+            duties.put(code, Double.valueOf(on ? 1.0 : 0.0));
+        }
+        return new Decision(devices, duties);
+    }
+
+    private PidControlPolicy pidPolicyOf(EvaluationStrategy strategy) {
+        if (strategy == null) {
+            return null;
+        }
+        switch (strategy) {
+            case P4_PID_PROPORTIONAL:
+                return PidControlPolicy.proportionalOnly();
+            case P5_PID_PI:
+                return PidControlPolicy.proportionalIntegral();
+            case P6_PID_FULL:
+                return PidControlPolicy.proportionalIntegralDerivative();
+            default:
+                return null;
+        }
+    }
+
+    /** 一步决策结果：设备开关 + 连续出力。规则档的 duties 为 null，表示一律按满出力折算。 */
+    private static final class Decision {
+        private final Map<String, Boolean> devices;
+        private final Map<String, Double> duties;
+
+        Decision(Map<String, Boolean> devices, Map<String, Double> duties) {
+            this.devices = devices;
+            this.duties = duties;
+        }
+
+        static Decision legacy(Map<String, Boolean> devices) {
+            return new Decision(devices, null);
+        }
     }
 
     /**
@@ -379,25 +461,38 @@ public class PerformanceEvaluationService {
     }
 
     private ResourceUsage usageOf(Map<String, Boolean> devices) {
+        return usageOf(devices, null);
+    }
+
+    /**
+     * 把设备开关与**连续出力**折算为实物消耗：出力 30% 的风机即按 30% 计电。
+     * 规则档传入 null，出力按 1.0 计，与补齐排风/屋窗/湿帘能耗之前的算法保持逐位一致。
+     */
+    private ResourceUsage usageOf(Map<String, Boolean> devices, Map<String, Double> duties) {
         double energy = 0.0;
         double co2 = 0.0;
         double water = 0.0;
-        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.VENTILATION))) {
-            energy += ResourceRates.VENTILATION_KWH_PER_STEP;
-        }
-        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.GROW_LIGHT))) {
-            energy += ResourceRates.GROW_LIGHT_KWH_PER_STEP;
-        }
-        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.SHADE))) {
-            energy += ResourceRates.SHADE_KWH_PER_STEP;
-        }
-        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.CO2_SUPPLY))) {
-            co2 += ResourceRates.CO2_KG_PER_STEP;
-        }
-        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION))) {
-            water += ResourceRates.IRRIGATION_M3_PER_STEP;
-        }
+        energy += outputOf(devices, duties, AgentDeviceCodes.VENTILATION) * ResourceRates.VENTILATION_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.ROOF_VENT) * ResourceRates.ROOF_VENT_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.EXHAUST_FAN) * ResourceRates.EXHAUST_FAN_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.COOLING_PAD) * ResourceRates.COOLING_PAD_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.GROW_LIGHT) * ResourceRates.GROW_LIGHT_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.SHADE) * ResourceRates.SHADE_KWH_PER_STEP;
+        co2 += outputOf(devices, duties, AgentDeviceCodes.CO2_SUPPLY) * ResourceRates.CO2_KG_PER_STEP;
+        water += outputOf(devices, duties, AgentDeviceCodes.IRRIGATION) * ResourceRates.IRRIGATION_M3_PER_STEP;
         return new ResourceUsage(water, energy, co2, 0.0, 0.0, ResourceRates.LABOR_HOURS_PER_STEP);
+    }
+
+    /** 设备实际出力系数：关闭为 0；开启时取 duty（未给出则视为满出力 1.0）。 */
+    private double outputOf(Map<String, Boolean> devices, Map<String, Double> duties, String code) {
+        if (!Boolean.TRUE.equals(devices.get(code))) {
+            return 0.0;
+        }
+        if (duties == null) {
+            return 1.0;
+        }
+        Double duty = duties.get(code);
+        return duty == null ? 1.0 : clamp(duty.doubleValue(), 0.0, 1.0);
     }
 
     private double fertilizerOf(EvaluationStrategy strategy, int step, int day, boolean irrigating) {

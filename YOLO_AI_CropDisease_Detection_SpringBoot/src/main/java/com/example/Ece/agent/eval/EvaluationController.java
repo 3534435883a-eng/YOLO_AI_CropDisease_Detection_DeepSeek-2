@@ -73,6 +73,8 @@ public class EvaluationController {
             metrics.put("diseasePressureIntegral", Double.valueOf(outcome.getDiseasePressureIntegral()));
             metrics.put("constraintViolations", Integer.valueOf(outcome.getConstraintViolations()));
             metrics.put("finalSeverityTotal", Double.valueOf(outcome.getFinalSeverityTotal()));
+            metrics.put("meanTemperatureExceedanceC", Double.valueOf(outcome.getMeanTemperatureExceedanceC()));
+            metrics.put("meanHumidityExceedancePct", Double.valueOf(outcome.getMeanHumidityExceedancePct()));
             outcomes.put(entry.getKey().name(), metrics);
         }
         payload.put("outcomes", outcomes);

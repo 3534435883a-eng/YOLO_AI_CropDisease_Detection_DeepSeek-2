@@ -14,7 +14,18 @@ import axios, { AxiosInstance } from 'axios';
 /*                                  类型定义                                   */
 /* -------------------------------------------------------------------------- */
 
-export type StrategyCode = 'P0_NONE' | 'P1_FIXED_MANUAL' | 'P2_RULE_ENGINE' | 'P3_AGENT';
+/**
+ * P4/P5/P6 是同一连续 PID 控制器只保留不同控制项的消融档（仅 P / P+I / P+I+D），
+ * 三者共用同一套气候设备，灌溉仍走规则侧，因此档间差异只能归因于控制项本身。
+ */
+export type StrategyCode =
+	| 'P0_NONE'
+	| 'P1_FIXED_MANUAL'
+	| 'P2_RULE_ENGINE'
+	| 'P3_AGENT'
+	| 'P4_PID_PROPORTIONAL'
+	| 'P5_PID_PI'
+	| 'P6_PID_FULL';
 
 export type DiseaseCode = 'BOTRYTIS' | 'LATE_BLIGHT' | 'POWDERY_MILDEW' | 'LEAF_MOLD';
 
@@ -97,7 +108,11 @@ export interface EvalOutcome {
 	costYuan: number;
 	revenueYuan: number;
 	profitYuan: number;
-	[key: string]: number;
+	/** 逐步平均超温量（℃）：只计正向偏差，即控制器能作用的方向 */
+	meanTemperatureExceedanceC?: number;
+	/** 逐步平均超湿量（%RH）：只计正向偏差 */
+	meanHumidityExceedancePct?: number;
+	[key: string]: number | undefined;
 }
 
 /** POST /api/eval/runs */
@@ -123,13 +138,45 @@ export interface EvalResult<T> {
 /*                                  常量表                                     */
 /* -------------------------------------------------------------------------- */
 
-export const STRATEGY_ORDER: StrategyCode[] = ['P0_NONE', 'P1_FIXED_MANUAL', 'P2_RULE_ENGINE', 'P3_AGENT'];
+/** 全部评测档位，含离线消融档。**只用于数据层与离线评测报告**，不要直接铺到产品界面上。 */
+export const STRATEGY_ORDER: StrategyCode[] = [
+	'P0_NONE',
+	'P1_FIXED_MANUAL',
+	'P2_RULE_ENGINE',
+	'P3_AGENT',
+	'P4_PID_PROPORTIONAL',
+	'P5_PID_PI',
+	'P6_PID_FULL',
+];
+
+/**
+ * 产品界面呈现的档位：只保留使用者能理解的业务场景。
+ *
+ * P4–P6 是「同一控制器只保留不同控制项」的**离线消融**（仅 P / P+I / P+I+D），
+ * 它的作用是给评测报告提供证据，不是使用者需要浏览的场景。
+ * 让农业平台的使用者在"连续比例积分控制"和"完整 PID"之间做选择是没有意义的，
+ * 因此它们只出现在离线评测矩阵里，不进产品下拉框。
+ */
+export const PRODUCT_STRATEGY_ORDER: StrategyCode[] = [
+	'P0_NONE',
+	'P1_FIXED_MANUAL',
+	'P2_RULE_ENGINE',
+	'P3_AGENT',
+];
 
 export const STRATEGY_LABELS: Record<string, string> = {
-	P0_NONE: 'P0 无干预',
-	P1_FIXED_MANUAL: 'P1 定时人工',
-	P2_RULE_ENGINE: 'P2 规则引擎',
-	P3_AGENT: 'P3 候选前瞻仿真',
+	// 产品界面用语：不带算法代号
+	P0_NONE: '不做调控',
+	P1_FIXED_MANUAL: '人工定时管理',
+	P2_RULE_ENGINE: '规则自动调控',
+	// 注意：这一档做的是候选动作的前瞻仿真，**不调用 LLM/RAG**。
+	// docs/eval/README.md 明确要求报告中不得称其为"智能体"，
+	// 因此界面用语也保持"前瞻择优"，不写成"智能体决策"。
+	P3_AGENT: '前瞻择优调控',
+	// 以下仅用于离线评测报告
+	P4_PID_PROPORTIONAL: '连续比例控制（仅 P）',
+	P5_PID_PI: '连续比例积分（P+I）',
+	P6_PID_FULL: '连续 PID',
 };
 
 export const DISEASE_ORDER: DiseaseCode[] = ['BOTRYTIS', 'LATE_BLIGHT', 'POWDERY_MILDEW', 'LEAF_MOLD'];
@@ -320,6 +367,8 @@ const normalizeOutcomes = (raw: unknown): Record<string, EvalOutcome> => {
 			costYuan: num(r.costYuan),
 			revenueYuan: num(r.revenueYuan),
 			profitYuan: num(r.profitYuan),
+			meanTemperatureExceedanceC: num(r.meanTemperatureExceedanceC),
+			meanHumidityExceedancePct: num(r.meanHumidityExceedancePct),
 		};
 	}
 	return out;
@@ -814,7 +863,9 @@ export const buildDemoDataset = (batchId: string = DEFAULT_BATCH_ID, days: numbe
 			profitYuan: run.agg.profitYuan,
 		};
 	});
-	const result: DemoDataset = { batchId, strategies: [...STRATEGY_ORDER], series, outcomes };
+	// 只声明**真正生成了序列**的档位：P4–P6 连续控制档没有离线示例模型，
+	// 若在此列出会得到空曲线——宁可少列，也不能显示一张编造的图。
+	const result: DemoDataset = { batchId, strategies: DEMO_PROFILES.map((p) => p.code), series, outcomes };
 	demoCache.set(key, result);
 	return result;
 };

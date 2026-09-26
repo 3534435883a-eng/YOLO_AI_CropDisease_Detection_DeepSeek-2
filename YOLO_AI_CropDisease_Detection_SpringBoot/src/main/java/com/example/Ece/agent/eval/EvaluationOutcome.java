@@ -26,6 +26,8 @@ public class EvaluationOutcome {
     private final double diseasePressureIntegral;
     private final int constraintViolations;
     private final double finalSeverityTotal;
+    private final double meanTemperatureExceedanceC;
+    private final double meanHumidityExceedancePct;
     private final List<Map<String, Object>> series;
 
     public EvaluationOutcome(double wFruit, double singleFruitWeightG, double fruitSetRate, double yieldKg,
@@ -33,7 +35,10 @@ public class EvaluationOutcome {
                              double fertilizerUsedKg, double costYuan, double revenueYuan, double profitYuan,
                              long highTemperatureMinutes, long highHumidityMinutes, long highVpdMinutes,
                              double diseasePressureIntegral, int constraintViolations, double finalSeverityTotal,
+                             double meanTemperatureExceedanceC, double meanHumidityExceedancePct,
                              List<Map<String, Object>> series) {
+        this.meanTemperatureExceedanceC = meanTemperatureExceedanceC;
+        this.meanHumidityExceedancePct = meanHumidityExceedancePct;
         this.wFruit = wFruit;
         this.singleFruitWeightG = singleFruitWeightG;
         this.fruitSetRate = fruitSetRate;
@@ -90,6 +95,18 @@ public class EvaluationOutcome {
     public int getConstraintViolations() { return constraintViolations; }
 
     public double getFinalSeverityTotal() { return finalSeverityTotal; }
+
+    /**
+     * 逐步统计的平均超温量（℃）：只累加 `max(0, 温度 − 设定值)`，即**控制器能作用的方向**。
+     *
+     * <p>不能用逐日序列算这个指标：序列取的是每天最后一步（午夜）的采样，
+     * 夜间低温会把"平均偏差"整体抬高到 6℃ 量级，掩盖掉真正由控制方式造成的差异。
+     * 只取正向超出量后，数值才反映"该降的温有没有降下来"。</p>
+     */
+    public double getMeanTemperatureExceedanceC() { return meanTemperatureExceedanceC; }
+
+    /** 逐步统计的平均超湿量（%RH）：只累加 `max(0, 湿度 − 设定值)`。 */
+    public double getMeanHumidityExceedancePct() { return meanHumidityExceedancePct; }
 
     public List<Map<String, Object>> getSeries() { return Collections.unmodifiableList(series); }
 }
