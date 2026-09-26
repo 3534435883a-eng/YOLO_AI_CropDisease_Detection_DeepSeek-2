@@ -3,7 +3,53 @@ package com.example.Ece.agent.rag;
 /** 可检索知识块及其来源登记。 */
 public class KnowledgeChunk {
 
-    public enum FieldType { SYMPTOM, CAUSE, CONTROL, OTHER }
+    /**
+     * 知识块的类别。
+     *
+     * <p><b>前四个是"病害形状"的</b>（本知识库最初的唯一形状：旧 {@code disease} 表就是这个结构）；
+     * 后七个是 2026-09-26 为**非病害的农事知识**新增的。加它们的原因是一次端到端实测：
+     * 智能体被问"定植后一周该怎么管""膨果期浇多少水"时只能答"依据不足"，
+     * 因为知识库里 283 块**全是病害**，而水肥/栽培/环境调控的知识**没有类别可以落**。</p>
+     *
+     * <p><b>命名必须是缩写</b>：{@code agent_knowledge_chunk.field_type} 是 {@code varchar(16)}，
+     * 而 {@code CONTROL_BIOLOGICAL} 有 18 个字符，直接入库会 {@code Data too long}。
+     * 这个坑本项目在 {@code source_type} 上已经踩过一次（见设计文档 §23 的"真实 bug"记要），
+     * 故此处一律控制在 16 字符内并加测试锁住。</p>
+     */
+    public enum FieldType {
+        /** 症状（病害） */
+        SYMPTOM,
+        /** 诱因（病害） */
+        CAUSE,
+        /** 防治（病害，旧库的笼统写法） */
+        CONTROL,
+        /** 其他 */
+        OTHER,
+        /** 栽培管理（整地、定植、整枝、授粉、疏果、采收等农事操作） */
+        CULTIVATION,
+        /** 水肥管理（灌溉制度、施肥制度、水肥一体化） */
+        WATER_FERT,
+        /** 环境调控（温度、湿度、光照、通风、CO₂ 等阈值与措施） */
+        ENVIRONMENT,
+        /** 农业防治 */
+        CTRL_AGRI,
+        /** 物理防治 */
+        CTRL_PHYS,
+        /** 生物防治 */
+        CTRL_BIO,
+        /** 化学防治 */
+        CTRL_CHEM;
+
+        /**
+         * 是否属于"病害形状"的类别。
+         *
+         * <p>决定上下文头写「病害：X」还是「主题：X」。这个区分必须存在：把"水肥管理"写成
+         * "病害：水肥管理"会让检索与阅读都错位。</p>
+         */
+        public boolean isDiseaseField() {
+            return this == SYMPTOM || this == CAUSE || this == CONTROL;
+        }
+    }
 
     private final String sourceTable;
     private final long sourceId;

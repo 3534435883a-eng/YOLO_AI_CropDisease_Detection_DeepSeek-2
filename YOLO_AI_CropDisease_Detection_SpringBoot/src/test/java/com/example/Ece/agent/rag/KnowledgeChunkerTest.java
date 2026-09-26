@@ -48,6 +48,49 @@ class KnowledgeChunkerTest {
         assertTrue(chunks.get(1).getContent().contains("字段：防治"));
     }
 
+    /**
+     * 病害类的头部格式**逐字节未变**。
+     *
+     * <p>头部参与内容哈希，改动它会让已入库的 338 个旧块哈希全部失配；而 bootstrap 只在库为空时
+     * 重灌历史库，结果是新旧块头部格式不一致。这条断言就是防止有人"顺手统一一下格式"。</p>
+     */
+    @Test
+    void diseaseHeaderFormatIsFrozen() {
+        List<KnowledgeChunk> chunks = chunker.chunk(9L, "番茄", "早疫病", fields("叶片出现褐色轮纹斑。", null));
+        assertEquals("作物：番茄；病害：早疫病；字段：症状。叶片出现褐色轮纹斑。", chunks.get(0).getContent());
+    }
+
+    /**
+     * 非病害知识走「主题：」而不是「病害：」。
+     *
+     * <p>把"水肥管理"写作"病害：水肥管理"会让检索与阅读都错位——这不是样式问题，
+     * 是内容错误。</p>
+     */
+    @Test
+    void nonDiseaseHeaderSaysTopicNotDisease() {
+        Map<KnowledgeChunk.FieldType, String> map = new LinkedHashMap<KnowledgeChunk.FieldType, String>();
+        map.put(KnowledgeChunk.FieldType.WATER_FERT, "土壤含水量低于60%~70%时需及时灌溉。");
+        List<KnowledgeChunk> chunks = chunker.chunk("standard_db37t1849", 2L, "番茄", "灌溉制度", map);
+
+        assertEquals(1, chunks.size());
+        String content = chunks.get(0).getContent();
+        assertTrue(content.startsWith("作物：番茄；主题：灌溉制度；字段：水肥管理。"),
+                "非病害条目的头部应写「主题：」，实测：" + content);
+        assertTrue(!content.contains("病害："), "非病害条目不得出现「病害：」");
+    }
+
+    /** 新类别的中文标签必须齐全，否则引用块与证据块里会整片显示成"其他"。 */
+    @Test
+    void everyFieldTypeHasAChineseLabel() {
+        for (KnowledgeChunk.FieldType type : KnowledgeChunk.FieldType.values()) {
+            String label = KnowledgeChunker.fieldLabel(type);
+            assertTrue(label != null && !label.isEmpty(), type + " 缺中文标签");
+            if (type != KnowledgeChunk.FieldType.OTHER) {
+                assertTrue(!"其他".equals(label), type + " 落到了默认标签「其他」");
+            }
+        }
+    }
+
     @Test
     void shortTextBecomesSingleChunk() {
         List<KnowledgeChunk> chunks = chunker.chunk(1L, "番茄", "早疫病", fields("叶片出现褐色轮纹斑。", null));

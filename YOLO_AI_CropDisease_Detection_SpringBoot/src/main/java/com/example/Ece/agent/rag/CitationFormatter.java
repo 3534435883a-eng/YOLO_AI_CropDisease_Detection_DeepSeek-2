@@ -16,7 +16,20 @@ import java.util.Set;
 @Component
 public class CitationFormatter {
 
-    private static final int SNIPPET_LIMIT = 160;
+    /**
+     * 证据片段给模型看的字符上限。
+     *
+     * <p><b>取值 500 = {@code KnowledgeChunker.CHUNK_SIZE}</b>，即"一条知识块原样给全，不再截"。
+     * 这不是随手调大的数，而是修一个实测缺陷：原值 160，而切块器本来就按 500 字切块，
+     * 于是**模型每条证据只看得到三分之一**。2026-09-26 接入标准摘要条目后这个缺陷立刻显形——
+     * 条款末尾的关键数字被切掉，模型如实回答"原文在『每次每亩浇水 1…』处截断，这个量我给不出"。
+     * 换句话说：知识明明已经入库了，却因为截断而没进到模型的上下文里，等于白灌。</p>
+     *
+     * <p><b>代价必须说清</b>：证据块随引用条数线性增长，单轮引用上限约 10 条时，
+     * 证据正文由约 1.6 KB 增至约 5 KB。知识块本身已被切块器限长，所以总量仍有界；
+     * 但若将来把单轮引用数放大，这里要重新核算 prompt 预算，而不是继续加大这个常数。</p>
+     */
+    static final int SNIPPET_LIMIT = KnowledgeChunker.CHUNK_SIZE;
 
     public List<Map<String, Object>> toCitations(List<ScoredChunk> items) {
         List<Map<String, Object>> citations = new ArrayList<Map<String, Object>>();

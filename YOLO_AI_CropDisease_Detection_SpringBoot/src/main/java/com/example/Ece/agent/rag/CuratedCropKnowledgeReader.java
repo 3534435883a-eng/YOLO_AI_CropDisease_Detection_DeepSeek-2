@@ -24,8 +24,8 @@ public class CuratedCropKnowledgeReader {
             new ResourceSpec("/knowledge/curated-apple.json", "curated_apple", "苹果")
     };
 
-    public List<SourceEntry> readAll() {
-        List<SourceEntry> entries = new ArrayList<SourceEntry>();
+    public List<KnowledgeSourceEntry> readAll() {
+        List<KnowledgeSourceEntry> entries = new ArrayList<KnowledgeSourceEntry>();
         Set<String> codes = new HashSet<String>();
         for (ResourceSpec spec : RESOURCES) {
             readResource(spec, codes, entries);
@@ -33,7 +33,7 @@ public class CuratedCropKnowledgeReader {
         return entries;
     }
 
-    private void readResource(ResourceSpec spec, Set<String> codes, List<SourceEntry> entries) {
+    private void readResource(ResourceSpec spec, Set<String> codes, List<KnowledgeSourceEntry> entries) {
         InputStream stream = getClass().getResourceAsStream(spec.path);
         if (stream == null) {
             throw new IllegalStateException("未找到权威知识清单 " + spec.path);
@@ -68,7 +68,7 @@ public class CuratedCropKnowledgeReader {
                 fields.put(KnowledgeChunk.FieldType.CONTROL, required(row, "control", spec.path));
                 IngestRecord record = new IngestRecord(spec.table, id, crop,
                         required(row, "name", spec.path), fields);
-                entries.add(new SourceEntry(source, record));
+                entries.add(new KnowledgeSourceEntry(source, record));
             }
         } catch (java.io.IOException error) {
             throw new IllegalStateException("读取权威知识清单失败 " + spec.path, error);
@@ -95,16 +95,4 @@ public class CuratedCropKnowledgeReader {
         }
     }
 
-    public static final class SourceEntry {
-        private final KnowledgeSource source;
-        private final IngestRecord record;
-
-        SourceEntry(KnowledgeSource source, IngestRecord record) {
-            this.source = source;
-            this.record = record;
-        }
-
-        public KnowledgeSource getSource() { return source; }
-        public IngestRecord getRecord() { return record; }
-    }
 }

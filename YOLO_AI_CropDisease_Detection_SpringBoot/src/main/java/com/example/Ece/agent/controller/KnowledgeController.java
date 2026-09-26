@@ -2,13 +2,16 @@ package com.example.Ece.agent.controller;
 
 import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.EmbeddingUnavailableException;
+import com.example.Ece.agent.rag.IngestRecord;
 import com.example.Ece.agent.rag.IngestReport;
 import com.example.Ece.agent.rag.KnowledgeEntityLexicon;
 import com.example.Ece.agent.rag.KnowledgeIndexService;
 import com.example.Ece.agent.repository.JdbcVisionClassMapRepository;
 import com.example.Ece.agent.rag.KnowledgeIngestService;
 import com.example.Ece.agent.rag.KnowledgeSource;
+import com.example.Ece.agent.rag.KnowledgeSourceEntry;
 import com.example.Ece.agent.rag.KnowledgeSourceRepository;
+import com.example.Ece.agent.rag.CitedKnowledgeReader;
 import com.example.Ece.agent.rag.LegacyDiseaseKnowledgeReader;
 import com.example.Ece.agent.rag.CuratedCropKnowledgeReader;
 import com.example.Ece.common.Result;
@@ -47,6 +50,9 @@ public class KnowledgeController {
 
     @Resource
     private CuratedCropKnowledgeReader curatedReader;
+
+    @Resource
+    private CitedKnowledgeReader standardReader;
 
     @Resource
     private EmbeddingClient embeddingClient;
@@ -124,13 +130,30 @@ public class KnowledgeController {
         return Result.success(payload);
     }
 
-    /** 重新 ingest 历史病害库和已核验作物资料，并重建索引。 */
+    /** 重新 ingest 历史病害库、已核验作物资料与标准摘要条目，并重建索引。 */
     @PostMapping("/reingest")
     public Result<?> reingest() {
         List<IngestReport> reports = new ArrayList<IngestReport>();
         reports.add(ingestService.ingest(legacyReader.source(), legacyReader.readAll()));
-        for (CuratedCropKnowledgeReader.SourceEntry entry : curatedReader.readAll()) {
-            reports.add(ingestService.ingest(entry.getSource(), java.util.Collections.singletonList(entry.getRecord())));
+        List<KnowledgeSourceEntry> manual = new ArrayList<KnowledgeSourceEntry>();
+        manual.addAll(curatedReader.readAll());
+        manual.addAll(standardReader.readAll());
+        // 必须**按来源分组一次性灌**：ingest 是按来源代码全量替换的（内部先删后写），
+        // 逐条调用时后一条会把前一条的块删掉。实测 15 条标准摘要逐条灌只活下来 1 条，且不报错。
+        Map<String, List<IngestRecord>> bySourceCode = new LinkedHashMap<String, List<IngestRecord>>();
+        Map<String, KnowledgeSource> sources = new LinkedHashMap<String, KnowledgeSource>();
+        for (KnowledgeSourceEntry entry : manual) {
+            String code = entry.getSource().getSourceCode();
+            sources.put(code, entry.getSource());
+            List<IngestRecord> records = bySourceCode.get(code);
+            if (records == null) {
+                records = new ArrayList<IngestRecord>();
+                bySourceCode.put(code, records);
+            }
+            records.add(entry.getRecord());
+        }
+        for (Map.Entry<String, List<IngestRecord>> group : bySourceCode.entrySet()) {
+            reports.add(ingestService.ingest(sources.get(group.getKey()), group.getValue()));
         }
         KnowledgeIndexService.KnowledgeLoadSummary summary = knowledgeIndexService.reload();
         Map<String, Object> payload = new LinkedHashMap<String, Object>();

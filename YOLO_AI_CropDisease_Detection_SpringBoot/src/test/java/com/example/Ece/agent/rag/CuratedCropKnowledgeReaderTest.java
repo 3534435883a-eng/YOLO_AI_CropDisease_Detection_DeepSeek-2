@@ -14,13 +14,13 @@ class CuratedCropKnowledgeReaderTest {
 
     @Test
     void everyCuratedRecordHasTraceableSourceAndDistinctOrigin() {
-        List<CuratedCropKnowledgeReader.SourceEntry> entries = new CuratedCropKnowledgeReader().readAll();
+        List<KnowledgeSourceEntry> entries = new CuratedCropKnowledgeReader().readAll();
         assertEquals(12, entries.size());
         Set<String> codes = new HashSet<String>();
         Set<String> origins = new HashSet<String>();
         int tomatoCount = 0;
         int appleCount = 0;
-        for (CuratedCropKnowledgeReader.SourceEntry entry : entries) {
+        for (KnowledgeSourceEntry entry : entries) {
             KnowledgeSource source = entry.getSource();
             IngestRecord record = entry.getRecord();
             assertTrue(source.getUrl().startsWith("https://") || source.getUrl().startsWith("http://"));
