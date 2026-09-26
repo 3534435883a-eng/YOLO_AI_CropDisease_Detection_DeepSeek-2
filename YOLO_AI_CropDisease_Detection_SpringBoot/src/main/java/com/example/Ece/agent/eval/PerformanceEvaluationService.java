@@ -140,8 +140,18 @@ public class PerformanceEvaluationService {
                 double transpirationOffsetPct = transpirationOffsetPct(crop);
                 air = engine.advance(air, devices, STEP_MINUTES, seed, heatwaveOffsetC, transpirationOffsetPct,
                         decision.duties);
+                // 土壤水分取 **air**（引擎那份），不取 soil（SoilState 那份）。
+                //
+                // 2026-09-26 修：此前取 soil.getSoilMoisturePct()，于是同一个物理量存在两份互不相同的状态——
+                // 规则层按 air 里的水分决定灌溉，作物却按 SoilState 里的水分生长。120 天同气象实测两者
+                // 最大相差 49 个百分点（P0 档：air 掉到 5% 钳位下限，SoilState 只到 53.6%），
+                // 后果是**作物在任何档都不受水分胁迫**（waterFactor 恒为 1.000），
+                // 灌溉对产量零影响、只影响成本。
+                // 现在统一读 air：作物与策略看同一份水分，胁迫机制才真正接入闭环。
+                // 注：SoilState 的水分仍由其自身平衡推进，用于养分/盐分记账；两份口径的**彻底统一**
+                // （或为 SoilState 补上正确的 FAO-56 辐射项）是后续待决事项，见 ModelDiagnosticReportTest。
                 SimulationState coupled = engine.evaluate(air.getSimulatedAt(), air.getTemperatureC(),
-                        air.getAirHumidityPct(), soil.getSoilMoisturePct(), air.getCo2Ppm(),
+                        air.getAirHumidityPct(), air.getSoilMoisturePct(), air.getCo2Ppm(),
                         air.getLightPpfd(), soil.getSoilPh());
 
                 ResourceUsage usage = usageOf(devices, decision.duties);
@@ -388,8 +398,13 @@ public class PerformanceEvaluationService {
         long humidMinutes = 0L;
         for (int i = 0; i < AGENT_PROJECTION_STEPS; i++) {
             air = engine.advance(air, candidate, STEP_MINUTES, seed, heatwaveOffsetC, transpirationOffsetPct);
+            // 与主循环同一口径：土壤水分取 air（策略与实际生长都依据它）。
+            // 2026-09-26 修第二处：前瞻里原用 soil.getSoilMoisturePct()，于是 P3 的候选择优
+            // 是在"永不缺水"的世界里打分、却被评分在"会缺水"的世界里——
+            // 实测表现为 P3 干重从 452.92 崩到 96.47、用水从 77.10 掉到 21.24 m³、
+            // 利润由 +6340 变 −3760，看起来像"AI 不如规则"，实则是在两套物理之间错位。
             SimulationState coupled = engine.evaluate(air.getSimulatedAt(), air.getTemperatureC(),
-                    air.getAirHumidityPct(), soil.getSoilMoisturePct(), air.getCo2Ppm(),
+                    air.getAirHumidityPct(), air.getSoilMoisturePct(), air.getCo2Ppm(),
                     air.getLightPpfd(), soil.getSoilPh());
             TomatoCropState next = cropModel.advance(projected, coupled, STEP_MINUTES, stress);
             projectedDisease = epidemicModel.advance(projectedDisease, coupled, projected, STEP_MINUTES);

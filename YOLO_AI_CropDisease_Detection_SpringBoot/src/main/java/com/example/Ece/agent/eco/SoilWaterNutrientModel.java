@@ -169,9 +169,14 @@ public class SoilWaterNutrientModel {
         double leachedNitrogenKgPerHa = base.getLeachedNitrogenKgPerHa() + leachedNow;
 
         // 6) 盐分平衡：肥料带入盐分，排水与淋洗带走盐分，EC 不低于下限
+        //
+        // 2026-09-26 修：原实现扣了**两次**——先按排水比例扣一次，又无条件再扣一次
+        // `- EC_LEACH_RATE * factor`。后果是排水量为 0 时 EC 也每步下降，**必然触底**：
+        // 实测 EC 从 1.150 掉到下限 0.300 并在第 20 天后锁死，盐分平衡形同虚设。
+        // 现在只保留按排水比例的那一项——没有排水就没有淋洗，这才是有物理含义的形式。
         double ecDsPerM = base.getEcDsPerM() + doseKgPerHa * SoilParameters.EC_PER_KG_FERT * factor;
         ecDsPerM -= SoilParameters.EC_LEACH_RATE * drainagePct * factor;
-        ecDsPerM = Math.max(EC_FLOOR_DS_PER_M, ecDsPerM - SoilParameters.EC_LEACH_RATE * factor);
+        ecDsPerM = Math.max(EC_FLOOR_DS_PER_M, ecDsPerM);
 
         // 7) 土壤 pH：肥料微酸化，灌溉水向 6.5 附近微抬升，限幅在适宜区间
         double soilPh = clamp(base.getSoilPh()
