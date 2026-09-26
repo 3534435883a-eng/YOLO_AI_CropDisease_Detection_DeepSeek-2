@@ -314,6 +314,121 @@ class RetrievalEvalTest {
         for (String miss : hardMisses) {
             System.out.println("  [难负样本未拒答] " + miss);
         }
+        // ---- 判据信号分布（**纯测量，不改判据**）----
+        // 目的：看清**已有信号**能不能把"有依据"与"农业外表但无依据"分开，再谈阈值。
+        // 记录一次失败的设计以免重犯：曾试图新增"主题词覆盖率"（查询按 IDF 取前 1/3 的词），
+        // 实测正样本与负样本**都**出现 0.00——因为长口语问句里 IDF 最高的正是口语词
+        //（"一圈一圈""小疙瘩""不长个"），它们在库里同样不存在。两类 0.00 的含义不同，
+        // 词频信号分不开，遂放弃该设计。真正要量的是**共现词数**：正样本靠症状词成串命中，
+        // 负样本只能靠"作物名 + 防治"这类通用词凑到 2。
+        String[] groupNames = {"症状前缀", "口语化", "别名"};
+        List<int[]> groupMatched = new ArrayList<int[]>();
+        for (int g = 0; g < 3; g++) {
+            List<Integer> matched = new ArrayList<Integer>();
+            if (g == 0) {
+                for (int i = 0; i < Math.min(PREFIX_QUESTIONS, usable.size()); i++) {
+                    JSONObject record = usable.get(i);
+                    matched.add(retriever.retrieve(cut(record.getString("symptom"), 60),
+                            record.getString("crop"), 3).getMaxChunkMatchedTerms());
+                }
+            } else if (g == 1) {
+                for (String[] row : COLLOQUIAL) {
+                    if (row[1] != null) {
+                        matched.add(retriever.retrieve(row[2], row[0], 3).getMaxChunkMatchedTerms());
+                    }
+                }
+            } else {
+                String[][] aliasProbe = {
+                        {"土豆叶尖叶缘先烂，边上有一圈白霉", null},
+                        {"西红柿叶片有同心轮纹的褐色病斑", null},
+                        {"苞米叶子上长梭形大斑，边缘褐色中间灰色", null},
+                        {"叶尖叶缘先烂，边上有一圈白霉", "土豆"},
+                        {"叶片有同心轮纹的褐色病斑", "西红柿"}
+                };
+                for (String[] row : aliasProbe) {
+                    matched.add(retriever.retrieve(row[0], row[1], 3).getMaxChunkMatchedTerms());
+                }
+            }
+            int min = Integer.MAX_VALUE;
+            for (int v : matched) {
+                min = Math.min(min, v);
+            }
+            groupMatched.add(new int[]{min, matched.size()});
+        }
+        List<Integer> negativeMatched = new ArrayList<Integer>();
+        for (String[] row : HARD_NEGATIVE_QUERIES) {
+            negativeMatched.add(retriever.retrieve(row[1], row[0], 3).getMaxChunkMatchedTerms());
+        }
+        for (String query : NEGATIVE_QUERIES) {
+            negativeMatched.add(retriever.retrieve(query, null, 3).getMaxChunkMatchedTerms());
+        }
+        int negativeMax = 0;
+        for (int v : negativeMatched) {
+            negativeMax = Math.max(negativeMax, v);
+        }
+        StringBuilder line = new StringBuilder();
+        int positiveFloor = Integer.MAX_VALUE;
+        for (int g = 0; g < 3; g++) {
+            line.append(String.format("%s %d 题 最低 %d；", groupNames[g], groupMatched.get(g)[1],
+                    groupMatched.get(g)[0]));
+            positiveFloor = Math.min(positiveFloor, groupMatched.get(g)[0]);
+        }
+        System.out.println("  共现词数（Top 块内命中的查询词个数，未归一）：");
+        System.out.println("    正样本：" + line);
+        System.out.printf("    负样本：难负 %d + 离题 %d 题，**最高 %d**%n",
+                HARD_NEGATIVE_QUERIES.length, NEGATIVE_QUERIES.length, negativeMax);
+        // 原始向量余弦（未过 RRF）：测"语义相近度能否区分有依据与无依据"
+        double[] posSimMin = {1.0, 1.0, 1.0};
+        for (int g = 0; g < 3; g++) {
+            if (g == 0) {
+                for (int i = 0; i < Math.min(PREFIX_QUESTIONS, usable.size()); i++) {
+                    JSONObject record = usable.get(i);
+                    double sim = retriever.retrieve(cut(record.getString("symptom"), 60),
+                            record.getString("crop"), 3).getTopVectorSimilarity();
+                    if (sim > 0.0) { posSimMin[g] = Math.min(posSimMin[g], sim); }
+                }
+            } else if (g == 1) {
+                for (String[] row : COLLOQUIAL) {
+                    if (row[1] != null) {
+                        double sim = retriever.retrieve(row[2], row[0], 3).getTopVectorSimilarity();
+                        if (sim > 0.0) { posSimMin[g] = Math.min(posSimMin[g], sim); }
+                    }
+                }
+            } else {
+                String[][] aliasProbe = {
+                        {"土豆叶尖叶缘先烂，边上有一圈白霉", null},
+                        {"西红柿叶片有同心轮纹的褐色病斑", null},
+                        {"苞米叶子上长梭形大斑，边缘褐色中间灰色", null},
+                        {"叶尖叶缘先烂，边上有一圈白霉", "土豆"},
+                        {"叶片有同心轮纹的褐色病斑", "西红柿"}
+                };
+                for (String[] row : aliasProbe) {
+                    double sim = retriever.retrieve(row[0], row[1], 3).getTopVectorSimilarity();
+                    if (sim > 0.0) { posSimMin[g] = Math.min(posSimMin[g], sim); }
+                }
+            }
+        }
+        double negSimMax = 0.0;
+        for (String[] row : HARD_NEGATIVE_QUERIES) {
+            negSimMax = Math.max(negSimMax, retriever.retrieve(row[1], row[0], 3).getTopVectorSimilarity());
+        }
+        for (String query : NEGATIVE_QUERIES) {
+            negSimMax = Math.max(negSimMax, retriever.retrieve(query, null, 3).getTopVectorSimilarity());
+        }
+        double posSimFloor = Math.min(Math.min(posSimMin[0], posSimMin[1]), posSimMin[2]);
+        System.out.printf("  原始向量余弦（Top-1 块）：症状前缀 最低 %.3f；口语化 最低 %.3f；别名 最低 %.3f%n",
+                posSimMin[0], posSimMin[1], posSimMin[2]);
+        System.out.printf("  原始向量余弦（Top-1 块）：负样本 最高 %.3f%n", negSimMax);
+        System.out.printf("    判读：正样本最低 %.3f 与负样本最高 %.3f %s%n", posSimFloor, negSimMax,
+                posSimFloor > negSimMax ? "**不重叠**，存在可行阈值区间"
+                        : "**重叠**，单靠语义相似度也不够");
+        System.out.println();
+
+        System.out.printf("    判读：正样本最低 %d 与负样本最高 %d %s；当前 MIN_CHUNK_TERMS=%d%n",
+                positiveFloor, negativeMax,
+                positiveFloor > negativeMax ? "**不重叠**，存在可行阈值区间 ("
+                        + negativeMax + ", " + positiveFloor + "]" : "**重叠**，单靠本信号不够",
+                KnowledgeRetriever.MIN_CHUNK_TERMS);
         System.out.println();
 
         // 别名专项：用"农户口语别名"代替规范作物名提问（如把 马铃薯 说成 土豆），

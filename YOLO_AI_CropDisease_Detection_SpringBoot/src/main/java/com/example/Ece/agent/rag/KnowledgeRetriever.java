@@ -136,6 +136,7 @@ public class KnowledgeRetriever {
         // 再扩展查询：问题里出现别名时补上规范作物名（知识块头部就带"作物：马铃薯"，补上后才对得上）。
         String effectiveQuery = entityLexicon == null ? query : entityLexicon.expandQuery(query);
         List<ScoredChunk> bm25Hits = filterByCrop(bm25Index.search(effectiveQuery, TOP_K_EACH), effectiveCrop);
+        List<ScoredChunk> vectorHitsForBackfill = new ArrayList<ScoredChunk>();
         List<List<ScoredChunk>> lists = new ArrayList<List<ScoredChunk>>();
         lists.add(bm25Hits);
         boolean degraded = false;
@@ -146,6 +147,7 @@ public class KnowledgeRetriever {
                 double[] queryVector = embeddingClient.embed(effectiveQuery);
                 List<ScoredChunk> vectorHits = filterByCrop(vectorIndex.search(queryVector, TOP_K_EACH), effectiveCrop);
                 vectorHitCount = vectorHits.size();
+                vectorHitsForBackfill.addAll(vectorHits);
                 lists.add(vectorHits);
             } catch (EmbeddingUnavailableException error) {
                 degraded = true;
@@ -169,8 +171,20 @@ public class KnowledgeRetriever {
                 maxChunkCoverage = chunkCov;
             }
         }
-        return new RetrievalResult(fused, degraded, reason, bm25Hits.size(), vectorHitCount, coverage,
-                maxChunkCoverage, maxChunkMatchedTerms);
+        RetrievalResult result = new RetrievalResult(fused, degraded, reason, bm25Hits.size(), vectorHitCount,
+                coverage, maxChunkCoverage, maxChunkMatchedTerms);
+        // 回填 Top-1 块的原始向量余弦：融合后的 score 是 RRF 分（丢掉了量级），
+        // 而原始余弦仍需用于诊断——"语义相近度能不能区分有依据与无依据"是个待测问题。
+        if (!fused.isEmpty() && vectorAvailable) {
+            KnowledgeChunk top = fused.get(0).getChunk();
+            for (ScoredChunk hit : vectorHitsForBackfill) {
+                if (hit.getChunk() == top) {
+                    result.setTopVectorSimilarity(hit.getScore());
+                    break;
+                }
+            }
+        }
+        return result;
     }
 
     /**
