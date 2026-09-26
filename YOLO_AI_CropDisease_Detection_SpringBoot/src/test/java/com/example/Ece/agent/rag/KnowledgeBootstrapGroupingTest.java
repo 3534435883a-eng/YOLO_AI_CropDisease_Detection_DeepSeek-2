@@ -79,7 +79,7 @@ class KnowledgeBootstrapGroupingTest {
         int standardCount = new HashSet<String>(Arrays.asList(
                 "std-nyt5449-2026", "std-db37t1849-2026", "std-db61t1422-2021",
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
-                "std-db14t1700-2025", "paper-chu2021-npk-uptake")).size();
+                "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft")).size();
         verify(ingestService, times(standardCount)).ingest(sources.capture(), records.capture());
 
         // 期望的条目数从清单本身推出来，而不是写死——写死的话每加一份标准都要改测试，

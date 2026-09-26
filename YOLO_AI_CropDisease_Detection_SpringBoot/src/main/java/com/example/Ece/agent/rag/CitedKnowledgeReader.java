@@ -66,7 +66,8 @@ public class CitedKnowledgeReader {
             "/knowledge/standards-db12t1044.json",
             "/knowledge/standards-db21t3417.json",
             "/knowledge/standards-db14t1700.json",
-            "/knowledge/papers-tomato-npk-uptake.json"
+            "/knowledge/papers-tomato-npk-uptake.json",
+            "/knowledge/standards-pesticide-tomato.json"
     };
 
     public List<KnowledgeSourceEntry> readAll() {

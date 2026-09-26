@@ -47,7 +47,7 @@ class CitedKnowledgeReaderTest {
         assertEquals(new HashSet<String>(Arrays.asList(
                 "std-nyt5449-2026", "std-db37t1849-2026", "std-db61t1422-2021",
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
-                "std-db14t1700-2025", "paper-chu2021-npk-uptake")), codes);
+                "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft")), codes);
     }
 
     /**
@@ -188,6 +188,30 @@ class CitedKnowledgeReaderTest {
         assertTrue(all.contains("3.0∶1.0∶4.7"), "缺氮磷钾吸收比例");
         assertTrue(all.contains("8.1∶1"), "缺钙镁吸收比例");
         assertTrue(all.contains("44.89%"), "缺成熟期果实氮分配率");
+
+        // 《农药合理使用准则 蔬菜》征求意见稿：番茄三病的登记用药与安全间隔期
+        assertTrue(all.contains("苯醚甲环唑 10% 水分散粒剂 **100 g**"), "缺早疫病药剂用量");
+        assertTrue(all.contains("腐霉利 50% 可湿性粉剂 **100 g**"), "缺灰霉病药剂用量");
+        assertTrue(all.contains("丙森锌 70% 可湿性粉剂 **214 g**"), "缺晚疫病药剂用量");
+        assertTrue(all.contains("吡噻菌胺 20% 悬浮剂 **65 mL**"), "缺灰霉病药剂用量");
+        // 「征求意见稿」这个身份必须逐条带出——它是本清单最大的使用边界
+        assertTrue(all.contains("征求意见稿"), "缺征求意见稿的身份说明");
+    }
+
+    /**
+     * 药剂清单的**使用边界**必须随数据一起入库。
+     *
+     * <p>这批数据的出处是 GB/T 的**征求意见稿**，不是已发布标准；且同剂型常对应多家厂商的
+     * 不同登记产品，用量与安全间隔期各不相同。若只入库数字而不带边界，模型会以
+     * "有国家标准出处"的口吻给出可能过时或张冠李戴的用药方案——这比不答更危险。</p>
+     */
+    @Test
+    void pesticideEntriesCarryTheirUsageBoundary() {
+        String all = joinAllText();
+        assertTrue(all.contains("不得据本清单直接配药"), "缺「不得直接配药」的硬边界");
+        assertTrue(all.contains("按所购产品的标签执行") || all.contains("以**所购产品的现行标签**为准"),
+                "缺「以产品标签为准」的指引");
+        assertTrue(all.contains("现行农药登记"), "缺「核对现行登记」的要求");
     }
 
     /**
