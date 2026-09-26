@@ -147,6 +147,48 @@ class TomatoSimulationEngineTest {
     }
 
     @Test
+    void fullDutyReproducesTheBinaryPathExactly() {
+        SimulationState state = engine.evaluate(LocalDateTime.of(2026, 9, 21, 14, 0),
+                33.0, 86.0, 50.0, 500.0, 900.0, 6.5);
+        Map<String, Boolean> all = new HashMap<>();
+        Map<String, Double> fullDuty = new HashMap<>();
+        for (String code : AgentDeviceCodes.all()) {
+            all.put(code, Boolean.TRUE);
+            fullDuty.put(code, Double.valueOf(1.0));
+        }
+
+        SimulationState binary = engine.advance(state, all, 15, 42L, 6.0, 5.0);
+        SimulationState withDuty = engine.advance(state, all, 15, 42L, 6.0, 5.0, fullDuty);
+
+        // 连续控制通道必须是纯增量：满出力时与旧二值路径**逐位**一致，否则规则基线的历史快照全部失效。
+        assertEquals(binary.getTemperatureC(), withDuty.getTemperatureC());
+        assertEquals(binary.getAirHumidityPct(), withDuty.getAirHumidityPct());
+        assertEquals(binary.getSoilMoisturePct(), withDuty.getSoilMoisturePct());
+        assertEquals(binary.getCo2Ppm(), withDuty.getCo2Ppm());
+        assertEquals(binary.getLightPpfd(), withDuty.getLightPpfd());
+        assertEquals(binary.getVpdKpa(), withDuty.getVpdKpa());
+        assertEquals(binary.getEnvironmentRisk(), withDuty.getEnvironmentRisk());
+        assertEquals(binary.getDiseasePressure(), withDuty.getDiseasePressure());
+    }
+
+    @Test
+    void partialDutyInterpolatesBetweenHoldAndFullActuation() {
+        SimulationState state = engine.evaluate(LocalDateTime.of(2026, 9, 21, 14, 0),
+                32.0, 88.0, 55.0, 800.0, 900.0, 6.5);
+        Map<String, Boolean> ventilation = new HashMap<>();
+        ventilation.put(AgentDeviceCodes.VENTILATION, true);
+        Map<String, Double> halfDuty = new HashMap<>();
+        halfDuty.put(AgentDeviceCodes.VENTILATION, Double.valueOf(0.5));
+
+        double hold = engine.advance(state, new HashMap<String, Boolean>(), 15, 42L).getTemperatureC();
+        double half = engine.advance(state, ventilation, 15, 42L, 0.0, 0.0, halfDuty).getTemperatureC();
+        double full = engine.advance(state, ventilation, 15, 42L).getTemperatureC();
+
+        assertTrue(half < hold, "半出力通风仍应低于不通风的温度");
+        assertTrue(half > full, "半出力通风的降温幅度应小于满出力");
+    }
+
+    @Test
     void evaporativeWaterMakeupIsBoundedByTheInletHumidityGain() {
         SimulationState state = engine.evaluate(LocalDateTime.of(2026, 9, 21, 14, 0),
                 35.0, 55.0, 50.0, 500.0, 800.0, 6.5);

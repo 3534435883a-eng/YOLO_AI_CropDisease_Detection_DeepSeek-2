@@ -16,7 +16,40 @@ import org.springframework.stereotype.Component;
 public class TomatoSimulationEngine {
     private static final double BED_ROOT_VOLUME_L = 4.0 * 21.0 * 1.7 * 0.25 * 1000.0;
     private static final double GREENHOUSE_AIR_VOLUME_M3 = 26.0 * 13.0 * (4.0 + 1.7 * 2.0 / Math.PI);
-    private static final double IRRIGATION_L_PER_TICK = 60.0;
+    /**
+     * 单步滴灌水量（L）。**公开**是为了让评测侧的成本记账能与物理侧对齐：
+     * {@code ResourceRates.IRRIGATION_M3_PER_STEP} 必须等于本值 / 1000，
+     * 否则会出现"浇 60 L、记 600 L"这类不一致（2026-09-26 实际发生过，见 ResourceRates 注释）。
+     * {@code ResourceAccountingTest} 锁住这个等式。
+     */
+    public static final double IRRIGATION_L_PER_TICK = 60.0;
+
+    // ---- 湿空气交换与湿帘参数 ----------------------------------------------------
+    // 这几个是 docs/tomato-greenhouse-agent.md「仿真依据与参数边界」里**明确点名**的未校准假设，
+    // 原先内联在方法体里（魔法数字），无法被参数出处登记表枚举。此处提升为具名常量：
+    // 纯改名、不改数值，因此不改变任何推演结果（`tools/eval-audit` 的可复算性核对可证）。
+    // 数值仍为未核实假设，不得当作工程整定值。
+
+    /** 基础换热系数（每 15 分钟步长）。未校准假设。 */
+    public static final double BASE_HEAT_EXCHANGE_PER_TICK = 0.12;
+
+    /** 基础空气水汽交换系数（每步）。未校准假设。 */
+    public static final double BASE_VAPOR_EXCHANGE_PER_TICK = 0.09;
+
+    /** 侧窗/通风的附加交换系数。未校准假设。 */
+    public static final double VENTILATION_EXCHANGE_PER_TICK = 0.35;
+
+    /** 屋窗的附加交换系数。未校准假设。 */
+    public static final double ROOF_VENT_EXCHANGE_PER_TICK = 0.15;
+
+    /** 强制排风的附加交换系数。未校准假设。 */
+    public static final double EXHAUST_FAN_EXCHANGE_PER_TICK = 0.35;
+
+    /** 湿帘效率：进风温度向湿球靠近的比例，取 80%。未校准假设，非厂商实测效率。 */
+    public static final double COOLING_PAD_EFFICIENCY = 0.8;
+
+    /** 干湿球关系的湿度计常数 γ（kPa/℃），近海平面近似值，随海拔变化。 */
+    public static final double PSYCHROMETRIC_CONSTANT_KPA_PER_C = 0.066;
 
     public SimulationState evaluate(LocalDateTime simulatedAt, double temperatureC, double airHumidityPct,
                                     double soilMoisturePct, double co2Ppm, double lightPpfd, double soilPh) {
@@ -72,6 +105,24 @@ public class TomatoSimulationEngine {
     public SimulationState advance(SimulationState current, Map<String, Boolean> deviceStates,
                                    int tickMinutes, long seed, double outsideTemperatureOffsetC,
                                    double interiorHumidityOffsetPct) {
+        return advance(current, deviceStates, tickMinutes, seed, outsideTemperatureOffsetC,
+                interiorHumidityOffsetPct, null);
+    }
+
+    /**
+     * 带**连续控制量**的推进：每个设备除开关外还可给出 duty ∈ [0,1] 的出力比例，
+     * 用来表达可调风机档位、可调遮阳开度与可调 CO₂ 流量。
+     *
+     * <p>{@code dutyCycles} 为 null 或未包含某设备时，该设备出力按 1.0 计算，
+     * 因此所有既有调用（规则基线、人工档、候选推演）的数值**逐位不变**——
+     * 这不是"近似相等"，而是同一条表达式的同一个浮点结果（乘 1.0）。</p>
+     *
+     * <p>灌溉不在此列：它同时耦合土壤水肥、施肥与成本台账，本版仍由规则侧二值控制，
+     * 以免把连续调节的效果与灌溉制度变化混在一起。</p>
+     */
+    public SimulationState advance(SimulationState current, Map<String, Boolean> deviceStates,
+                                   int tickMinutes, long seed, double outsideTemperatureOffsetC,
+                                   double interiorHumidityOffsetPct, Map<String, Double> dutyCycles) {
         Map<String, Boolean> states = deviceStates == null ? Collections.<String, Boolean>emptyMap() : deviceStates;
         double factor = Math.max(1, tickMinutes) / 15.0;
         LocalDateTime nextAt = current.getSimulatedAt().plusMinutes(tickMinutes);
@@ -83,9 +134,9 @@ public class TomatoSimulationEngine {
 
         double outsideVapor = saturationVaporPressure(outsideTemperature) * outsideHumidity / 100.0;
         double vapor = saturationVaporPressure(current.getTemperatureC()) * current.getAirHumidityPct() / 100.0;
-        double temperature = exchange(current.getTemperatureC(), outsideTemperature, 0.12, factor);
+        double temperature = exchange(current.getTemperatureC(), outsideTemperature, BASE_HEAT_EXCHANGE_PER_TICK, factor);
         vapor = exchange(vapor, outsideVapor + saturationVaporPressure(outsideTemperature)
-                * interiorHumidityOffsetPct / 100.0, 0.09, factor);
+                * interiorHumidityOffsetPct / 100.0, BASE_VAPOR_EXCHANGE_PER_TICK, factor);
         double soil = current.getSoilMoisturePct() - (0.016 + Math.max(0.0, temperature - 20.0) * 0.001) * factor;
         double co2 = exchange(current.getCo2Ppm(), 420.0, 0.08, factor);
         double light = exchange(current.getLightPpfd(), outsideLight, 0.45, factor);
@@ -96,39 +147,50 @@ public class TomatoSimulationEngine {
             vapor += saturationVaporPressure(temperature) * 0.011 * factor;
         }
         if (isOn(states, AgentDeviceCodes.VENTILATION)) {
-            temperature = exchange(temperature, outsideTemperature, 0.35, factor);
-            vapor = exchange(vapor, outsideVapor, 0.35, factor);
-            co2 = exchange(co2, 420.0, 0.35, factor);
+            double duty = duty(dutyCycles, AgentDeviceCodes.VENTILATION);
+            temperature = exchange(temperature, outsideTemperature, VENTILATION_EXCHANGE_PER_TICK * duty, factor);
+            vapor = exchange(vapor, outsideVapor, VENTILATION_EXCHANGE_PER_TICK * duty, factor);
+            co2 = exchange(co2, 420.0, VENTILATION_EXCHANGE_PER_TICK * duty, factor);
         }
         if (isOn(states, AgentDeviceCodes.ROOF_VENT)) {
-            temperature = exchange(temperature, outsideTemperature, 0.15, factor);
-            vapor = exchange(vapor, outsideVapor, 0.15, factor);
-            co2 = exchange(co2, 420.0, 0.15, factor);
+            double duty = duty(dutyCycles, AgentDeviceCodes.ROOF_VENT);
+            temperature = exchange(temperature, outsideTemperature, ROOF_VENT_EXCHANGE_PER_TICK * duty, factor);
+            vapor = exchange(vapor, outsideVapor, ROOF_VENT_EXCHANGE_PER_TICK * duty, factor);
+            co2 = exchange(co2, 420.0, ROOF_VENT_EXCHANGE_PER_TICK * duty, factor);
         }
         if (isOn(states, AgentDeviceCodes.EXHAUST_FAN)) {
+            double duty = duty(dutyCycles, AgentDeviceCodes.EXHAUST_FAN);
             double inletTemperature = outsideTemperature;
             double inletVapor = outsideVapor;
             if (isOn(states, AgentDeviceCodes.COOLING_PAD)) {
-                inletTemperature = padInletTemperature(outsideTemperature, outsideVapor);
-                inletVapor = padInletVapor(outsideTemperature, outsideVapor, inletTemperature);
+                double padDuty = duty(dutyCycles, AgentDeviceCodes.COOLING_PAD);
+                // 按 padDuty 在"室外空气"与"湿帘出风"之间线性插值；padDuty=1 时与旧行为逐位一致。
+                inletTemperature = padInletTemperature(outsideTemperature, outsideVapor) * padDuty
+                        + outsideTemperature * (1.0 - padDuty);
+                inletVapor = padInletVapor(outsideTemperature, outsideVapor,
+                        padInletTemperature(outsideTemperature, outsideVapor)) * padDuty
+                        + outsideVapor * (1.0 - padDuty);
             }
-            temperature = exchange(temperature, inletTemperature, 0.35, factor);
-            vapor = exchange(vapor, inletVapor, 0.35, factor);
-            co2 = exchange(co2, 420.0, 0.35, factor);
+            temperature = exchange(temperature, inletTemperature, EXHAUST_FAN_EXCHANGE_PER_TICK * duty, factor);
+            vapor = exchange(vapor, inletVapor, EXHAUST_FAN_EXCHANGE_PER_TICK * duty, factor);
+            co2 = exchange(co2, 420.0, EXHAUST_FAN_EXCHANGE_PER_TICK * duty, factor);
         }
         if (isOn(states, AgentDeviceCodes.GROW_LIGHT)) {
-            light += 190.0 * factor;
-            temperature += 0.18 * factor;
+            double duty = duty(dutyCycles, AgentDeviceCodes.GROW_LIGHT);
+            light += 190.0 * duty * factor;
+            temperature += 0.18 * duty * factor;
         }
         if (isOn(states, AgentDeviceCodes.SHADE)) {
-            temperature -= 0.9 * factor;
-            light -= 125.0 * factor;
+            double duty = duty(dutyCycles, AgentDeviceCodes.SHADE);
+            temperature -= 0.9 * duty * factor;
+            light -= 125.0 * duty * factor;
         }
         if (isOn(states, AgentDeviceCodes.CO2_SUPPLY) && !isOn(states, AgentDeviceCodes.VENTILATION)
                 && !isOn(states, AgentDeviceCodes.ROOF_VENT)
                 && !isOn(states, AgentDeviceCodes.EXHAUST_FAN)) {
+            double duty = duty(dutyCycles, AgentDeviceCodes.CO2_SUPPLY);
             co2 += 0.250 / 0.04401 * 8.314 * (current.getTemperatureC() + 273.15)
-                    / (101325.0 * GREENHOUSE_AIR_VOLUME_M3) * 1000000.0 * factor;
+                    / (101325.0 * GREENHOUSE_AIR_VOLUME_M3) * 1000000.0 * duty * factor;
         }
 
         double humidity = 100.0 * vapor / saturationVaporPressure(temperature);
@@ -154,7 +216,7 @@ public class TomatoSimulationEngine {
         double high = dryBulb;
         for (int iteration = 0; iteration < 30; iteration++) {
             double midpoint = (low + high) / 2.0;
-            if (saturationVaporPressure(midpoint) - 0.066 * (dryBulb - midpoint) > vaporPressure) {
+            if (saturationVaporPressure(midpoint) - PSYCHROMETRIC_CONSTANT_KPA_PER_C * (dryBulb - midpoint) > vaporPressure) {
                 high = midpoint;
             } else {
                 low = midpoint;
@@ -177,12 +239,12 @@ public class TomatoSimulationEngine {
     }
 
     private double padInletTemperature(double outsideTemperature, double outsideVapor) {
-        return outsideTemperature - 0.8 * (outsideTemperature - wetBulbTemperature(outsideTemperature, outsideVapor));
+        return outsideTemperature - COOLING_PAD_EFFICIENCY * (outsideTemperature - wetBulbTemperature(outsideTemperature, outsideVapor));
     }
 
     private double padInletVapor(double outsideTemperature, double outsideVapor, double inletTemperature) {
         return Math.min(saturationVaporPressure(inletTemperature),
-                outsideVapor + 0.066 * (outsideTemperature - inletTemperature));
+                outsideVapor + PSYCHROMETRIC_CONSTANT_KPA_PER_C * (outsideTemperature - inletTemperature));
     }
 
     private double outsideHumidity(LocalDateTime at, long seed) {
@@ -201,6 +263,18 @@ public class TomatoSimulationEngine {
 
     private boolean isOn(Map<String, Boolean> deviceStates, String code) {
         return Boolean.TRUE.equals(deviceStates.get(code));
+    }
+
+    /** 设备出力比例：缺省 1.0（等价于"全开"），并夹到 [0,1] 以免连续控制器写出越界值。 */
+    private double duty(Map<String, Double> dutyCycles, String code) {
+        if (dutyCycles == null) {
+            return 1.0;
+        }
+        Double value = dutyCycles.get(code);
+        if (value == null || value.isNaN()) {
+            return 1.0;
+        }
+        return clamp(value.doubleValue(), 0.0, 1.0);
     }
 
     private double rangeRisk(double value, double preferredLow, double preferredHigh, double hardLow, double hardHigh) {

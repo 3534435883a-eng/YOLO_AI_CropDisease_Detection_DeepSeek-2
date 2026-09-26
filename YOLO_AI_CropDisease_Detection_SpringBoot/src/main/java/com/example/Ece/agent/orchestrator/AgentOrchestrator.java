@@ -8,8 +8,11 @@ import com.example.Ece.agent.guard.CitationReferenceValidator;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.KnowledgeChunker;
 import com.example.Ece.agent.rag.ScoredChunk;
+import com.example.Ece.agent.service.AgentChatHistoryService;
 import com.example.Ece.agent.tool.AgentTool;
 import com.example.Ece.agent.tool.AgentToolRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -46,6 +49,9 @@ import java.util.function.Consumer;
  */
 @Component
 public class AgentOrchestrator {
+
+    private static final Logger log = LoggerFactory.getLogger(AgentOrchestrator.class);
+
 
     public static final int MAX_STEPS = 6;
     public static final int MAX_TOOL_REPEAT = 2;
@@ -84,6 +90,8 @@ public class AgentOrchestrator {
     private final LlmClient llmClient;
     private final CitationFormatter citationFormatter = new CitationFormatter();
     private final GuardrailService guardrailService;
+    /** 会话历史持久化；为 null 表示不持久化（单元测试默认如此）。 */
+    private final AgentChatHistoryService historyService;
     private final CitationReferenceValidator citationReferenceValidator = new CitationReferenceValidator();
     private final SessionHistoryStore sessionHistoryStore = new SessionHistoryStore();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
@@ -97,15 +105,22 @@ public class AgentOrchestrator {
     });
 
     @Autowired
-    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient, GuardrailService guardrailService) {
+    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient, GuardrailService guardrailService,
+                             AgentChatHistoryService historyService) {
         this.registry = registry;
         this.llmClient = llmClient;
         this.guardrailService = guardrailService;
+        this.historyService = historyService;
     }
 
-    /** 便于单元测试：使用默认守门实现。 */
+    /** 便于单元测试：使用默认守门实现，不做历史持久化。 */
     public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient) {
-        this(registry, llmClient, new GuardrailService());
+        this(registry, llmClient, new GuardrailService(), null);
+    }
+
+    /** 便于单元测试：指定守门实现，不做历史持久化。 */
+    public AgentOrchestrator(AgentToolRegistry registry, LlmClient llmClient, GuardrailService guardrailService) {
+        this(registry, llmClient, guardrailService, null);
     }
 
     @PreDestroy
@@ -114,7 +129,33 @@ public class AgentOrchestrator {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * 编排入口。在原有流程之外，把本次的**终态**（回答、状态、拒答原因、引用、步数、工具链）
+     * 交给 {@link AgentChatHistoryService} 半永久化。
+     *
+     * <p>持久化是旁路：{@code record} 内部自身就吞掉全部异常，这里再加一层 try/catch
+     * 是有意的双保险——"审计写失败把一次正常对话搞挂"是用户可见的严重故障，
+     * 值得用两处防御换掉。任何持久化异常都不会改变这里的返回值。</p>
+     *
+     * <p><b>覆盖范围</b>：每一次走到 {@code finish} 的终态都会被记录，
+     * 包括 DONE、拒答、以及模型调用失败（`plan`/`compose` 抛异常时在内部转成
+     * {@code Status.ERROR} + {@code LLM_ERROR}，同样经 {@code finish} 汇聚）。
+     * 只有**逃出编排层的编程错误**（如 NPE）不会留下历史行——那属于 bug，
+     * 应当由控制器报错与日志暴露，而不是被记成一条"正常的历史"。</p>
+     */
     public AgentResult run(String sessionId, String question, String crop, Consumer<AgentStepEvent> sink) {
+        AgentResult result = runInternal(sessionId, question, crop, sink);
+        if (historyService != null) {
+            try {
+                historyService.record(sessionId, crop, question, result);
+            } catch (RuntimeException error) {
+                log.warn("会话历史持久化失败，已忽略（回答不受影响）：{}", error.toString());
+            }
+        }
+        return result;
+    }
+
+    private AgentResult runInternal(String sessionId, String question, String crop, Consumer<AgentStepEvent> sink) {
         List<AgentStepEvent> events = new ArrayList<AgentStepEvent>();
         List<Map<String, Object>> priorHistory = sessionHistoryStore.snapshot(sessionId);
         List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
@@ -211,6 +252,23 @@ public class AgentOrchestrator {
                 String note = String.valueOf(rawNote).trim();
                 observations.add(note);
                 history.add(message("user", "工具 " + toolName + " 说明：" + note));
+            }
+
+            // 工具调用审计轨迹。此前 agent_step_trace 表与 AgentStepTraceRepository 都存在但零调用方，
+            // 文档却宣称有审计——2026-09-26 端到端验证时发现。走与历史写入同一个旁路（永不抛异常）。
+            if (historyService != null) {
+                Long traceRunId = null;
+                Object rawRunId = output.get("runId");
+                if (rawRunId instanceof Number) {
+                    traceRunId = Long.valueOf(((Number) rawRunId).longValue());
+                }
+                String traceStatus = output.get("error") != null ? "ERROR" : (lowScore ? "LOW_SCORE" : "OK");
+                try {
+                    historyService.recordStep(sessionId, traceRunId, executed, toolName, digest, output,
+                            durationMs, Boolean.TRUE.equals(output.get("degraded")), traceStatus);
+                } catch (RuntimeException error) {
+                    log.warn("工具调用轨迹记录失败，已忽略：{}", error.toString());
+                }
             }
 
             Map<String, Object> payload = new LinkedHashMap<String, Object>();
@@ -350,7 +408,12 @@ public class AgentOrchestrator {
         String finalAnswer = overrideAnswer != null ? overrideAnswer : (answer == null ? REFUSAL_ANSWER : answer);
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("status", status.name());
-        payload.put("reason", reason);
+        // DONE 一律不带 reason。blockReason 会在"重复工具调用"等情况下被置上，
+        // 但循环随后仍可能凭已有证据成功作答——若原样透传，成功回答就会挂着
+        // "DUPLICATE_TOOL_CALL" 这类内部原因（2026-09-26 真实会话落库后发现：
+        // agent_chat_history 出现 status=DONE 而 refusal_reason=DUPLICATE_TOOL_CALL）。
+        // reason 只对非 DONE 终态有意义。
+        payload.put("reason", status == AgentResult.Status.DONE ? null : reason);
         payload.put("citationCount", Integer.valueOf(kept.size()));
         payload.put("steps", Integer.valueOf(executed));
         AgentStepEvent finalEvent = new AgentStepEvent("final", executed, null, finalAnswer, payload);
@@ -518,13 +581,32 @@ public class AgentOrchestrator {
         return message;
     }
 
+    /**
+     * 步骤时间线上的一句话说明。
+     *
+     * <p>措辞**优先由工具自报**（{@code stepSummary}）。此前这里对所有工具都写"N 条命中"，
+     * 那是检索工具的语义——状态类工具（如 {@code platform.greenhouseState}）输出
+     * "命中 0 条"是误导：它根本不返回命中条目，0 不代表失败。
+     * 工具不报时退化为中性措辞，不再假装每个工具都是检索工具。</p>
+     */
     private String summarize(String toolName, int citationCount, long durationMs, Map<String, Object> output) {
         if (output.get("error") != null) {
             return toolName + " 执行失败：" + output.get("error");
         }
-        return toolName + " 命中 " + citationCount + " 条，耗时 " + durationMs + "ms"
-                + (Boolean.TRUE.equals(output.get("degraded")) ? "（降级：仅关键词检索）" : "")
-                + (Boolean.TRUE.equals(output.get("lowScore")) ? "（相关性不足）" : "");
+        Object reported = output.get("stepSummary");
+        StringBuilder builder = new StringBuilder();
+        if (reported != null && !String.valueOf(reported).trim().isEmpty()) {
+            builder.append(String.valueOf(reported).trim());
+        } else {
+            builder.append(toolName).append(" 完成");
+        }
+        if (citationCount > 0) {
+            builder.append("，引用 ").append(citationCount).append(" 条");
+        }
+        builder.append("，耗时 ").append(durationMs).append("ms")
+                .append(Boolean.TRUE.equals(output.get("degraded")) ? "（降级：仅关键词检索）" : "")
+                .append(Boolean.TRUE.equals(output.get("lowScore")) ? "（相关性不足）" : "");
+        return builder.toString();
     }
 
     private String systemPrompt() {

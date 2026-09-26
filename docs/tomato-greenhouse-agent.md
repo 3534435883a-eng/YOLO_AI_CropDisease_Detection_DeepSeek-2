@@ -8,6 +8,7 @@
 
 1. 备份 `cropdisease` 数据库。
 2. 在目标数据库执行 `database/migrations/V20260921_01__agent_simulation.sql`。该文件只创建 `agent_*` InnoDB 表，不应重新导入 `cropdisease.sql`。
+   后续迁移（`V20260922_01` … `V20260928_01`）按编号依次执行；全部为 create-only，只新建 `agent_*` 表，不改动旧表。
 3. 配置 Spring Boot 的 `CROPDISEASE_DB_USER` 和 `CROPDISEASE_DB_PASSWORD`。
 4. 启动后端（默认 `9999`）和 Vue 前端（开发代理默认转发到 `9999`）。
 5. 打开“智能体指挥中心”，创建 8 号温室番茄模拟。
@@ -30,6 +31,43 @@
 - 画质可选自动、高、中、低，默认手动高画质；自动档持续低于 38 fps 时降为中档。画质只改变渲染成本，不隐藏设备。页面默认停在作物生长后期，以中午日光和轻透薄膜展示结构及作物，数据面板默认收起；仍可切换昼夜、查看图表、拖动日级时间轴并播放全季过程。
 - 场景加入栽培吊蔓、棚内配电与水路、室外蓄水箱和通道；泥土、混凝土和草地使用随项目打包的 Poly Haven CC0 PBR 漫反射、法线与粗糙度贴图。素材清单及来源见 `YOLO_AI_CropDisease_Detection_Vue/public/textures/greenhouse/README.md`。
 
+## 参数出处登记（2026-09-26 接入）
+
+`agent_parameter_source` 表（含 `source_name` / `source_url` / `version`，与知识库同一套出处纪律）
+在本项目存在已久，但**此前零引用、零行**——60 余个仿真参数只能以代码注释里的
+"三类文献族、待核对出处"存在，不可查询、不可统计，也就无人推进。
+
+现已接入登记链路：`ParameterRegistry` 反射枚举参数类中的静态终态数值常量，
+`ParameterSourceService` 重建登记，接口如下：
+
+```text
+GET  /ai/agent/parameters/summary          # 缺口统计（先看这个）
+GET  /ai/agent/parameters?status=VERIFIED|UNVERIFIED_LITERATURE|PLACEHOLDER
+POST /ai/agent/parameters/refresh          # 按当前源码重新登记（幂等，先清空本版本再重建）
+```
+
+**为什么用反射**：手写登记表必然漏项或与源码漂移（值改了清单没改，登记表自己就成了新的不可信来源）。
+反射让**值永远等于源码真值**，且**新增参数自动落在"未核实"**，谁都无法悄悄引入无出处的参数。
+
+**登记结果（版本 `sim-params-2026-09-26`）**：共 108 条，其中
+
+| 性质 | 条数 | 含义与补救方式 |
+|---|---|---|
+| 已核实（带 URL） | **1** | FAO-56 湿度计常数 γ。可直接对外引用 |
+| 未核实（文献区间待核对） | 83 | 值取自典型文献区间，指不出具体文献。补救＝**核对出处** |
+| 示例值（需换当地数据） | 24 | 当地水价/电价、设备铭牌功率。补救＝**换当地实测**，不是查文献 |
+
+**两项登记表自身的不完整，已由接口如实报告、不隐藏**：
+
+- **154 条单位缺失**：源码里单位写在字段注释中，反射取不到。猜单位会在一份"出处登记表"里塞进
+  未经核实的元数据，比缺更糟，故留空并由 `unitMissing` 计数。
+- **内联字面量未覆盖**：`TomatoSimulationEngine` 的风险加权系数、病害压力阈值、室外气象相位，
+  以及 `TomatoDecisionPolicy` 的规则阈值与设备资源定额，仍是方法体内联字面量，
+  未提取为具名常量，登记表无从枚举。接口以 `uncoveredNote` 逐项声明。
+
+**引用纪律**：引用任何仿真参数时须连 `version` 一起引用；被登记为"未核实/示例值"的参数，
+**不得对外作为有据可依的取值引用**。
+
 ## 仿真依据与参数边界
 
 **物理关系（有出处，不等于已完成现场校准）：** FAO-56 第 3 章给出饱和水汽压 `eₛ(T)=0.6108·exp(17.27T/(T+237.3))`（kPa）、相对湿度 `RH=eₐ/eₛ(T)` 与通风干湿球关系 `eₐ=eₛ(T湿)-γ(T干-T湿)`。模型用水汽分压混合进出空气，再按最终室温换算 RH；因此外部更湿时排风可能增湿，外部更热时通风可能升温。湿帘只在排风运行时影响进风，进风温度由室外干球向湿球靠近，取 80% 的**假设**效率；近海平面 `γ=0.066 kPa/℃` 也是近似。资料：[FAO-56 Chapter 3, equations 10, 11, 15](https://www.fao.org/4/X0490E/x0490e07.htm)。FAO 的公式仅支撑湿空气关系，**不为本棚设备流量、作物参数或 80% 效率背书**。
@@ -51,7 +89,52 @@ POST /agent/runs/{id}/devices/{code}/manual
 POST /agent/runs/{id}/devices/{code}/health
 POST /agent/runs/{id}/vision-events
 POST /agent/runs/{id}/explanation
+GET  /ai/agent/history?sessionId={id}&limit=N     # 某会话的历史，时间正序
+GET  /ai/agent/history/recent?limit=N             # 全局最近若干条，时间倒序
+GET  /ai/agent/history/export?limit=N             # 导出 JSONL，供离线回答质量评测
 ```
+
+## 智能体的工具面（能做什么 / 不能做什么）
+
+智能体靠 system prompt 里的工具目录（`AgentToolRegistry.catalogJson()`）得知可用工具，
+因此**注册即生效**，但漏注册的工具是永不调用的死代码——`AgentToolRegistryWiringTest`
+专门盯住这件事。
+
+| 工具 | 权限 | 作用 |
+|---|---|---|
+| `knowledge.search` | `READ_ONLY` | 检索本地病害知识库，返回带出处的证据片段 |
+| `vision.explain` | `READ_ONLY` | 视觉类别标签 → 知识库条目（图像不能确诊，只作检索入口） |
+| `platform.greenhouseState` | `READ_ONLY` | 读当前模拟运行的状态：环境指标、九类设备、告警、虚拟资源余量 |
+| `prescription.draft` | `DRAFT` | 依据当前状态与规则层拟一份**待人工确认**的处置处方草案 |
+
+**边界（设计约束，不是待办）**：
+
+- **没有任何写工具。** `ToolPermission` 声明了 `WRITE_REQUIRES_APPROVAL`，但当前无一工具使用；
+  `AgentToolRegistryWiringTest` 会断言这一点，引入写权限必须是一次明确决策并配套人工确认流程。
+- `prescription.draft` 产出的是**草案**，不操作设备、不改运行状态，输出固定带 `executed=false`。
+  它依据的是规则层对当前状态的**独立重算**，与该运行实际已执行的决策可能不同
+  （人工接管、设备故障、资源不足都会改变实际动作），这一点在输出里写明。
+- `platform.greenhouseState` 的输出固定带 `source=SIMULATED` 与"不是现场传感器实测、
+  设备状态不是实时遥测"的说明——**由工具固定填入，不交给模型判断**。
+  项目全程不接真实传感器，若让模型把这些值当实测报给农户，就是把仿真冒充实测。
+- 无进行中的模拟运行时，两个平台工具都返回 `available=false` 与可读原因，
+  **不抛异常、不编造状态**，使模型能如实回答"当前没有在跑的模拟"。
+
+## 会话历史持久化
+
+每次编排的终态写入 `agent_chat_history`（迁移 `V20260928_01__agent_chat_history.sql`），
+覆盖 `DONE`、拒答、以及模型调用失败（`LLM_ERROR`）三种终态。这是**半永久化**：
+进程内会话记忆（`SessionHistoryStore`）行为不变，它仍是喂给模型的上下文、只保留最近若干轮且不含拒答；
+历史表保存全部终态，用于审计与回答质量评测。两者互不影响。
+
+**数据库不可用时**写入本地兜底文件（默认 `logs/agent-chat-history-fallback.jsonl`，
+可用 `agent.chat.history.fallback-path` 改路径）。任何持久化失败**都不会影响对话本身**——
+历史是旁路，MySQL 抖动不该让用户拿不到回答。该路径在 `.gitignore` 中。
+
+历史记录只存"问题 + 回答 + 终态元数据"，引用列表以 JSON 存指向性信息，
+**不存证据正文**（正文已在 `agent_knowledge_chunk`，重复存储会让历史表随知识库膨胀）。
+`/ai/agent/history/export` 的字段与 `tools/answer-eval-kit` 的抓取格式一致，
+使回答质量评测可以直接消费历史而无需重跑平台；该接口刻意不套 `Result` 信封（导出的是文件内容）。
 
 每个仿真步在一个事务中写入环境快照、规则决策、动作、资源流水、告警和审计记录。人工接管、设备离线/故障、资源不足或通风与 CO2 冲突会生成阻断动作，不会伪造成功。
 

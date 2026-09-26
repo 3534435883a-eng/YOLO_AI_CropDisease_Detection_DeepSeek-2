@@ -139,6 +139,21 @@ public class AgentRunService {
         return buildSummary(run, snapshot);
     }
 
+    /**
+     * 当前运行的模拟状态（领域对象），供智能体工具使用。
+     *
+     * <p>{@code getSummary} 为前端只把状态暴露成 Map，取值要按字符串键名去猜；
+     * 工具需要用状态做处方拟制，走 Map 往返既丢精度又依赖键名拼写。
+     * 这里直接给出领域对象，避免出现第二份真相。</p>
+     *
+     * @return 最近快照的状态；该运行尚无快照时回退到运行基线
+     */
+    public SimulationState currentState(Long runId) {
+        AgentJdbcRepository.RunRow run = requireRun(runId, false);
+        AgentJdbcRepository.SnapshotRow snapshot = repository.findLatestSnapshot(runId);
+        return snapshot == null ? parseState(run.baselineJson) : snapshot.state;
+    }
+
     public List<Map<String, Object>> getTwinFrames(Long runId) {
         requireRun(runId, false);
         List<Map<String, Object>> frames = new ArrayList<>();
