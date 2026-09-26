@@ -39,6 +39,22 @@ class AgentToolRegistryWiringTest {
         assertTrue(names.contains(ProductionReportTool.NAME), "缺少生产规划报告工具：智能体将出不了报告");
     }
 
+    /**
+     * 知识图谱必须真的接在检索工具上。
+     *
+     * <p>图谱用了 {@code @Autowired(required = false)} setter 注入——这是为了不破坏既有两参构造器
+     * （见 {@code docs/knowledge-entity-lexicon.md} §五 记录的启动失败教训）。但 setter 注入失败的
+     * 表现是**静默降级**：检索照常工作、只是永远没有图谱补充，没有任何报错。
+     * 本项目已四次出现"建了没接线"，因此这里显式断言注入成功。</p>
+     */
+    @Test
+    void knowledgeSearchToolHasTheGraphServiceWired() {
+        AgentTool tool = registry.find(KnowledgeSearchTool.NAME);
+        assertTrue(tool instanceof KnowledgeSearchTool, "检索工具未注册或类型不符");
+        assertTrue(((KnowledgeSearchTool) tool).isGraphWired(),
+                "知识图谱未注入检索工具：图谱补充会静默失效且无任何报错");
+    }
+
     @Test
     void everyToolAppearsInThePromptCatalogWithNameAndDescription() {
         String catalog = registry.catalogJson();

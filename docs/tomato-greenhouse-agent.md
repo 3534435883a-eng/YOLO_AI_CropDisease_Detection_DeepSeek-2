@@ -95,6 +95,46 @@ GET  /ai/agent/history/export?limit=N             # 导出 JSONL，供离线回�
 GET  /ai/agent/report?seed=N&days=N               # 导出生产规划报告（Markdown 文档）
 ```
 
+## 知识图谱
+
+`agent_knowledge_node` / `agent_knowledge_edge` 两张表由 `V20260922_01` 建好、`V20260925_01` 写过
+9 个作物别名节点，但**此前零 Java 引用、0 条边**——图只有点、没有关系，也没有代码读它。
+现已接入：`KnowledgeGraphExtractor` 从知识库原文抽边，`KnowledgeGraphService` 重建与查询。
+
+**规模**（版本 `kg-2026-09-26`）：**124 节点 / 242 边**
+
+| 关系 | 条数 | 来源与依据 |
+|---|---|---|
+| `DISEASE —HAS_CONTROL→ CONTROL_CATEGORY` | 227 | 防治**原文的分节标记**（`(1)农业防治 (2)化学防治 (3)种子处理`…） |
+| `SUBTYPE —SUBTYPE_OF→ DISEASE` 及其反向 | 7×2 | 原文明确枚举（"稻瘟病可分为苗瘟、叶瘟、节瘟、穗颈瘟和谷粒瘟"） |
+| `DISEASE —CONFUSABLE_WITH→ DISEASE` | 1 | 葡萄白粉病 ↔ 葡萄霜霉病，科普中国页面明确"防治前要分清" |
+
+**边才是价值所在。** `docs/knowledge-entity-lexicon.md` §四 实测记录过一条被否定的做法：
+把 `crop_type`/`disease_name`/`field_type` 这些**现有列**重新投影成节点与边"并不增加任何能力"。
+因此这里只抽**列里没有的关系**。该文档同节还实测否定了另外两类，本图谱**一并未做**：
+
+- **病害—病原**：100 条中 0 条含属种双名，无法抽取
+- **病害—药剂**：抽取质量不合格（"1 000倍液"被截成"000倍液"），用错误抽取生成知识风险高于收益
+
+**这些"刻意没做"的关系随 `/summary` 一并返回**——看图的人该知道"为什么没有"，而不是以为它们不存在。
+
+```text
+GET  /ai/knowledge/graph/summary                     # 计数、按关系分布、刻意未建模的关系与原因
+GET  /ai/knowledge/graph?type=&name=                 # 节点邻接边（双向）
+GET  /ai/knowledge/graph/enrichment?disease=A,B       # 诊断：检索侧实际会收到哪句图谱补充
+POST /ai/knowledge/graph/refresh                     # 按当前知识库重建（幂等，版本化）
+```
+
+**用在哪里**：`knowledge.search` 命中若干疾病后，把图上关于它们的**防治类别**与**易混淆提示**
+拼进工具 `note`（编排层把 note 完整传给模型；引用块每条来源只有 160 字，放不下这类附加信息）。
+未注入图谱服务时该项为 null，**检索行为与接线前完全一致**。
+
+**接线可观测**：图谱用 `@Autowired(required = false)` setter 注入（不破坏既有两参构造器，
+见该文档 §五 的启动失败教训），但 setter 注入失败的表现是**静默降级**——
+检索照常、只是永远没有图谱补充且不报错。因此 `KnowledgeSearchTool.isGraphWired()` 是公开的，
+`AgentToolRegistryWiringTest` 直接断言注入成功。本项目已四次出现"表/枚举建好了但零调用"
+（`agent_step_trace`、`ToolPermission.DRAFT`、`agent_parameter_source`、图谱本身），不留静默降级。
+
 ## 生产规划报告
 
 `GET /ai/agent/report` 生成一份可导出的 Markdown 报告，含七节：
