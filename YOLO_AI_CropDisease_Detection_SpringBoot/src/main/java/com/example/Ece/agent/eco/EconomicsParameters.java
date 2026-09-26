@@ -9,6 +9,10 @@ package com.example.Ece.agent.eco;
  */
 public final class EconomicsParameters {
 
+    /** 每亩面积（m²）。标准里灌溉定额的分母写作 667 m²。 */
+    private static final double SQUARE_METERS_PER_MU = 667.0;
+
+
     private EconomicsParameters() {
     }
 
@@ -49,6 +53,55 @@ public final class EconomicsParameters {
 
     /** 农业生产用电**低谷**电价（元/kWh）。出处同上。 */
     public static final double ENERGY_VALLEY_YUAN_PER_KWH = 0.2215;
+
+    /**
+     * 灌溉定额（m³/667m²，**秋冬茬**）。
+     *
+     * <p>出处：DB37/T 1849—2026《日光温室番茄水肥一体化生产技术规程》7.1——
+     * "秋冬茬灌溉定额为 129 m³/667m²，冬春茬灌溉定额 146 m³/667m²"。
+     * 取秋冬茬值：本模型的评测季从 9 月下旬起，与秋冬茬最接近（DB37 未给茬口日历，
+     * 茬口归属按 DB12/T 1044 的茬口定义判断，属本项目判断而非标准原文）。</p>
+     */
+    public static final double WATER_QUOTA_M3_PER_667M2 = 129.0;
+
+    /** 超定额累进加价的档位倍数（山东口径）：超定额 50% 以内 1.5 倍、以上 2 倍。 */
+    private static final double WATER_TIER2_MULTIPLIER = 1.5;
+
+    /** 超定额 50% 以上的倍数。 */
+    private static final double WATER_TIER3_MULTIPLIER = 2.0;
+
+    /**
+     * 按**累计**用水量取灌溉水价（超定额累进加价）。
+     *
+     * <p><b>2026-09-26 新增。</b>此前按单一水价计，**低估了过量灌溉的边际成本**——
+     * 而这与"节水"主题直接相关。各省普遍实行超定额累进加价：
+     * 山东超定额 50% 以内按 1.5 倍、50% 以上按 2 倍（本实现取此口径）；
+     * 河南为超 20% 以内加 30%、以上加 100%。</p>
+     *
+     * <p><b>接入后暴露的第一个事实</b>：本模型的规则层（P2/P3）用水达定额的 **3.15~3.24 倍**，
+     * 而定时盲灌（P1）反而是 **1.04 倍**。也就是说**按墒情灌溉的"智能"档比定时盲灌多浇三倍水**。
+     * 该事实在单一水价下完全看不见——每立方米都一样贵，浇多浇少只是线性差距。</p>
+     *
+     * <p><b>为什么按累计量取价而不是按步用量</b>：累进加价的语义是**边际**价格随累计用量上升，
+     * 因此应当用"本步之前已用多少"来决定本步的单价，而不是用本步用量。</p>
+     *
+     * @param cumulativeM3 本步**之前**的累计灌溉量（m³）
+     */
+    public static double waterPriceAt(double cumulativeM3) {
+        double quota = waterQuotaM3();
+        if (cumulativeM3 <= quota) {
+            return WATER_YUAN_PER_M3;
+        }
+        if (cumulativeM3 <= quota * WATER_TIER2_MULTIPLIER) {
+            return WATER_YUAN_PER_M3 * WATER_TIER2_MULTIPLIER;
+        }
+        return WATER_YUAN_PER_M3 * WATER_TIER3_MULTIPLIER;
+    }
+
+    /** 本模型种植床面积折合的一季灌溉定额（m³）。 */
+    public static double waterQuotaM3() {
+        return WATER_QUOTA_M3_PER_667M2 * SoilParameters.BED_AREA_M2 / SQUARE_METERS_PER_MU;
+    }
 
     /**
      * 按钟点取农业生产用电电价（分时）。

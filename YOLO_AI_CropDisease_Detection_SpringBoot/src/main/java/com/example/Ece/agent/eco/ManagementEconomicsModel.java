@@ -88,7 +88,10 @@ public class ManagementEconomicsModel {
         // 电费按**分时电价**计：设备运行时段与峰谷高度相关（补光多在傍晚/夜间=高峰，
         // 湿帘降温在 10:00-16:00=低谷），按单一电价计会把不同策略的电费差距抹平。
         double energyPrice = EconomicsParameters.energyPriceAt(hourOfDay);
-        double stepCost = used.getWaterM3() * EconomicsParameters.WATER_YUAN_PER_M3
+        // 水费按**累计用量**取价（超定额累进加价）：累进加价的语义是边际价格随累计用量上升，
+        // 所以用"本步之前已用多少"决定本步单价，而不是用本步用量。
+        double waterPrice = EconomicsParameters.waterPriceAt(base.getWaterUsedM3());
+        double stepCost = used.getWaterM3() * waterPrice
                 + used.getEnergyKWh() * energyPrice
                 + used.getCo2Kg() * EconomicsParameters.CO2_YUAN_PER_KG
                 + used.getFertilizerKg() * EconomicsParameters.FERTILIZER_YUAN_PER_KG

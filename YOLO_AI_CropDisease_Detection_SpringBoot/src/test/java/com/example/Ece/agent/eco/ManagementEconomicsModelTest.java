@@ -136,4 +136,60 @@ class ManagementEconomicsModelTest {
         assertTrue(atPeak.getCostYuan() > atValley.getCostYuan(),
                 "高峰时段同量用电的成本应更高：峰 " + atPeak.getCostYuan() + " vs 谷 " + atValley.getCostYuan());
     }
+
+    /**
+     * 超定额累进水价的档位边界必须与出处一致。
+     *
+     * <p>锁的是**档位边界**：写错边界（如把"超 50%"写成"超 100%"）会让累进静默失效，
+     * 数值看上去仍然合理。出处：山东口径——超定额 50% 以内 1.5 倍、以上 2 倍；
+     * 定额取 DB37/T 1849—2026 的秋冬茬 129 m³/667m²。</p>
+     */
+    @Test
+    void waterPriceIsTieredByCumulativeUsage() {
+        double base = EconomicsParameters.WATER_YUAN_PER_M3;
+        double quota = EconomicsParameters.waterQuotaM3();
+        assertTrue(quota > 0, "定额必须为正：" + quota);
+
+        assertEquals(base, EconomicsParameters.waterPriceAt(0.0), 1e-9);
+        assertEquals(base, EconomicsParameters.waterPriceAt(quota), 1e-9, "恰好等于定额仍在第一档");
+        assertEquals(base * 1.5, EconomicsParameters.waterPriceAt(quota * 1.2), 1e-9);
+        assertEquals(base * 1.5, EconomicsParameters.waterPriceAt(quota * 1.5), 1e-9, "恰好 1.5 倍仍在第二档");
+        assertEquals(base * 2.0, EconomicsParameters.waterPriceAt(quota * 1.6), 1e-9);
+        assertEquals(base * 2.0, EconomicsParameters.waterPriceAt(quota * 10.0), 1e-9);
+    }
+
+    /**
+     * 超定额后**同样体积**的边际水费必须高于定额内。
+     *
+     * <p>做法是比两个位置上的**同一步**用水：季初一步、超定额后一步。
+     * 两步的固定成本相同，相减即抵消，剩下的差异只可能来自水价档位——
+     * 这正是要验的东西。</p>
+     *
+     * <p>（不要拿"一步的累计成本差"当边际水费：那里面还含该步的固定成本，
+     * 实测会得到 6.208 而不是 6.0——第一版就是这么写错的。）</p>
+     */
+    @Test
+    void marginalWaterCostRisesBeyondQuota() {
+        ResourceUsage fiveCubicMeters = new ResourceUsage(5.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        double startCost = model.initial().getCostYuan();
+        double earlyStep = model.advance(model.initial(), fiveCubicMeters, cropWithFruit(100.0), null, 15)
+                .getCostYuan() - startCost;
+
+        EconomicsState state = model.initial();
+        int guard = 0;
+        while (state.getWaterUsedM3() <= EconomicsParameters.waterQuotaM3() && guard++ < 100) {
+            state = model.advance(state, fiveCubicMeters, cropWithFruit(100.0), null, 15);
+        }
+        assertTrue(state.getWaterUsedM3() > EconomicsParameters.waterQuotaM3(), "应已超过定额");
+        // 该循环每步 5 m³、定额 27.6 m³，退出时累计 30 m³，落在第二档（< 定额×1.5 = 41.4）
+        assertTrue(state.getWaterUsedM3() < EconomicsParameters.waterQuotaM3() * 1.5,
+                "测试前提：退出时应落在第二档，实测 " + state.getWaterUsedM3());
+        double lateStep = model.advance(state, fiveCubicMeters, cropWithFruit(100.0), null, 15)
+                .getCostYuan() - state.getCostYuan();
+
+        double expectedGap = 5.0 * EconomicsParameters.WATER_YUAN_PER_M3 * 0.5; // 1.5 倍与基准的差
+        assertEquals(expectedGap, lateStep - earlyStep, 1e-6,
+                "超定额 50% 以内应比基准价多付 50%：实测早 " + earlyStep + " 晚 " + lateStep);
+    }
 }

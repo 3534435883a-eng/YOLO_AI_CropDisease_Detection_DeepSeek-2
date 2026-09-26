@@ -273,6 +273,13 @@ public class ParameterRegistry {
                 "同上：低谷 0.2215。**低谷在午间 10:00-16:00**（光伏消纳驱动的午间谷电），"
                         + "故补光多落高峰、湿帘降温落低谷——分时会拉开而非抹平不同策略的电费差距",
                 "http://www.gs.sgcc.com.cn/u/cms/gs/other/202404/e4229aea2e974ee796e2c44c2460e335.pdf");
+        add(map, "ECON", "WATER_QUOTA_M3_PER_667M2", "灌溉定额（秋冬茬）", "m³/667m²",
+                ParameterProvenance.Status.VERIFIED,
+                "DB37/T 1849—2026 第 7.1 条：秋冬茬灌溉定额 129、冬春茬 146 m³/667m²。取秋冬茬。"
+                        + "**接地后暴露的第一个事实**：规则层（P2/P3）用水达定额的 3.15~3.24 倍，"
+                        + "而定时盲灌（P1）反而是 1.04 倍——按墒情灌溉的档比盲灌多浇三倍水，"
+                        + "该事实在单一水价下完全看不见",
+                "https://ba.sacinfo.org.cn/portal/download/97e2859fe1cb6590b467027d18314a45edd8bae0fe2aaeaf9f4761c6463aecf2");
         return map;
     }
 
