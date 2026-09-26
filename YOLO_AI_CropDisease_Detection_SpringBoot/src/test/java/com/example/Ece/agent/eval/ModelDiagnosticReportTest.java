@@ -384,20 +384,21 @@ class ModelDiagnosticReportTest {
         System.out.printf("  果实干重 %.4f（评测记录 541.9147）%n", crop.getWFruit());
         System.out.printf("  高温暴露 %d min（评测记录 29505）%n", highTempMinutes);
         System.out.printf("  病害压力积分 %.1f（评测记录 5526658.5）%n", diseasePressureIntegral);
-        System.out.printf("  利润 %.4f 元（评测记录 -952.4188）%n", economics.getProfitYuan());
+        System.out.printf("  利润 %.4f 元（评测记录 948.7318）%n", economics.getProfitYuan());
 
         // 果实干重 2026-09-26 两度上移：先因补上土壤矿化供氮（258.36→274.23），
         // 再因把需求侧由「干重×2%/天」换成「目标产量×每吨带走量×逐生育期累积比例」（274.23→541.91）。
         // 而同日的两处规模修正使**利润由 +8988 转为 -952**：产量面积由棚体占位 500 m² 改为种植床 142.8 m²
         // （收入缩到 1/3.5），耗能定额由「按 500 m² 温室估」改为按本棚棚体 338 m² 折算（成本同步下降）。
-        // 仍为负：占位价格未换、且病害减产约 42%，两者都还没解决。本断言的作用不是"数值不能变"，而是"本测试的循环必须与评测平台
+        // 随后按 2026 年实价替换 ECON_*（水价 3.5→0.8、电价 0.65→0.47、人工 25→12.5、
+        // 肥价 4.5→2.9、A 级果 6→7），利润转正 +948.7。本断言的作用不是"数值不能变"，而是"本测试的循环必须与评测平台
         // 逐值一致，否则下面打印的内部量不能代表被测模型"——所以模型改了就要两边一起更新，
         // 而不是把断言放宽。
         assertEquals(541.9147, crop.getWFruit(), 0.01,
                 "复现失败：本测试的循环与评测平台不一致，下面的内部量不能代表被测模型");
         assertEquals(29505L, highTempMinutes, "复现失败：高温暴露不一致");
         assertEquals(5526658.5, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
-        assertEquals(-952.4188, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
+        assertEquals(948.7318, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
     }
 
     private double clamp(double value, double lower, double upper) {

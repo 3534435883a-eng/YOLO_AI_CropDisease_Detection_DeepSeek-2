@@ -226,6 +226,43 @@ public class ParameterRegistry {
                         + "未采用马志军等（2024）表 5 的 750（该表矿化氮与初始氮近逐对相等、疑似配平推演，"
                         + "且量级不在常见区间；采用它会使供氮达需求的 465%、作物产量推演到 633 t/hm²）",
                 null);
+        // ---- 2026-09-26：ECON_* 由示例值换为按公开价目核到的实价 ----
+        // 这组参数此前 12 项全标 PLACEHOLDER（"示例值"）。逐个核对后发现**只有 FIXED_COST_YUAN_PER_DAY
+        // 与规模有关**，其余都是强度量，与棚体大小无关——所以本轮要换的是"价格"，不是"规模"。
+        add(map, "ECON", "WATER_YUAN_PER_M3", "灌溉水价", "元/m³",
+                ParameterProvenance.Status.VERIFIED,
+                "山东寿光《农业水价综合改革项目区用水终端价格指导意见》：设施农业用水执行**完全成本价**，"
+                        + "指导区间 0.46~0.95 元/m³；河南渑池井灌区经济作物定额内 0.8 元/m³。取 0.8。"
+                        + "原示例值 3.5 高估约 4 倍",
+                "https://www.shouguang.gov.cn/zwgk/FGJ/202511/P020251128355885999535.pdf");
+        add(map, "ECON", "ENERGY_YUAN_PER_KWH", "农业生产用电电价", "元/kWh",
+                ParameterProvenance.Status.VERIFIED,
+                "各省农业生产用电到户电价表：甘肃 1-10 千伏平段 0.4389（峰 0.6564/谷 0.2215）、"
+                        + "陕西子洲 1-10 千伏平段 0.4728、江西单一制 0.6534。取 1-10 千伏平段 0.47",
+                "http://www.gs.sgcc.com.cn/u/cms/gs/other/202404/e4229aea2e974ee796e2c44c2460e335.pdf");
+        add(map, "ECON", "FERTILIZER_YUAN_PER_KG", "肥料成本", "元/kg",
+                ParameterProvenance.Status.VERIFIED,
+                "2026 年农资监测：45%(15-15-15) 复合肥氯基出厂 2650~2950 元/吨（硫基 3100~3500）；"
+                        + "尿素 1745~1895 元/吨。取 2.9 元/kg，与 FERTILIZER_NITROGEN_SHARE=0.15 的 15-15-15 口径一致。"
+                        + "**若改用水溶肥本值偏低**：60%(20-20-20) 大量元素水溶肥 6000~8000 元/吨",
+                "http://nyncj.liaoyang.gov.cn/bmfw/20260924/ec71eee4-a5b5-42f4-8246-17999e573e3a.html");
+        add(map, "ECON", "LABOR_YUAN_PER_HOUR", "人工成本", "元/工时",
+                ParameterProvenance.Status.UNVERIFIED_LITERATURE,
+                "2026 年用工采购与调查：四川遂宁集体经济组织栽种 60 元/天、除草打药 80 元/天、"
+                        + "人工管理 100 元/天（均按 8 小时）；农忙雇工 200 元/天；海南农垦设施园艺 176~330 元/天。"
+                        + "取 100 元/天 ÷ 8 = 12.5。各省差异大，**需按当地用工价核对**",
+                null);
+        add(map, "ECON", "GRADE_A_PRICE_YUAN_PER_KG", "一等品收购价", "元/kg",
+                ParameterProvenance.Status.UNVERIFIED_LITERATURE,
+                "山东聊城设施大棚产地批发 3.5 元/斤 = 7 元/kg（阳谷 2.5~3.8 元/斤）；"
+                        + "农业农村部 2026 年 1 月全国西红柿批发均价 8.61 元/kg（同比 +80.9%，属减产推高的高位年份）。"
+                        + "取 7.0。**本参数波动极大**：2026-09-25 各产地批发市场 2.10~8.00 元/kg（成都产 3.00~5.40），"
+                        + "跨年份对比必须同步换价",
+                null);
+        add(map, "ECON", "GRADE_B_PRICE_YUAN_PER_KG", "二等品收购价", "元/kg",
+                ParameterProvenance.Status.UNVERIFIED_LITERATURE,
+                "按一等品的半价惯例随之一等品上调，7.0 / 2 = 3.5。无独立出处",
+                null);
         return map;
     }
 
