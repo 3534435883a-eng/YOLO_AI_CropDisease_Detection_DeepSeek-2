@@ -167,7 +167,9 @@ public class PerformanceEvaluationService {
                 soil = soilModel.advance(soil, coupled, crop, STEP_MINUTES, irrigating,
                         fertilizerOf(strategy, step, day, irrigating, stageBefore, crop.getStage()));
                 disease = epidemicModel.advance(disease, coupled, crop, STEP_MINUTES);
-                economics = economicsModel.advance(economics, usage, crop, disease, STEP_MINUTES);
+                // 分时电价需要当步的钟点：`coupled` 带着本步的模拟时刻。
+                economics = economicsModel.advance(economics, usage, crop, disease, STEP_MINUTES,
+                        coupled.getSimulatedAt() == null ? 0 : coupled.getSimulatedAt().getHour());
 
                 if (coupled.getTemperatureC() > HIGH_TEMPERATURE_C) {
                     highTemperatureMinutes += STEP_MINUTES;

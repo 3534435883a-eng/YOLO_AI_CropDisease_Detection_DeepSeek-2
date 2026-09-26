@@ -17,6 +17,9 @@ import org.springframework.stereotype.Component;
 public class ManagementEconomicsModel {
 
     private static final double MINUTES_PER_DAY = 1440.0;
+
+    /** 退化为平段计价时用的钟点（平段是 default 分支，取 12 点即落在低谷，故取 0 点）。 */
+    private static final int FLAT_RATE_HOUR = 0;
     private static final double GRAMS_PER_KILOGRAM = 1000.0;
 
     /** 初始经济状态：零投入、零产出。 */
@@ -36,6 +39,18 @@ public class ManagementEconomicsModel {
      */
     public EconomicsState advance(EconomicsState current, ResourceUsage usage, TomatoCropState crop,
                                   DiseaseState disease, int minutes) {
+        return advance(current, usage, crop, disease, minutes, FLAT_RATE_HOUR);
+    }
+
+    /**
+     * 推进一步（含**分时电价**所需的钟点）。
+     *
+     * @param hourOfDay 当步所在的钟点（0~23）。用于按峰/平/谷取电价，见
+     *                  {@link EconomicsParameters#energyPriceAt(int)}。
+     *                  取 {@link #FLAT_RATE_HOUR} 则退化为按平段计价（便于与历史结果对照）。
+     */
+    public EconomicsState advance(EconomicsState current, ResourceUsage usage, TomatoCropState crop,
+                                  DiseaseState disease, int minutes, int hourOfDay) {
         EconomicsState base = current == null ? initial() : current;
         ResourceUsage used = usage == null ? ResourceUsage.none() : usage;
         double dayFraction = Math.max(0, minutes) / MINUTES_PER_DAY;
@@ -70,8 +85,11 @@ public class ManagementEconomicsModel {
 
         // 注意：成本必须按【本步用量】计价。早期版本误用累计用量乘单价，导致每步都在为"历史总量"重复计费，
         // 成本呈二次增长（120 天后虚高到千万元级）。累计量只用于展示与单位产量指标。
+        // 电费按**分时电价**计：设备运行时段与峰谷高度相关（补光多在傍晚/夜间=高峰，
+        // 湿帘降温在 10:00-16:00=低谷），按单一电价计会把不同策略的电费差距抹平。
+        double energyPrice = EconomicsParameters.energyPriceAt(hourOfDay);
         double stepCost = used.getWaterM3() * EconomicsParameters.WATER_YUAN_PER_M3
-                + used.getEnergyKWh() * EconomicsParameters.ENERGY_YUAN_PER_KWH
+                + used.getEnergyKWh() * energyPrice
                 + used.getCo2Kg() * EconomicsParameters.CO2_YUAN_PER_KG
                 + used.getFertilizerKg() * EconomicsParameters.FERTILIZER_YUAN_PER_KG
                 + used.getPesticideKg() * EconomicsParameters.PESTICIDE_YUAN_PER_KG

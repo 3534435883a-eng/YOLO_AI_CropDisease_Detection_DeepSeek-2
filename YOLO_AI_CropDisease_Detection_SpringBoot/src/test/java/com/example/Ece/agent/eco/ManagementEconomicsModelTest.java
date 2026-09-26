@@ -86,4 +86,54 @@ class ManagementEconomicsModelTest {
         assertFalse(Double.isInfinite(state.getEnergyPerYield()));
         assertTrue(state.getProfitYuan() < 0.0, "尚未产出时应为亏损");
     }
+
+    /**
+     * 分时电价的时段划分必须与出处一致。
+     *
+     * <p>本测试锁的是**时段边界**，不是价格数值——边界写错（如把 18:00 算进平段、
+     * 或把低谷写成夜间而非午间）会让分时电价静默失效，而数值看上去仍然"合理"。
+     * 出处：甘肃 甘发改价格〔2024〕424号。高峰 6-8 与 18-23；低谷 10-16；其余平段。</p>
+     */
+    @Test
+    void energyPriceFollowsTimeOfUseWindows() {
+        double peak = EconomicsParameters.ENERGY_PEAK_YUAN_PER_KWH;
+        double flat = EconomicsParameters.ENERGY_YUAN_PER_KWH;
+        double valley = EconomicsParameters.ENERGY_VALLEY_YUAN_PER_KWH;
+
+        // 高峰：6:00-8:00（含 6、7）与 18:00-23:00（含 18~22，不含 23）
+        assertEquals(peak, EconomicsParameters.energyPriceAt(6), 1e-9);
+        assertEquals(peak, EconomicsParameters.energyPriceAt(7), 1e-9);
+        assertEquals(peak, EconomicsParameters.energyPriceAt(18), 1e-9);
+        assertEquals(peak, EconomicsParameters.energyPriceAt(22), 1e-9);
+
+        // 低谷：10:00-16:00（含 10~15，不含 16）——**午间**低谷，不是夜间
+        assertEquals(valley, EconomicsParameters.energyPriceAt(10), 1e-9);
+        assertEquals(valley, EconomicsParameters.energyPriceAt(12), 1e-9);
+        assertEquals(valley, EconomicsParameters.energyPriceAt(15), 1e-9);
+
+        // 平段：23:00-6:00、8:00-10:00、16:00-18:00
+        assertEquals(flat, EconomicsParameters.energyPriceAt(23), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(0), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(5), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(8), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(9), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(16), 1e-9);
+        assertEquals(flat, EconomicsParameters.energyPriceAt(17), 1e-9);
+
+        // 越界钟点按 24 取模，不得抛异常
+        assertEquals(peak, EconomicsParameters.energyPriceAt(30), 1e-9);
+        assertEquals(peak, EconomicsParameters.energyPriceAt(-6), 1e-9);
+
+        assertTrue(valley < flat && flat < peak, "峰谷必须单调：谷 < 平 < 峰");
+    }
+
+    /** 同一步用量、不同钟点，电费必须不同——否则分时电价等于没接上。 */
+    @Test
+    void sameUsageCostsDifferentlyAtPeakAndValley() {
+        ResourceUsage usage = new ResourceUsage(0.0, 10.0, 0.0, 0.0, 0.0, 0.0);
+        EconomicsState atPeak = model.advance(model.initial(), usage, cropWithFruit(100.0), null, 15, 19);
+        EconomicsState atValley = model.advance(model.initial(), usage, cropWithFruit(100.0), null, 15, 12);
+        assertTrue(atPeak.getCostYuan() > atValley.getCostYuan(),
+                "高峰时段同量用电的成本应更高：峰 " + atPeak.getCostYuan() + " vs 谷 " + atValley.getCostYuan());
+    }
 }

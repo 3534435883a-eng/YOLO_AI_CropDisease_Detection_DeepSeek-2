@@ -263,6 +263,16 @@ public class ParameterRegistry {
                 ParameterProvenance.Status.UNVERIFIED_LITERATURE,
                 "按一等品的半价惯例随之一等品上调，7.0 / 2 = 3.5。无独立出处",
                 null);
+        add(map, "ECON", "ENERGY_PEAK_YUAN_PER_KWH", "农业生产用电高峰电价", "元/kWh",
+                ParameterProvenance.Status.VERIFIED,
+                "甘肃电网农业生产用电到户电价表（1-10 千伏）：高峰 0.6564。"
+                        + "时段：6:00-8:00、18:00-23:00（甘发改价格〔2024〕424号）",
+                "http://www.gs.sgcc.com.cn/u/cms/gs/other/202404/e4229aea2e974ee796e2c44c2460e335.pdf");
+        add(map, "ECON", "ENERGY_VALLEY_YUAN_PER_KWH", "农业生产用电低谷电价", "元/kWh",
+                ParameterProvenance.Status.VERIFIED,
+                "同上：低谷 0.2215。**低谷在午间 10:00-16:00**（光伏消纳驱动的午间谷电），"
+                        + "故补光多落高峰、湿帘降温落低谷——分时会拉开而非抹平不同策略的电费差距",
+                "http://www.gs.sgcc.com.cn/u/cms/gs/other/202404/e4229aea2e974ee796e2c44c2460e335.pdf");
         return map;
     }
 

@@ -29,7 +29,7 @@ public final class EconomicsParameters {
      *
      * <p><b>2026-09-26 按实价替换。</b>依据各省农业生产用电到户电价表：
      * 甘肃 1-10 千伏平段 **0.4389**（峰 0.6564 / 谷 0.2215）、陕西子洲 1-10 千伏平段 **0.4728**、
-     * 江西单一制 **0.6534**。取 **0.47**（1-10 千伏平段）。</p>
+     * 江西单一制 **0.6534**。取 **0.4389**（1-10 千伏**平段**）；峰、谷见下方两个常量与 energyPriceAt。</p>
      *
      * <p><b>未建模的真实机制</b>：农业用电**分峰谷**，峰谷价差可达 3 倍。
      * 而温室设备的运行时段与峰谷高度相关（补光多在后半夜、湿帘在白天高温段），
@@ -38,7 +38,46 @@ public final class EconomicsParameters {
      * <p>注意 0.65 恰是江西的单一制电价，且原注释未说明来源——示例值碰巧接近上界。</p>
 
     /** CO₂ 气源成本（元/kg）。示例参数。 */
-    public static final double ENERGY_YUAN_PER_KWH = 0.47;
+    public static final double ENERGY_YUAN_PER_KWH = 0.4389;
+
+    /**
+     * 农业生产用电**高峰**电价（元/kWh）。
+     *
+     * <p>出处同 {@link #ENERGY_YUAN_PER_KWH}（甘肃电网农业生产用电到户电价表，1-10 千伏）。</p>
+     */
+    public static final double ENERGY_PEAK_YUAN_PER_KWH = 0.6564;
+
+    /** 农业生产用电**低谷**电价（元/kWh）。出处同上。 */
+    public static final double ENERGY_VALLEY_YUAN_PER_KWH = 0.2215;
+
+    /**
+     * 按钟点取农业生产用电电价（分时）。
+     *
+     * <p><b>2026-09-26 新增。</b>此前全模型按单一电价计电费，而农业用电**是分时的**，
+     * 峰谷价差在甘肃口径下达 **3 倍**（0.6564 / 0.2215）。这不只是"算得准不准"的问题——
+     * 它**改变不同策略之间的排序**：温室设备的运行时段与峰谷高度相关，而不同策略的设备组合不同。</p>
+     *
+     * <p><b>时段划分</b>（甘肃省发改委 甘发改价格〔2024〕424号，2024-08-01 起执行，
+     * 适用于农业生产电力用户、农业排灌除外）：高峰 6:00-8:00 与 18:00-23:00（7 小时）；
+     * 平段 23:00-6:00、8:00-10:00、16:00-18:00（11 小时）；**低谷 10:00-16:00（6 小时，午间低谷）**。</p>
+     *
+     * <p><b>对本模型的含义（值得单独说）</b>：这套划分是**光伏消纳**驱动的"午间谷电"，
+     * 与直觉相反——**补光常落在 18:00-23:00 的高峰，而湿帘降温落在 10:00-16:00 的低谷**。
+     * 也就是说分时电价会同时**惩罚补光、补贴白天降温**，与按平段计价相比，
+     * 不同策略的电费差距会被拉开而不是抹平。</p>
+     *
+     * <p><b>跨省不可照搬</b>：各省时段划分不同（有的低谷在夜间），换场地必须同时换时段与电价。</p>
+     */
+    public static double energyPriceAt(int hourOfDay) {
+        int hour = ((hourOfDay % 24) + 24) % 24;
+        if ((hour >= 6 && hour < 8) || (hour >= 18 && hour < 23)) {
+            return ENERGY_PEAK_YUAN_PER_KWH;
+        }
+        if (hour >= 10 && hour < 16) {
+            return ENERGY_VALLEY_YUAN_PER_KWH;
+        }
+        return ENERGY_YUAN_PER_KWH;
+    }
     public static final double WATER_YUAN_PER_M3 = 0.8;
     public static final double CO2_YUAN_PER_KG = 1.2;
 
