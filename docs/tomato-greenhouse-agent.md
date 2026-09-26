@@ -95,6 +95,40 @@ GET  /ai/agent/history/export?limit=N             # 导出 JSONL，供离线回�
 GET  /ai/agent/report?seed=N&days=N               # 导出生产规划报告（Markdown 文档）
 ```
 
+## 当地农情数据接入
+
+`GET /ai/agri/environment/current` 取当地实时环境（温度、湿度、天气现象、风向风力）。
+
+**两种来源，必须分清**：`source=OBSERVED` 是真的从数据服务取到了；`source=SIMULATED_LOCATION`
+是**演示用模拟地**。触发模拟地的三种情形——`demo-mode=true`、实时源四项配置不全、
+或取数失败（超时/网络/字段不可识别）——都会在 `note` 里说明是哪种，
+并固定带上"本行数值为演示用固定档案，不是当地实测，不得当作观测数据引用"。
+
+演示现场常常没有网络、或天气服务免费配额用尽（项目根目录的 `3.更换天气api以及修改城市.txt`
+就是为配额耗尽准备的更换教程）。**取不到就退回模拟地，是为了不在这时候开天窗；但必须标明**——
+否则就是把一份写死的档案当成当地实时数据讲出去。
+
+**刻意不编造的字段**：光照/PPFD 天气服务不提供，接口以 `unavailableFields` 明确列出，
+**不按天气现象反推一个 PPFD**。缺字段要说得出来，不能让调用方把"没取到"读成 0。
+
+**智能体也能用**：工具 `platform.localEnvironment`（`READ_ONLY`）把它接给智能体，
+回答"现在当地什么天气/适不适合通风"。摘要把来源标识放在**最前 160 字内**——
+模型在证据块里只看得到这么多，这一条被截掉就会把模拟地讲成实测。
+
+配置（`application.properties`，全部可用环境变量覆盖）：
+
+```properties
+agent.agri.environment.demo-mode=${AGRI_DEMO_MODE:false}
+agent.agri.environment.api-url=${AGRI_WEATHER_API_URL:...}
+agent.agri.environment.app-id=${AGRI_WEATHER_APPID:}
+agent.agri.environment.app-secret=${AGRI_WEATHER_APPSECRET:}
+agent.agri.environment.city-id=${AGRI_WEATHER_CITYID:}
+```
+
+**中文默认值刻意写在 Java 字段里，不写进 `application.properties`**：Spring Boot 对
+`.properties` 默认按 ISO-8859-1 读取，中文值会乱码（实测接口曾返回
+`æéï¼æ¼ç¨æ¨¡æå°ï¼`）。要在此覆盖请用 `\uXXXX` 转义。
+
 ## 知识图谱
 
 `agent_knowledge_node` / `agent_knowledge_edge` 两张表由 `V20260922_01` 建好、`V20260925_01` 写过

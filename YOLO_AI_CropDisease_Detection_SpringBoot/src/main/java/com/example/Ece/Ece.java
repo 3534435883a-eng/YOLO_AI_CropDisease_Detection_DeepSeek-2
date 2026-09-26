@@ -4,10 +4,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import com.example.Ece.config.AgriEnvironmentProperties;
 import com.example.Ece.config.DeepSeekProperties;
 
 @SpringBootApplication
-@EnableConfigurationProperties(DeepSeekProperties.class)
+@EnableConfigurationProperties({DeepSeekProperties.class, AgriEnvironmentProperties.class})
 @EnableScheduling
 public class Ece {
 
