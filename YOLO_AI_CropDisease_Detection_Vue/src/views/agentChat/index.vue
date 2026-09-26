@@ -67,7 +67,7 @@
 
 						<div v-if="turn.answer" class="answer" :class="`answer-${turn.status}`">
 							<div class="answer-head">
-								<span class="answer-kind">{{ answerKind(turn.status) }}</span>
+								<span class="answer-kind">{{ answerKind(turn.status, turn.reason) }}</span>
 								<span v-if="turn.status === 'done'" class="answer-meta">
 									依据 {{ turn.citations.length }} 条 · {{ turn.stepCount }} 步 · {{ (turn.elapsedMs / 1000).toFixed(1) }}s
 								</span>
@@ -310,8 +310,19 @@ function elapsedLabel(turn: Turn): string {
 	return `${(turn.elapsedMs / 1000).toFixed(1)}s`;
 }
 
-function answerKind(status: TurnStatus): string {
-	if (status === 'refused') return '已拒答';
+/**
+ * 徽标文案。
+ *
+ * 后端把「模型调用失败」也归在 REFUSED 终态（reason=ANSWER_EMPTY / LLM_ERROR），
+ * 若只看 status 会把一次上游故障标成「已拒答」——与正文里"作答失败…这不是知识库缺少依据"自相矛盾。
+ * 因此这里同时看 reason：失败类原因的徽标要说「执行失败」。
+ * 后端为什么不直接改 status：REFUSED 这个终态已被落库记录与多处消费方依赖，
+ * 为了一处措辞动它是更大的改动；文案归属放在展示层更稳妥。
+ */
+function answerKind(status: TurnStatus, reason?: string): string {
+	if (status === 'refused') {
+		return reason === 'ANSWER_EMPTY' || reason === 'LLM_ERROR' ? '执行失败' : '已拒答';
+	}
 	if (status === 'error') return '执行失败';
 	if (status === 'running') return '生成中';
 	return '结论';

@@ -5,12 +5,17 @@ import com.example.Ece.agent.dto.AgentRunSummaryResponse;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.model.SimulationState;
+import com.example.Ece.agent.parameter.ParameterRegistry;
+import com.example.Ece.agent.parameter.ParameterSource;
+import com.example.Ece.agent.parameter.ParameterSourceRepository;
+import com.example.Ece.agent.parameter.ParameterSourceService;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.KnowledgeChunk;
 import com.example.Ece.agent.rag.KnowledgeRetriever;
 import com.example.Ece.agent.service.AgentRunService;
 import com.example.Ece.agent.service.PrescriptionService;
+import com.example.Ece.agent.service.WaterFertilizerPrescriptionService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -118,7 +123,36 @@ class PlatformToolsTest {
             when(runService.currentState(Long.valueOf(RUN_ID))).thenReturn(state);
         }
         return new PrescriptionDraftTool(runService, new PrescriptionService(),
-                new TomatoDecisionPolicy(), retrieverWithCorpus(), new CitationFormatter(), evidence);
+                new TomatoDecisionPolicy(), retrieverWithCorpus(), new CitationFormatter(), evidence,
+                new WaterFertilizerPrescriptionService(parameterSourceService()),
+                new ParameterEvidence(new CitationFormatter()));
+    }
+
+    /**
+     * 参数出处登记的替身：只登记水肥处方实际用到的几条。
+     *
+     * <p>刻意让「全季追肥量」带上可解析的出处、让「单次滴灌水量」**没有**出处——
+     * 处方必须同时处理这两类，而把不可引用值送进引用编号是这里最该被锁住的反例。</p>
+     */
+    private ParameterSourceService parameterSourceService() {
+        List<ParameterSource> rows = Arrays.asList(
+                new ParameterSource(101L, WaterFertilizerPrescriptionService.CODE_TRIGGER_FRACTION,
+                        "灌溉下限（占田间持水量）", "0.85", "比例",
+                        "某论文：灌水下限为田间持水量的 85%", "https://doi.org/10.0000/test", "1.0"),
+                new ParameterSource(102L, WaterFertilizerPrescriptionService.CODE_FIELD_CAPACITY,
+                        "田间持水量", "75.0", "%vol", "未核实：未校准假设", "", "1.0"),
+                new ParameterSource(103L, WaterFertilizerPrescriptionService.CODE_TOPDRESSING_TOTAL,
+                        "全季追肥总量", "171.0", "kg/hm²",
+                        "某论文：适宜追肥量为 171 kg/hm²", "https://doi.org/10.0000/test", "1.0"),
+                new ParameterSource(104L, WaterFertilizerPrescriptionService.CODE_TOPDRESSING_TIMES,
+                        "追肥次数", "2", "次",
+                        "某论文：分 2 次追施", "https://doi.org/10.0000/test", "1.0"),
+                new ParameterSource(105L, WaterFertilizerPrescriptionService.CODE_IRRIGATION_LITERS,
+                        "单步滴灌水量", "60.0", "L",
+                        "示例值：演示参数", "", "1.0"));
+        ParameterSourceRepository repository = mock(ParameterSourceRepository.class);
+        when(repository.listByVersion(ParameterRegistry.REGISTRY_VERSION)).thenReturn(rows);
+        return new ParameterSourceService(new ParameterRegistry(), repository);
     }
 
     // ---------------- 温室状态工具 ----------------
@@ -213,6 +247,88 @@ class PlatformToolsTest {
         // 凭印象写死等级是脆弱的断言（初版就写错成 HIGH，实际为 MEDIUM）。
         assertTrue(Arrays.asList("LOW", "MEDIUM", "HIGH").contains(String.valueOf(output.get("riskLevel"))),
                 "风险等级应为引擎定义的三种取值之一，实测 " + output.get("riskLevel"));
+    }
+
+    // ---------------- 水肥处方 ----------------
+
+    /**
+     * 数量与单位必须真的出现在模型能读到的通道里。
+     *
+     * <p>这条锁的是一个实测缺陷：改之前 {@code compactActions} 刻意"只列设备名，不提耗量"，
+     * 而 note 是唯一完整传给模型的通道，于是模型根本没机会看到 60 L / 171 kg/hm²，
+     * 只能回答"给不出用量"。</p>
+     */
+    @Test
+    void prescriptionCarriesWaterAndFertilizerAmountsIntoTheNoteChannel() throws Exception {
+        AgentRunService runService = mock(AgentRunService.class);
+        when(runService.getActiveRun()).thenReturn(activeRun());
+        PrescriptionDraftTool tool = prescriptionTool(runService, hotHumidState());
+
+        Map<String, Object> output = tool.execute(new LinkedHashMap<String, Object>());
+
+        String note = String.valueOf(output.get("note"));
+        assertTrue(note.contains("171"), "全季追肥总量必须进 note，实测 note=" + note);
+        assertTrue(note.contains("kg/hm²"), "单位必须与数字一起给出，否则复述时会丢单位");
+        assertTrue(note.contains("60"), "单次滴灌水量必须进 note");
+        assertTrue(note.contains("63.75"), "灌溉触发点（75×0.85）必须进 note");
+        assertNotNull(output.get("waterFertilizer"), "结构化水肥处方必须下发，供前端与模型共用");
+    }
+
+    /**
+     * 无出处的数值**不得**占引用编号。
+     *
+     * <p>引用编号的含义是"这条能核对到出处"。单次滴灌 60 L 在登记表里是"示例值：演示参数"，
+     * 给它编号会把这条纪律稀释成形式；但它仍须出现在处方正文里——不写等于隐瞒模型用了这个数。</p>
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void prescriptionCitesSourcedParametersButNotUnsourcedOnes() throws Exception {
+        AgentRunService runService = mock(AgentRunService.class);
+        when(runService.getActiveRun()).thenReturn(activeRun());
+        PrescriptionDraftTool tool = prescriptionTool(runService, hotHumidState());
+
+        Map<String, Object> output = tool.execute(new LinkedHashMap<String, Object>());
+
+        List<Map<String, Object>> citations = (List<Map<String, Object>>) output.get("citations");
+        List<String> codes = new ArrayList<String>();
+        for (Map<String, Object> citation : citations) {
+            codes.add(String.valueOf(citation.get("sourceCode")));
+        }
+        assertTrue(codes.contains(WaterFertilizerPrescriptionService.CODE_TOPDRESSING_TOTAL),
+                "有 DOI 的追肥量应可引用，实测引用=" + codes);
+        assertTrue(codes.contains(WaterFertilizerPrescriptionService.CODE_TRIGGER_FRACTION),
+                "有出处的灌溉下限应可引用，实测引用=" + codes);
+        assertFalse(codes.contains(WaterFertilizerPrescriptionService.CODE_IRRIGATION_LITERS),
+                "无出处的单次滴灌量不得进入引用编号，实测引用=" + codes);
+
+        Map<String, Object> view = (Map<String, Object>) output.get("waterFertilizer");
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) view.get("items");
+        boolean unsourcedStillPresent = false;
+        for (Map<String, Object> row : rows) {
+            if (WaterFertilizerPrescriptionService.CODE_IRRIGATION_LITERS.equals(row.get("parameterCode"))) {
+                unsourcedStillPresent = Boolean.FALSE.equals(row.get("citable"));
+            }
+        }
+        assertTrue(unsourcedStillPresent, "无出处的数值仍须出现在处方里，只是标为不可引用");
+    }
+
+    /** 生育期未接入运行状态这件事必须如实说出，否则模型会把追肥制度讲成"现在就该施"。 */
+    @Test
+    @SuppressWarnings("unchecked")
+    void prescriptionDisclosesThatCropStageIsNotModelled() throws Exception {
+        AgentRunService runService = mock(AgentRunService.class);
+        when(runService.getActiveRun()).thenReturn(activeRun());
+        PrescriptionDraftTool tool = prescriptionTool(runService, hotHumidState());
+
+        Map<String, Object> output = tool.execute(new LinkedHashMap<String, Object>());
+
+        Map<String, Object> view = (Map<String, Object>) output.get("waterFertilizer");
+        List<String> unmodelled = (List<String>) view.get("unmodelled");
+        assertFalse(unmodelled.isEmpty(), "必须列出未建模项");
+        String joined = String.join(" ", unmodelled);
+        assertTrue(joined.contains("生育期"), "必须点明生育期未接入，实测=" + joined);
+        assertTrue(String.valueOf(output.get("note")).contains("生育期"),
+                "note 里也要带，模型看得到 note 看不到结构化字段");
     }
 
     @Test

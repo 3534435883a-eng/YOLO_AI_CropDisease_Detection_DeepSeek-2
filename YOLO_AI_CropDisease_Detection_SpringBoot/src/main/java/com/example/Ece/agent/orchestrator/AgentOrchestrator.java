@@ -69,6 +69,22 @@ public class AgentOrchestrator {
                     + "建议补充作物、发病部位或症状描述，或联系当地农技人员核实。";
 
     /**
+     * 作答步调用失败时的文案。**必须与 {@link #REFUSAL_ANSWER} 分开**。
+     *
+     * <p>2026-09-26 实测抓到的错配：上游 DeepSeek 返回一次瞬时 5xx，作答步抛异常，
+     * 走 {@code ANSWER_EMPTY} 分支，而该分支当时复用的是拒答文案——于是用户看到
+     * "资料库不足：知识库里没有能支撑这个问题的可靠依据"。**证据其实齐备、检索完全正常，
+     * 是模型调用失败的**。这条误导两头都坏：用户会以为该问的知识没入库（去补知识），
+     * 而真正该做的是重试。相同提问重试一次即正常作答。</p>
+     *
+     * <p>{@code reason} 里仍如实保留 {@code ANSWER_EMPTY}，便于事后从落库记录区分
+     * "拒答"与"失败"；但**给用户看的文案不能再混用**。</p>
+     */
+    public static final String ANSWER_FAILED_ANSWER =
+            "作答失败：本轮已取得的证据仍在，但生成回答的模型调用未成功（可能是服务瞬时故障）。"
+                    + "请重试一次；若反复失败请检查模型服务配置。这不是知识库缺少依据。";
+
+    /**
      * 作答阶段的系统提示。
      *
      * <p><b>为什么必须单独一套</b>：规划阶段的系统提示写着"每一步只输出一个 JSON"，
@@ -324,8 +340,9 @@ public class AgentOrchestrator {
         if (answer == null || answer.trim().isEmpty()) {
             // 有证据却拿不到回答（模型调用失败或输出被截断）：如实按未完成返回。
             // 曾用拒答文案兜底并报 DONE，界面上会显示成"结论"，把失败伪装成成功。
+            // 现在文案也换了：这里是**调用失败**，不是知识缺口，两者不能共用一句话（见常量注释）。
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                    AgentResult.Status.REFUSED, "ANSWER_EMPTY", REFUSAL_ANSWER);
+                    AgentResult.Status.REFUSED, "ANSWER_EMPTY", ANSWER_FAILED_ANSWER);
         }
         GuardrailCheck guardrail = guardrailService.check(answer, evidenceChunks, degradedSeen);
 

@@ -87,7 +87,8 @@ def extract_result(events):
     - 拒答原因放在 `data.reason`；状态由"是否有 reason"推断
     """
     result = {"answer": None, "citations": [], "reason": None, "steps": None,
-              "status": "ERROR", "step_citations": [], "tool_trace": [], "event_types": []}
+              "status": "ERROR", "step_citations": [], "global_citations": [],
+              "tool_trace": [], "event_types": []}
     for event in events:
         name = event.get("event")
         data = event.get("data") or {}
@@ -98,7 +99,14 @@ def extract_result(events):
             if tool:
                 result["tool_trace"].append(tool)
             payload = data.get("data") or {}
-            for key in ("stepCitations", "citations"):
+            # step 帧里有两份引用：`stepCitations` 是**本步新增**的，`citations` 是**全局合并后**的。
+            # 后者才是模型在证据块里实际看到的编号（编排层每次合并后重新编号并回灌 history），
+            # 所以回退时必须用它，否则评分人拿到的编号与回答正文里的 [n] 对不上，
+            # D2「引用可核对性」就评不了。取最后一个非空的全局列表——它包含全部已获证据。
+            global_found = payload.get("citations")
+            if isinstance(global_found, list) and global_found:
+                result["global_citations"] = global_found
+            for key in ("stepCitations",):
                 found = payload.get(key)
                 if isinstance(found, list) and found:
                     result["step_citations"].extend(found)
@@ -139,6 +147,45 @@ def load_jsonl(path):
         return []
     with path.open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
+
+
+def citations_for_record(parsed):
+    """取本次回答的引用列表，并说明取自哪一帧。
+
+    **为什么不能直接读 final 帧**：后端 `AgentOrchestrator.finish` 的 final 载荷只有
+    `status / reason / citationCount / steps`——**不含 citations**。引用只出现在 `step` 帧
+    （实测核实于 2026-09-26，见 `_raw_sse.txt` 一类的原始流）。
+    前端不受影响，因为 `agentChat/index.vue` 会在 step 帧累加、仅把 final 帧当覆盖项；
+    但本脚本原先只读 final 帧，于是抓下来的每条回答都是 `citations: []`——
+    评分人看不到证据，D1（依据支持度）与 D2（引用可核对性）两个维度**无从评起**。
+
+    因此改为三级回退，并用 `citationsSource` 如实标注取自哪一级，
+    免得日后有人把回退值误当成后端下发的权威列表：
+
+    1. `final`：final 帧的 `data.citations`（后端全局合并去重后的权威列表）；
+    2. `step_global`：最后一个 step 帧的 `data.citations`。**这一级才是模型实际看到的编号**——
+       编排层每次合并后重新编号并回灌 history，模型就是按这套编号写的 [n]。
+       与第 1 级的差别在于它可能包含最终被判为不可靠的步骤带来的条目；
+    3. `step_accumulated`：把各步 `stepCitations` 按后端去重键合并。
+       末级兜底，条目可能多于模型所见，编号也不保证与正文一致——出现这一级说明
+       上面两级都没取到，属于异常，应在报告里标注。
+    """
+    final_citations = parsed.get("citations") or []
+    if final_citations:
+        return final_citations, "final"
+    global_citations = parsed.get("global_citations") or []
+    if global_citations:
+        return global_citations, "step_global"
+    merged, seen = [], set()
+    for citation in parsed.get("step_citations") or []:
+        key = "{}|{}|{}|{}".format(
+            citation.get("sourceTable"), citation.get("sourceId"),
+            citation.get("fieldType"), citation.get("chunkNo"))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(citation)
+    return merged, "step_accumulated" if merged else "none"
 
 
 def preflight(base_url):
@@ -253,6 +300,7 @@ def main():
                           "status": "ERROR", "step_citations": [], "tool_trace": [],
                           "event_types": []}
                 parsed["transport_error"] = str(error)[:300]
+            citations, citations_source = citations_for_record(parsed)
             record = {
                 "id": item["id"],
                 "partition": item.get("partition"),
@@ -262,7 +310,8 @@ def main():
                 "sessionId": session_id,
                 "status": parsed["status"],
                 "answer": parsed["answer"],
-                "citations": parsed["citations"],
+                "citations": citations,
+                "citationsSource": citations_source,
                 "refusalReason": parsed["reason"],
                 "steps": parsed["steps"],
                 "toolTrace": parsed["tool_trace"],

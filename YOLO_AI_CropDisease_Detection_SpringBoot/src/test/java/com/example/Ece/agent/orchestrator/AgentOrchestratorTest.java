@@ -378,6 +378,10 @@ class AgentOrchestratorTest {
     /**
      * 有证据但模型没给出回答时，必须如实报失败（REFUSED/ANSWER_EMPTY），
      * 不能用拒答文案兜底却报 DONE——界面上那会被显示成"结论"，把失败伪装成成功。
+     *
+     * <p>同时锁住**文案不与"知识库无依据"混用**：2026-09-26 实测中上游返回一次瞬时 5xx，
+     * 用户看到的却是"资料库不足：知识库里没有能支撑这个问题的可靠依据"——证据齐备、检索正常，
+     * 只是模型调用失败。把基础设施故障说成知识缺口，会把人引向"去补知识"而不是"重试"。</p>
      */
     @Test
     void reportsAnswerEmptyInsteadOfFakingDone() {
@@ -406,6 +410,10 @@ class AgentOrchestratorTest {
             }
         }
         assertEquals("ANSWER_EMPTY", reason);
+        assertEquals(AgentOrchestrator.ANSWER_FAILED_ANSWER, result.getAnswer(),
+                "作答失败必须用自己的文案，不得复用'知识库没有依据'的拒答文案");
+        assertFalse(result.getAnswer().contains("资料库不足"),
+                "作答失败不得说成知识缺口：实测 " + result.getAnswer());
     }
 
     /**

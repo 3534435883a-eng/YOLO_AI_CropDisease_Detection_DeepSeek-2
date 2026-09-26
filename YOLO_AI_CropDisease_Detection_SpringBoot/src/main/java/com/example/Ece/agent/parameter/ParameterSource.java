@@ -8,6 +8,15 @@ package com.example.Ece.agent.parameter;
  */
 public class ParameterSource {
 
+    /**
+     * 登记表主键。
+     *
+     * <p>由 {@link ParameterRegistry} 反射枚举构造的实例**没有**主键（尚未落库），取 0；
+     * 从 {@code agent_parameter_source} 读回来的实例带真实主键。
+     * 这个值不是装饰：引用合并的去重键是「来源表|来源ID|字段|片段号」，
+     * 参数条目若都用同一个占位 ID，同一参数在不同步骤被引用时会被判成不同证据而重复编号。</p>
+     */
+    private final long id;
     private final String code;
     private final String name;
     private final String valueText;
@@ -18,6 +27,12 @@ public class ParameterSource {
 
     public ParameterSource(String code, String name, String valueText, String unit,
                            String sourceName, String sourceUrl, String version) {
+        this(0L, code, name, valueText, unit, sourceName, sourceUrl, version);
+    }
+
+    public ParameterSource(long id, String code, String name, String valueText, String unit,
+                           String sourceName, String sourceUrl, String version) {
+        this.id = id;
         this.code = code;
         this.name = name;
         this.valueText = valueText;
@@ -25,6 +40,10 @@ public class ParameterSource {
         this.sourceName = sourceName;
         this.sourceUrl = sourceUrl;
         this.version = version;
+    }
+
+    public long getId() {
+        return id;
     }
 
     public String getCode() {

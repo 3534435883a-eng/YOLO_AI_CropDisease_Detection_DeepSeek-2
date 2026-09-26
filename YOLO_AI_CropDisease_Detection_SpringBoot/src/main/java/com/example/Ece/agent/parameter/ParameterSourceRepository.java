@@ -26,11 +26,11 @@ public class ParameterSourceRepository {
             + "created_at = VALUES(created_at)";
 
     private static final String SELECT_COLUMNS = "SELECT parameter_code, parameter_name, value_text, unit, "
-            + "source_name, source_url, version FROM agent_parameter_source ";
+            + "id, source_name, source_url, version FROM agent_parameter_source ";
 
     private static final RowMapper<ParameterSource> ROW_MAPPER = new RowMapper<ParameterSource>() {
         public ParameterSource mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return new ParameterSource(rs.getString("parameter_code"), rs.getString("parameter_name"),
+            return new ParameterSource(rs.getLong("id"), rs.getString("parameter_code"), rs.getString("parameter_name"),
                     rs.getString("value_text"), rs.getString("unit"), rs.getString("source_name"),
                     rs.getString("source_url"), rs.getString("version"));
         }

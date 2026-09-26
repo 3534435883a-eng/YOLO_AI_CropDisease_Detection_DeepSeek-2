@@ -197,9 +197,22 @@ export function readFinalCitations(event: AgentStepEvent): AgentCitation[] {
 	return Array.isArray(all) ? (all as AgentCitation[]) : [];
 }
 
+/**
+ * 知识块类别 → 界面用语。
+ *
+ * 与后端 `KnowledgeChunk.FieldType` 一一对应；新增类别时两边必须同时改，
+ * 否则界面上会整片显示成"其他"（本函数是唯一的中文映射点）。
+ */
 export function fieldTypeLabel(fieldType?: string): string {
 	if (fieldType === 'SYMPTOM') return '症状';
 	if (fieldType === 'CAUSE') return '诱因';
 	if (fieldType === 'CONTROL') return '防治';
+	if (fieldType === 'CULTIVATION') return '栽培管理';
+	if (fieldType === 'WATER_FERT') return '水肥管理';
+	if (fieldType === 'ENVIRONMENT') return '环境调控';
+	if (fieldType === 'CTRL_AGRI') return '农业防治';
+	if (fieldType === 'CTRL_PHYS') return '物理防治';
+	if (fieldType === 'CTRL_BIO') return '生物防治';
+	if (fieldType === 'CTRL_CHEM') return '化学防治';
 	return '其他';
 }

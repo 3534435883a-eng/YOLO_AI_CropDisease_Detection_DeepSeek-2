@@ -56,6 +56,18 @@ to_autometrics.py --run   → 拟合自动评估器（需放行 autometrics-ai�
 
 `to_autometrics.py` 会自动按此切分，并在样本量不足时打印警告。
 
+## 引用取自哪一帧（踩过的坑，别再改回去）
+
+**`final` 帧不带引用列表。** 后端 `AgentOrchestrator.finish` 的 final 载荷只有
+`status / reason / citationCount / steps`；引用只出现在 `step` 帧，且 `step` 帧里有两份：
+`stepCitations`（本步新增）与 `citations`（**全局合并、已重新编号**——模型在证据块里看到的就是这一份）。
+
+前端不受影响（`agentChat/index.vue` 在 step 帧累加、只把 final 帧当覆盖项），
+但本脚本初版只读 final 帧，于是 2026-09-26 首次真实抓取的 20 条回答**全是 `citations: []`**，
+评分人看不到证据，D1/D2 两个维度无从评起。现已改为三级回退
+（`final` → `step_global` → `step_accumulated`），并把取自哪一级如实写进 `citationsSource` 字段。
+`step_accumulated` 是异常路径（编号可能与正文不一致），出现时应在报告里标注。
+
 ## 已验证 / 未验证（截至 2026-09-26）
 
 **已验证**：
@@ -63,16 +75,22 @@ to_autometrics.py --run   → 拟合自动评估器（需放行 autometrics-ai�
 - `capture_answers.py --selftest` → **10/10 通过**。用与后端 `finish()` 结构一致的合成 SSE 流
   验证解析（回答正文取自 `message`、引用取自 `data.citations`、拒答原因取自 `data.reason`、
   DONE/REFUSED/ERROR 三态、CRLF 与不完整 JSON 容错）。
+- **真实抓取已跑通**（2026-09-26，DeepSeek 真实调用 + Flask 向量服务在线，非降级）：
+  20 题全部返回，19 DONE / 1 REFUSED，无传输错误。结果在 `answers.jsonl`。
+  ⚠️ 该文件抓于**引用回退修复之前**，其 `citations` 字段为空，是修复前状态的基线，不要当证据清单用。
+- `probe_artifacts.py`（本目录新增）：赛题点名的四类交付物 + 两类输入方式的 8 条补充探针，
+  结果在 `artifacts.jsonl`。`questions.jsonl` 的 20 题**绝大多数是病虫害诊断**，
+  覆盖不到农事管理方案 / 水肥处方 / 生产规划报告，故补此脚本。
 - `to_autometrics.py --check` 用 `fixtures/` 跑通：4 条答案 3 条评分 → 3 条可用、1 条跳过、
   分区切分正确、字段映射正确（`input` 含问题+证据，`output` 为回答，`score` 为 d5）。
 
 **未验证（不要当成已就绪）**：
 
-- **抓取本身从未真实运行过**：本机没有 `DEEPSEEK_API_KEY`，平台也未启动。
-  SSE 解析逻辑有自测覆盖，但真实后端返回的字节流尚未见过。
 - **`--run` 从未运行过**：`autometrics-ai` 的运行权限未放行。
 - 题目集 v1 共 20 题，是**骨架不是成品**。要让拟合结果可解释，`dev` 需要约 50–80 条已评分回答；
   扩充时必须追加版本号并记录变更原因（`docs/eval/README.md`）。
+- **仍没有农技人员评分**：`answers.jsonl` / `artifacts.jsonl` 只有回答本身，
+  `labels.jsonl` 为空。"回答质量"目前只有本目录作者的人工阅读结论，不构成专家标注。
 
 ## 边界
 
