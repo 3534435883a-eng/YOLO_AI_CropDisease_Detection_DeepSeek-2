@@ -30,8 +30,16 @@ public class SoilWaterNutrientModel {
     /** 一天的分钟数，用于把分钟片段折算为日尺度速率。 */
     private static final double MINUTES_PER_DAY = 1440.0;
 
-    /** 根区 1 mm 水量对应的体积含水率变化（%vol/mm）。 */
-    private static final double MM_TO_PCT_VOL = 1.6;
+    /**
+     * 根区 1 mm 水量对应的体积含水率变化（%vol/mm）。
+     *
+     * <p><b>2026-09-26 由 1.6 改为 0.4。</b>按注释的定义（1 mm 水量摊到根区深度上的体积占比），
+     * 0.25 m 有效根深对应 {@code 1 mm / 250 mm = 0.4 %}。原值 1.6 相当于假设 62.5 cm 根深，
+     * 与项目自身参数（{@code TomatoSimulationEngine} 的 0.25 m 有效根深、
+     * 60 L → 0.168 个百分点）**相差 4 倍**。改后与引擎口径一致：60 L / 142.8 m² = 0.42 mm
+     * × 0.4 = 0.168 个百分点，与引擎的换算完全相同。</p>
+     */
+    private static final double MM_TO_PCT_VOL = 0.4;
 
     /** 简化 Hargreaves 式系数。 */
     private static final double HARGREAVES_COEFFICIENT = 0.0023;
@@ -39,11 +47,8 @@ public class SoilWaterNutrientModel {
     /** 简化 Hargreaves 式的温度偏移（摄氏度）。 */
     private static final double HARGREAVES_TEMPERATURE_OFFSET_C = 17.8;
 
-    /** 辐射代理量下限，避免夜间/弱光时开方为 0。 */
-    private static final double RADIATION_PROXY_FLOOR = 0.1;
-
-    /** 辐射代理量除数（PPFD -> 辐射代理量）。 */
-    private static final double RADIATION_PROXY_DIVISOR = 100.0;
+    /** 太阳常数（MJ·m^-2·min^-1），FAO-56 式 21 用。 */
+    private static final double SOLAR_CONSTANT_MJ_M2_MIN = 0.0820;
 
     /** 辐射项换算系数（MJ·m^-2·d^-1 -> mm/d）。 */
     private static final double ET0_RADIATION_COEFFICIENT = 0.408;
@@ -90,7 +95,8 @@ public class SoilWaterNutrientModel {
     private static final double DEFAULT_TEMPERATURE_C = 22.0;
 
     /** 环境缺失时的默认光强（PPFD）。 */
-    private static final double DEFAULT_LIGHT_PPFD = 0.0;
+    /** environment 或其模拟时间为空时的日序回退值（9 月 21 日，与评测起始日一致）。 */
+    private static final int DEFAULT_DAY_OF_YEAR = 264;
 
     /**
      * 初始土壤状态：适宜含水率、低盐、中性偏酸、养分充足。
@@ -122,19 +128,32 @@ public class SoilWaterNutrientModel {
         double doseKgPerHa = Math.max(0.0, fertilizerKgPerHa);
 
         double temperatureC = environment == null ? DEFAULT_TEMPERATURE_C : environment.getTemperatureC();
-        double lightPpfd = environment == null ? DEFAULT_LIGHT_PPFD : environment.getLightPpfd();
 
-        // 1) 参考蒸散 ET0：由日均温与日辐射代理量驱动的简化 Hargreaves 式（mm/day）
-        double radiationProxy = Math.sqrt(Math.max(RADIATION_PROXY_FLOOR, lightPpfd / RADIATION_PROXY_DIVISOR));
+        // 1) 参考蒸散 ET0：FAO-56 Hargreaves 式（mm/day）
+        //
+        //    ET0 = 0.0023 × (Tmean + 17.8) × (Tmax − Tmin)^0.5 × Ra × 0.408
+        //
+        //    2026-09-26 修：原实现把 `(Tmax − Tmin)^0.5 × Ra` 整项替换成了无量纲的
+        //    `sqrt(ppfd/100)`（量级 0.3~3），却**保留了 0.408 换算系数**——而 Ra 的量级是
+        //    10~40 MJ·m^-2·d^-1。少了 Ra 这一项，ET0 算出来约 0.065 mm/day，
+        //    而该式的正常量级是 3~6 mm/day，**小了约 50 倍**。后果是土壤模型几乎不耗水。
+        //    现按 FAO-56 式 21~25 计算 Ra（需要纬度与日序）。
+        int dayOfYear = environment == null || environment.getSimulatedAt() == null
+                ? DEFAULT_DAY_OF_YEAR : environment.getSimulatedAt().getDayOfYear();
+        double radiationRa = extraterrestrialRadiationMj(SoilParameters.LATITUDE_DEGREES, dayOfYear);
         double et0MmPerDay = HARGREAVES_COEFFICIENT * (temperatureC + HARGREAVES_TEMPERATURE_OFFSET_C)
-                * radiationProxy * ET0_RADIATION_COEFFICIENT;
+                * Math.sqrt(SoilParameters.DAILY_TEMPERATURE_RANGE_C)
+                * radiationRa * ET0_RADIATION_COEFFICIENT;
 
         // 2) 作物蒸散 ETc = Kc × ET0 × 时间片（mm/本步）
         double kc = cropCoefficient(crop);
         double etcMm = kc * et0MmPerDay * factor;
 
         // 3) 灌溉量（mm/本步）
-        double irrigationMm = irrigationOn ? SoilParameters.IRRIGATION_MM_PER_STEP * factor : 0.0;
+        //    2026-09-26 修：`IRRIGATION_MM_PER_STEP` 名字说"每步"、注释说"mm/day"，自相矛盾；
+        //    且与引擎各浇各的（引擎按 60 L/次 = 0.42 mm）。现统一用由引擎推出的**每次事件水量**，
+        //    不再乘时间片——因为它是每次事件的量，不是速率。
+        double irrigationMm = irrigationOn ? SoilParameters.IRRIGATION_MM_PER_EVENT : 0.0;
 
         // 4) 水量平衡：mm 换算为体积含水率变化，超出田间持水量的部分视为向下排水
         double deltaPct = (irrigationMm - etcMm) * MM_TO_PCT_VOL;
@@ -202,6 +221,34 @@ public class SoilWaterNutrientModel {
      * <p>苗期 → {@code KC_INITIAL}；开花/坐果期 → {@code KC_MID}；
      * 果实膨大/成熟期 → {@code KC_LATE}；{@code crop} 为 {@code null} 时取 {@code KC_MID}。</p>
      */
+    /**
+     * 日序天文辐射 Ra（MJ·m⁻²·d⁻¹），FAO-56 式 21~25。
+     *
+     * <p>这是修正 ET0 的关键项：原实现漏掉的正是它。30.7°N 在秋分前后算得约 32 MJ·m⁻²·d⁻¹，
+     * 与教科书量级一致；代入 Hargreaves 式得 ET0 ≈ 4 mm/day，落进 3~6 mm/day 的正常区间。</p>
+     *
+     * <p>公式（φ 为纬度，J 为日序，全部角度用弧度）：
+     * <pre>
+     *   dr = 1 + 0.033·cos(2πJ/365)                        日地距离倒数
+     *   δ  = 0.409·sin(2πJ/365 − 1.39)                     太阳赤纬
+     *   ωs = arccos(−tan φ · tan δ)                        日落时角
+     *   Ra = (24·60/π)·Gsc·dr·[ωs·sin φ·sin δ + cos φ·cos δ·sin ωs]
+     * </pre>
+     * 出处：{@code docs/tomato-greenhouse-agent.md} 已登记的 FAO-56 第 3 章
+     * （https://www.fao.org/4/X0490E/x0490e07.htm）。</p>
+     */
+    private double extraterrestrialRadiationMj(double latitudeDegrees, int dayOfYear) {
+        double phi = Math.toRadians(latitudeDegrees);
+        double dr = 1.0 + 0.033 * Math.cos(2.0 * Math.PI * dayOfYear / 365.0);
+        double declination = 0.409 * Math.sin(2.0 * Math.PI * dayOfYear / 365.0 - 1.39);
+        // 极昼/极夜时 −tanφ·tanδ 会越出 [-1,1]，acos 定义域外会得到 NaN，故先钳位。
+        double sunsetCos = Math.max(-1.0, Math.min(1.0, -Math.tan(phi) * Math.tan(declination)));
+        double sunsetAngle = Math.acos(sunsetCos);
+        return (24.0 * 60.0 / Math.PI) * SOLAR_CONSTANT_MJ_M2_MIN * dr
+                * (sunsetAngle * Math.sin(phi) * Math.sin(declination)
+                + Math.cos(phi) * Math.cos(declination) * Math.sin(sunsetAngle));
+    }
+
     private double cropCoefficient(TomatoCropState crop) {
         if (crop == null) {
             return SoilParameters.KC_MID;

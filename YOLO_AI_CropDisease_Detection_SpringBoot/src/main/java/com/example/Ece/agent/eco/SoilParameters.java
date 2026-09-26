@@ -99,6 +99,30 @@ public final class SoilParameters {
     /** 凋萎点（%vol）。来源：国内设施番茄栽培文献；典型文献区间，待核对出处。 */
     public static final double WILTING_POINT_PCT = 30.0;
 
-    /** 单步（一次调用）满灌溉的灌溉量（mm/day）。来源：国内设施番茄灌溉制度文献；典型文献区间，待核对出处。 */
-    public static final double IRRIGATION_MM_PER_STEP = 1.2;
+    /**
+     * 一次滴灌事件的水量（mm）。
+     *
+     * <p><b>2026-09-26 新增，取值 0.42 mm 是由项目自身参数推出的</b>，不是文献值：
+     * 引擎 {@code IRRIGATION_L_PER_TICK = 60 L} 浇在 4 条 × 21 m × 1.7 m = 142.8 m² 种植床上，
+     * 折合水深 60 / 142.8 = 0.4202 mm。用这个值是为了让土壤模型与引擎**浇同样多的水**——
+     * 此前土壤模型按 {@code IRRIGATION_MM_PER_STEP}（注释写 mm/day）算，与引擎各浇各的，
+     * 是两个水分状态能差到 49 个百分点的成因之一。</p>
+     */
+    public static final double IRRIGATION_MM_PER_EVENT = 60.0 / (4.0 * 21.0 * 1.7);
+
+    /**
+     * 场地纬度（度）。FAO-56 计算日序天文辐射 Ra 需要它。
+     *
+     * <p>取 30.7°（成都）。**这是项目所在地的示例取值，不是实测**；换场地必须改，
+     * 否则 Ra 与 ET0 会随之偏。来源：项目标称四川（四川师范大学），纬度按该地取。</p>
+     */
+    public static final double LATITUDE_DEGREES = 30.7;
+
+    /**
+     * 日温差（℃），FAO-56 Hargreaves 式需要。
+     *
+     * <p>取 12 ℃ 与引擎的室外气温模型一致：{@code outsideTemperature = 17 + 12 × 日照相位}，
+     * 即室外日振幅 12 ℃。**该一致性是刻意的**——两处不该各拍一个数。</p>
+     */
+    public static final double DAILY_TEMPERATURE_RANGE_C = 12.0;
 }

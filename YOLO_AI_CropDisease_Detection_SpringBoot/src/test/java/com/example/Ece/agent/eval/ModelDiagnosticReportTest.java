@@ -230,6 +230,7 @@ class ModelDiagnosticReportTest {
         double maxDamage = 0.0, maxSeverity = 0.0, maxPest = 0.0;
         long highTempMinutes = 0L;
         double diseasePressureIntegral = 0.0;
+        int irrigationEvents = 0;
 
         System.out.println("=== 模型诊断（规则档 P2，120 天，seed=" + SEED + "）===");
         System.out.printf("%-5s %-13s %6s %6s %6s %8s %6s %7s %8s %8s %7s%n",
@@ -238,6 +239,9 @@ class ModelDiagnosticReportTest {
         for (int day = 1; day <= DAYS; day++) {
             for (int step = 0; step < STEPS_PER_DAY; step++) {
                 Map<String, Boolean> devices = devicesOf(policy.decide(air));
+                if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION))) {
+                    irrigationEvents++;
+                }
                 air = engine.advance(air, devices, STEP_MINUTES, SEED,
                         heatwaveOffsetC(day), transpirationOffsetPct(crop));
                 SimulationState coupled = engine.evaluate(air.getSimulatedAt(), air.getTemperatureC(),
@@ -319,7 +323,24 @@ class ModelDiagnosticReportTest {
         System.out.printf("  pH   %.3f ~ %.3f%n", phMin, phMax);
         System.out.printf("  速效氮 %.1f ~ %.1f kg/ha（累计淋洗 %.1f）%n", nMin, nMax, soil.getLeachedNitrogenKgPerHa());
         System.out.printf("  养分因子 %.3f ~ %.3f%n", nutrientMin, nutrientMax);
-        System.out.printf("  累计灌溉 %.2f mm%n", soil.getIrrigationMmTotal());
+        System.out.printf("  累计灌溉 %.2f mm（%d 次事件）%n", soil.getIrrigationMmTotal(), irrigationEvents);
+
+        // 氮收支：用已有量算清，不猜。初始值取自 SoilState 的初值，期末值即当前状态。
+        double fertilizerInput = irrigationEvents * ResourceRates.FERTILIZER_KG_PER_HA_PER_STEP;
+        double leached = soil.getLeachedNitrogenKgPerHa();
+        double finalN = soil.getNitrogenKgPerHa();
+        double initialN = 90.0;
+        double uptake = initialN + fertilizerInput - leached - finalN;
+        System.out.println("--- 氮收支（本季，kg/ha）---");
+        System.out.printf("  初始 %.1f + 施肥 %.1f − 淋洗 %.1f − 期末 %.1f = 作物带走 %.1f%n",
+                initialN, fertilizerInput, leached, finalN, uptake);
+        // 刻意不算"隐含含氮率"：uptake 是 kg/ha，wTotal 的单位（与果实干重同）是每株克数，
+        // 两者相除没有意义。要算需先确定 wTotal 的单位与株数折算——宁可不印，也不印一个读不出的比值。
+        System.out.printf("  施肥投入占带走量的 %.1f%%（不足则氮必然见底）%n",
+                uptake == 0 ? 0 : fertilizerInput / uptake * 100.0);
+        System.out.println("  判读：若投入远低于带走量，则氮必然在季内见底、养分因子长期钳在下限，"
+                + "土壤化学再合理也传不到作物生长。本项为**待决的配平问题**——"
+                + "要定值需一份可引用的番茄氮收支（每吨果实带走多少 N），不能靠现有系数互调。");
 
         System.out.println("--- 病虫害 ---");
         System.out.printf("  最大病害伤害因子 %.4f   最大单病严重度 %.4f   最大虫口 %.4f%n",
