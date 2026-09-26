@@ -9,6 +9,7 @@ import com.example.Ece.agent.eco.EconomicsState;
 import com.example.Ece.agent.eco.ManagementEconomicsModel;
 import com.example.Ece.agent.eco.PestDiseaseEpidemicModel;
 import com.example.Ece.agent.eco.ResourceUsage;
+import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.eco.SoilState;
 import com.example.Ece.agent.eco.SoilWaterNutrientModel;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
@@ -231,6 +232,7 @@ class ModelDiagnosticReportTest {
         long highTempMinutes = 0L;
         double diseasePressureIntegral = 0.0;
         int irrigationEvents = 0;
+        double fertilizerApplied = 0.0;
 
         System.out.println("=== 模型诊断（规则档 P2，120 天，seed=" + SEED + "）===");
         System.out.printf("%-5s %-13s %6s %6s %6s %8s %6s %7s %8s %8s %7s%n",
@@ -250,10 +252,17 @@ class ModelDiagnosticReportTest {
 
                 double stress = clamp(soil.getNutrientFactor(), 0.0, 1.0)
                         * clamp(disease.getDiseaseDamageFactor(), 0.0, 1.0);
+                // 施肥逻辑必须与评测平台一致，否则本测试复现不出平台的终值、内部量也就不可信。
+                // 平台按论文分 2 次追肥（进入坐果期、果实膨大期各一次），此处照搬。
+                CropStage stageBefore = crop.getStage();
                 crop = cropModel.advance(crop, coupled, STEP_MINUTES, stress);
                 boolean irrigating = Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION));
-                soil = soilModel.advance(soil, coupled, crop, STEP_MINUTES, irrigating,
-                        irrigating ? ResourceRates.FERTILIZER_KG_PER_HA_PER_STEP : 0.0);
+                boolean topdressing = stageBefore != crop.getStage()
+                        && (crop.getStage() == CropStage.FRUIT_SET || crop.getStage() == CropStage.FRUIT_GROWTH);
+                double doseKgPerHa = topdressing
+                        ? SoilParameters.SEASON_TOPDRESSING_KG_PER_HA / SoilParameters.TOPDRESSING_APPLICATIONS : 0.0;
+                fertilizerApplied += doseKgPerHa;
+                soil = soilModel.advance(soil, coupled, crop, STEP_MINUTES, irrigating, doseKgPerHa);
                 disease = epidemicModel.advance(disease, coupled, crop, STEP_MINUTES);
                 economics = economicsModel.advance(economics, usageOf(devices), crop, disease, STEP_MINUTES);
 
@@ -326,7 +335,7 @@ class ModelDiagnosticReportTest {
         System.out.printf("  累计灌溉 %.2f mm（%d 次事件）%n", soil.getIrrigationMmTotal(), irrigationEvents);
 
         // 氮收支：用已有量算清，不猜。初始值取自 SoilState 的初值，期末值即当前状态。
-        double fertilizerInput = irrigationEvents * ResourceRates.FERTILIZER_KG_PER_HA_PER_STEP;
+        double fertilizerInput = fertilizerApplied;
         double leached = soil.getLeachedNitrogenKgPerHa();
         double finalN = soil.getNitrogenKgPerHa();
         double initialN = 90.0;
@@ -348,16 +357,16 @@ class ModelDiagnosticReportTest {
 
         System.out.println();
         System.out.println("--- 自证：复现结果必须与评测档 P2 已记录值一致 ---");
-        System.out.printf("  果实干重 %.4f（评测记录 257.7174）%n", crop.getWFruit());
+        System.out.printf("  果实干重 %.4f（评测记录 258.3636）%n", crop.getWFruit());
         System.out.printf("  高温暴露 %d min（评测记录 29490）%n", highTempMinutes);
-        System.out.printf("  病害压力积分 %.1f（评测记录 5434560.0）%n", diseasePressureIntegral);
-        System.out.printf("  利润 %.4f 元（评测记录 1669.9892）%n", economics.getProfitYuan());
+        System.out.printf("  病害压力积分 %.1f（评测记录 5455711.7）%n", diseasePressureIntegral);
+        System.out.printf("  利润 %.4f 元（评测记录 1665.3248）%n", economics.getProfitYuan());
 
-        assertEquals(257.7174, crop.getWFruit(), 0.01,
+        assertEquals(258.3636, crop.getWFruit(), 0.01,
                 "复现失败：本测试的循环与评测平台不一致，下面的内部量不能代表被测模型");
         assertEquals(29490L, highTempMinutes, "复现失败：高温暴露不一致");
-        assertEquals(5434560.0, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
-        assertEquals(1669.9892, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
+        assertEquals(5455711.7, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
+        assertEquals(1665.3248, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
     }
 
     private double clamp(double value, double lower, double upper) {

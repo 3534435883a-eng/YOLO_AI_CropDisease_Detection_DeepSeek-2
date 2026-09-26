@@ -1,5 +1,6 @@
 package com.example.Ece.agent.engine;
 
+import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.model.DecisionPlan;
 import com.example.Ece.agent.model.DeviceCommand;
@@ -53,7 +54,13 @@ public class TomatoDecisionPolicy {
                     "SHADE_HEAT", 2, "高温或强光，启用遮阳降低热负荷", "ENERGY", "0.100", urgent));
             reasons.add("遮阳降低热负荷");
         }
-        if (state.getSoilMoisturePct() <= 45.0) {
+        // 灌溉触发阈值取「田间持水量 × 85%」，出处：马志军等《水氮互作对设施番茄土壤氮平衡及
+        // 氮素利用效率的影响研究》（北京水务 2024(5)，DOI 10.19671/j.1673-4637.2024.05.002）
+        // ——该文结论为设施番茄适宜灌水下限为田间持水量的 85%。
+        // 此前固定用 45 %vol，只相当于田间持水量（75 %vol）的 60%：灌溉明显偏晚，
+        // 作物在灌前要经历一段水分胁迫。该胁迫此前不可见（因土壤水分口径不一致），修好后才发现。
+        if (state.getSoilMoisturePct() <= SoilParameters.FIELD_CAPACITY_PCT
+                * SoilParameters.IRRIGATION_TRIGGER_FRACTION_OF_FC) {
             commands.put(AgentDeviceCodes.IRRIGATION, command(AgentDeviceCodes.IRRIGATION, true,
                     "IRRIGATE_DRY", 1, "土壤水分偏低，执行小水滴灌", "WATER", "60.000", urgent));
             reasons.add("补充土壤水分");

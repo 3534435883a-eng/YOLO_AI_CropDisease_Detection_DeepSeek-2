@@ -95,6 +95,12 @@ public class ParameterRegistry {
 
     private static final String FAO56_URL = "https://www.fao.org/4/X0490E/x0490e07.htm";
 
+    /** 设施番茄水氮论文（北京水务 2024(5)）的 DOI 链接，用于追肥量与灌水下限两项。 */
+    private static final String TOMATO_WATER_NITROGEN_DOI = "https://doi.org/10.19671/j.1673-4637.2024.05.002";
+
+    private static final String TOMATO_WATER_NITROGEN_SOURCE =
+            "马志军等《水氮互作对设施番茄土壤氮平衡及氮素利用效率的影响研究》，北京水务 2024 年第 5 期";
+
     private static final List<ClassSpec> CLASSES = Collections.unmodifiableList(Arrays.asList(
             new ClassSpec(SoilParameters.class, "SOIL", "土壤水肥参数（模型 1）",
                     ParameterProvenance.Status.UNVERIFIED_LITERATURE,
@@ -147,6 +153,19 @@ public class ParameterRegistry {
                 "由假设有效根深 0.25 m 与种植床尺寸折算，非实测", null);
         add(map, "ENG", "GREENHOUSE_AIR_VOLUME_M3", "棚内空气体积", "m³",
                 ParameterProvenance.Status.UNVERIFIED_LITERATURE, "按演示棚体尺寸近似", null);
+        // 以下三项来自设施番茄水氮论文，是登记表里少数**带可解析 DOI 出处**的参数。
+        add(map, "SOIL", "IRRIGATION_TRIGGER_FRACTION_OF_FC", "灌水下限（田间持水量的比例）", null,
+                ParameterProvenance.Status.VERIFIED,
+                TOMATO_WATER_NITROGEN_SOURCE + "：设施番茄适宜灌水下限为田间持水量的 85%",
+                TOMATO_WATER_NITROGEN_DOI);
+        add(map, "SOIL", "SEASON_TOPDRESSING_KG_PER_HA", "一季追肥总量", "kg/hm²",
+                ParameterProvenance.Status.VERIFIED,
+                TOMATO_WATER_NITROGEN_SOURCE + "：适宜追肥量为 171 kg/hm²",
+                TOMATO_WATER_NITROGEN_DOI);
+        add(map, "SOIL", "TOPDRESSING_APPLICATIONS", "一季追肥次数", "次",
+                ParameterProvenance.Status.VERIFIED,
+                TOMATO_WATER_NITROGEN_SOURCE + "：分 2 次追施（第 1 果、第 2 果膨大期）",
+                TOMATO_WATER_NITROGEN_DOI);
         return map;
     }
 

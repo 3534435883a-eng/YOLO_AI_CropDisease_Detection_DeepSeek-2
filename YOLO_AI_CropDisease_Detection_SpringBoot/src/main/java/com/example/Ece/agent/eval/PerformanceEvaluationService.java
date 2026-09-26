@@ -1,5 +1,6 @@
 package com.example.Ece.agent.eval;
 
+import com.example.Ece.agent.crop.CropStage;
 import com.example.Ece.agent.crop.TomatoCropGrowthModel;
 import com.example.Ece.agent.crop.TomatoCropState;
 import com.example.Ece.agent.eco.DiseaseKind;
@@ -9,6 +10,7 @@ import com.example.Ece.agent.eco.EconomicsState;
 import com.example.Ece.agent.eco.ManagementEconomicsModel;
 import com.example.Ece.agent.eco.PestDiseaseEpidemicModel;
 import com.example.Ece.agent.eco.ResourceUsage;
+import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.eco.SoilState;
 import com.example.Ece.agent.eco.SoilWaterNutrientModel;
 import com.example.Ece.agent.engine.PidControlPolicy;
@@ -157,10 +159,13 @@ public class PerformanceEvaluationService {
                 ResourceUsage usage = usageOf(devices, decision.duties);
                 double stress = clamp(soil.getNutrientFactor(), 0.0, 1.0)
                         * clamp(disease.getDiseaseDamageFactor(), 0.0, 1.0);
+                // 记录施肥前的生育期，用于捕捉"进入坐果期/果实膨大期"的转变——追肥按论文分 2 次，
+                // 分别落在第 1 果与第 2 果的膨大节点上（见 fertilizerOf）。
+                CropStage stageBefore = crop.getStage();
                 crop = cropModel.advance(crop, coupled, STEP_MINUTES, stress);
                 boolean irrigating = Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION));
                 soil = soilModel.advance(soil, coupled, crop, STEP_MINUTES, irrigating,
-                        fertilizerOf(strategy, step, day, irrigating));
+                        fertilizerOf(strategy, step, day, irrigating, stageBefore, crop.getStage()));
                 disease = epidemicModel.advance(disease, coupled, crop, STEP_MINUTES);
                 economics = economicsModel.advance(economics, usage, crop, disease, STEP_MINUTES);
 
@@ -510,14 +515,34 @@ public class PerformanceEvaluationService {
         return duty == null ? 1.0 : clamp(duty.doubleValue(), 0.0, 1.0);
     }
 
-    private double fertilizerOf(EvaluationStrategy strategy, int step, int day, boolean irrigating) {
+    /**
+     * 施肥量（kg/ha）。规则/智能体/连续控制档按**论文的追肥制度**：
+     * 一季 {@code SEASON_TOPDRESSING_KG_PER_HA = 171 kg/hm²}，分 {@code TOPDRESSING_APPLICATIONS = 2} 次，
+     * 分别落在进入坐果期与果实膨大期时（对应论文的"第 1 果直径 1.5~2.5 cm""第 2 果直径 2~3 cm"两个节点，
+     * 模型的 {@code CropStage} 是可比拟的最接近代理）。
+     *
+     * <p>出处：马志军等《水氮互作对设施番茄土壤氮平衡及氮素利用效率的影响研究》，
+     * 北京水务 2024(5)，DOI 10.19671/j.1673-4637.2024.05.002。</p>
+     *
+     * <p>此前按"每次灌溉施 0.02 kg/ha"摊在全季，累计约 26.8 kg/ha，比论文推荐值低约 6.4 倍——
+     * 这是速效氮季内见底、养分因子长期钳在下限的直接原因。</p>
+     */
+    private double fertilizerOf(EvaluationStrategy strategy, int step, int day, boolean irrigating,
+                                CropStage stageBefore, CropStage stageAfter) {
         if (strategy == EvaluationStrategy.P0_NONE) {
             return 0.0;
         }
         if (strategy == EvaluationStrategy.P1_FIXED_MANUAL) {
             return (day % 7 == 0 && step == 0) ? ResourceRates.MANUAL_FERTILIZER_KG_PER_HA_PER_WEEK : 0.0;
         }
-        return irrigating ? ResourceRates.FERTILIZER_KG_PER_HA_PER_STEP : 0.0;
+        // 生育期只进不退（TomatoCropGrowthModel.resolveStage），因此这个转变每季恰好各触发一次，
+        // 一季合计正好等于论文的 171 kg/hm²。
+        boolean enteringTopdressingStage = stageBefore != stageAfter
+                && (stageAfter == CropStage.FRUIT_SET || stageAfter == CropStage.FRUIT_GROWTH);
+        if (!enteringTopdressingStage) {
+            return 0.0;
+        }
+        return SoilParameters.SEASON_TOPDRESSING_KG_PER_HA / SoilParameters.TOPDRESSING_APPLICATIONS;
     }
 
     private Map<String, Object> seriesEntry(int day, SimulationState env, SoilState soil, TomatoCropState crop,

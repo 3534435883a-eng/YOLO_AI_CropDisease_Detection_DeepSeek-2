@@ -191,8 +191,12 @@ class AgentTwinFrameServiceTest {
         when(repository.findRun(42L)).thenReturn(run);
         AgentJdbcRepository.SnapshotRow previous = new AgentJdbcRepository.SnapshotRow();
         previous.stepNo = 0;
+        // 土壤水分取 70：**高于**灌溉触发阈值（田间持水量 75 × 85% = 63.75，见 SoilParameters
+        // 与马志军等 2024 的灌水下限结论）。本用例的目的是隔离湿帘的水/电记账，
+        // 若土壤取阈值以下会同时触发灌溉，把灌溉用水混进本步的流量测点里，测不出要测的东西。
+        // 湿帘的启停只取决于温湿度（35 ℃ / 55%），不受此项影响。
         previous.state = engine.evaluate(LocalDateTime.of(2026, 9, 21, 14, 0),
-                35, 55, 55, 500, 800, 6.5);
+                35, 55, 70, 500, 800, 6.5);
         when(repository.findLatestSnapshot(42L)).thenReturn(previous);
         List<AgentJdbcRepository.DeviceRow> devices = new ArrayList<>();
         for (String code : AgentDeviceCodes.all()) {
