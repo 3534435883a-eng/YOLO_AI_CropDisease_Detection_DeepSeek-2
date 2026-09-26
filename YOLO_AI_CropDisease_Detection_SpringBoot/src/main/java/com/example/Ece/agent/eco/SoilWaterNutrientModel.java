@@ -2,6 +2,7 @@ package com.example.Ece.agent.eco;
 
 import com.example.Ece.agent.crop.CropStage;
 import com.example.Ece.agent.crop.TomatoCropState;
+import com.example.Ece.agent.crop.TomatoGrowthParameters;
 import com.example.Ece.agent.model.SimulationState;
 import org.springframework.stereotype.Component;
 
@@ -62,25 +63,13 @@ public class SoilWaterNutrientModel {
     /** 排水淋洗氮占“排水量 × 养分下限”的比例。 */
     private static final double LEACHED_NITROGEN_FRACTION = 0.01;
 
-    /** 复合肥中氮的分配比例。 */
-    private static final double FERTILIZER_NITROGEN_SHARE = 0.15;
-
     /** 复合肥中磷的分配比例。 */
     private static final double FERTILIZER_PHOSPHORUS_SHARE = 0.07;
 
     /** 复合肥中钾的分配比例。 */
     private static final double FERTILIZER_POTASSIUM_SHARE = 0.20;
 
-    /**
-     * 干物质 → 养分的换算系数（g·m^-2 折算为 kg/ha）。
-     *
-     * <p>换算链：1 g/m^2 = 10 kg/ha，本模型再乘一次 10 作为根区养分核算的简化放大，
-     * 合计乘 100；这是一处刻意保留的简化，便于与“每 kg 干物质养分带走量”直接相乘。</p>
-     */
-    private static final double DRY_MATTER_TO_NUTRIENT_KG_PER_HA = 100.0;
 
-    /** 每日周转/新生的干物质占现有总干重的比例（用于近似当步作物养分带走量）。 */
-    private static final double DAILY_DRY_MATTER_TURNOVER_RATIO = 0.02;
 
     /** 每 kg/ha 肥料造成的 pH 下降（酸化）。 */
     private static final double PH_ACIDIFICATION_PER_KG_FERTILIZER = 0.0005;
@@ -105,6 +94,41 @@ public class SoilWaterNutrientModel {
      */
     public SoilState initial() {
         return new SoilState(62.0, 1.2, 6.2, 90.0, 45.0, 140.0, 0.0, 0.0, 1.0);
+    }
+
+    /**
+     * 逐生育期**累计**养分吸收比例（0~1），由 GDD 分段线性插值。
+     *
+     * <p>锚点来自褚屿等（2021）的四个采样期，按本模型的 GDD 阈值对齐：
+     * 开花期末（{@code GDD_FLOWERING} 600~{@code GDD_FRUIT_SET} 800 之间取 800）对应 18.68%、
+     * 坐果后期（{@code GDD_FRUIT_GROWTH} 1200）对应 68.08%、成熟（{@code GDD_MATURITY} 1500）对应 100%。
+     * 之后维持 100%（原文未测成熟后的吸收，取其终点）。</p>
+     *
+     * <p><b>两处属本项目假设，需与论文数据分开看</b>：① GDD 0~800 段由 0 线性升到 18.68%——
+     * 原文只给了采样点、没给段内形状；② 把论文的"开花期"采样点对齐到本模型的 GDD 800。
+     * 这两条都写在 {@link com.example.Ece.agent.eco.SoilParameters} 的常量注释里。</p>
+     */
+    static double cumulativeNutrientShare(double gdd) {
+        if (gdd <= 0.0) {
+            return 0.0;
+        }
+        if (gdd <= TomatoGrowthParameters.GDD_FRUIT_SET) {
+            return SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_FLOWERING * gdd / TomatoGrowthParameters.GDD_FRUIT_SET;
+        }
+        if (gdd <= TomatoGrowthParameters.GDD_FRUIT_GROWTH) {
+            double span = TomatoGrowthParameters.GDD_FRUIT_GROWTH - TomatoGrowthParameters.GDD_FRUIT_SET;
+            return SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_FLOWERING
+                    + (SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_LATE_FRUIT_SET
+                            - SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_FLOWERING)
+                            * (gdd - TomatoGrowthParameters.GDD_FRUIT_SET) / span;
+        }
+        if (gdd <= TomatoGrowthParameters.GDD_MATURITY) {
+            double span = TomatoGrowthParameters.GDD_MATURITY - TomatoGrowthParameters.GDD_FRUIT_GROWTH;
+            return SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_LATE_FRUIT_SET
+                    + (1.0 - SoilParameters.NUTRIENT_CUMULATIVE_SHARE_AT_LATE_FRUIT_SET)
+                            * (gdd - TomatoGrowthParameters.GDD_FRUIT_GROWTH) / span;
+        }
+        return 1.0;
     }
 
     /**
@@ -163,24 +187,46 @@ public class SoilWaterNutrientModel {
                 SoilParameters.WILTING_POINT_PCT * MOISTURE_FLOOR_RATIO,
                 SoilParameters.FIELD_CAPACITY_PCT + MOISTURE_HEADROOM_PCT);
 
-        // 5) 养分平衡：施肥投入 - 作物带走 - 排水淋洗
-        //    简化说明：本模型不保存“上一步干重”，无法得到真实增量 ΔW；
-        //    这里按“总干重 × 0.02 / 天 × 时间片”近似当步新生（周转）干物质量，
-        //    再乘单位干物质养分带走量得到养分带走量。该近似是刻意保留的模型简化。
-        double dryMatterTurnover = crop == null
-                ? 0.0
-                : Math.max(0.0, crop.getWTotal()) * DAILY_DRY_MATTER_TURNOVER_RATIO * factor;
-        double nitrogenUptake = SoilParameters.N_PER_KG_DM * dryMatterTurnover * DRY_MATTER_TO_NUTRIENT_KG_PER_HA;
-        double phosphorusUptake = SoilParameters.P_PER_KG_DM * dryMatterTurnover * DRY_MATTER_TO_NUTRIENT_KG_PER_HA;
-        double potassiumUptake = SoilParameters.K_PER_KG_DM * dryMatterTurnover * DRY_MATTER_TO_NUTRIENT_KG_PER_HA;
+        // 5) 养分平衡：矿化 + 施肥 - 作物带走 - 排水淋洗
+        //
+        //    2026-09-26 换掉需求侧。原实现按“总干重 × 2%/天 × 换算系数”估当步带走量，
+        //    该式**随作物生长而放大**，等于“供多少就带走多少”——供给与需求由同一个变量驱动，
+        //    两端一起动，氮收支永远收敛不到有意义的平衡（实测补上矿化项后季末仍为 0）。
+        //
+        //    现按**目标产量 × 每吨带走量 × 逐生育期累积比例**定需求：
+        //      · 目标产量与每吨带走量出自李书田等 2022（设施番茄 n=703，QUEFTS 最佳需求）；
+        //      · 逐生育期累积比例出自褚屿等 2021（开花 18.68% / 坐果后期 68.08% / 成熟 100%）。
+        //    需求只随 **GDD** 前进，与土壤供给和作物生物量都无关，因此两端解耦。
+        //    用累积曲线而非瞬时速率：原文给的就是累积量，且这样不需要每步的 GDD 增量。
+        double removalPerHa = SoilParameters.TARGET_MARKETABLE_YIELD_KG_PER_HA / 1000.0;
+        double cumulativeShare = crop == null ? 0.0 : cumulativeNutrientShare(crop.getGdd());
+        double targetNitrogenUptake = removalPerHa * SoilParameters.NUTRIENT_REMOVAL_N_KG_PER_TONNE * cumulativeShare;
+
+        // 本步带走量 = 目标累计量 - 已累计量。上一次调用已把 base 的累计量置为当时的目标值，
+        // 因此这里不会重复计账；GDD 停涨（如生长受抑）时目标不再前进，带走量自然归零。
+        double nitrogenUptake = Math.max(0.0, targetNitrogenUptake - base.getNitrogenUptakeKgPerHa());
+        double nitrogenUptakeCumulative = Math.max(base.getNitrogenUptakeKgPerHa(), targetNitrogenUptake);
+
+        // 磷钾与氮走**同一条累积曲线**（同一份逐期比例数据），故按每吨带走量的固定比例由氮推出，
+        // 不必各自再存一个累计字段——三个累计量本可以互相换算，分头维护只会给出不一致的机会。
+        double phosphorusUptake = nitrogenUptake
+                * (SoilParameters.NUTRIENT_REMOVAL_P2O5_KG_PER_TONNE / SoilParameters.NUTRIENT_REMOVAL_N_KG_PER_TONNE);
+        double potassiumUptake = nitrogenUptake
+                * (SoilParameters.NUTRIENT_REMOVAL_K2O_KG_PER_TONNE / SoilParameters.NUTRIENT_REMOVAL_N_KG_PER_TONNE);
 
         //    淋洗损失：排水量（%vol）× 养分下限 × 淋洗比例
         double leachedNow = drainagePct * SoilParameters.NUTRIENT_LOW * LEACHED_NITROGEN_FRACTION;
 
+        //    矿化供氮：土壤有机氮分解释放的无机氮，按日速率 × 本步天数计入。
+        //    2026-09-26 新增——此前氮池**只有施肥一个输入**，于是季内必然见底。
+        //    未做温度响应（见 SoilParameters 的说明）。
+        double mineralizedNow = SoilParameters.MINERALIZATION_KG_PER_HA_PER_DAY * factor;
+
         //    注：施肥量按“本次调用的投加量”整份计入养分池（不按 minutes 折算），
         //    与下面按 factor 折算的 EC 增量刻意保持各自规范给定的形式。
         double nitrogenKgPerHa = Math.max(0.0, base.getNitrogenKgPerHa()
-                + doseKgPerHa * FERTILIZER_NITROGEN_SHARE - nitrogenUptake - leachedNow);
+                + mineralizedNow + doseKgPerHa * SoilParameters.FERTILIZER_NITROGEN_SHARE
+                - nitrogenUptake - leachedNow);
         double phosphorusKgPerHa = Math.max(0.0, base.getPhosphorusKgPerHa()
                 + doseKgPerHa * FERTILIZER_PHOSPHORUS_SHARE - phosphorusUptake);
         double potassiumKgPerHa = Math.max(0.0, base.getPotassiumKgPerHa()
@@ -212,7 +258,8 @@ public class SoilWaterNutrientModel {
         double irrigationMmTotal = base.getIrrigationMmTotal() + irrigationMm;
 
         return new SoilState(soilMoisturePct, ecDsPerM, soilPh, nitrogenKgPerHa, phosphorusKgPerHa,
-                potassiumKgPerHa, leachedNitrogenKgPerHa, irrigationMmTotal, nutrientFactor);
+                potassiumKgPerHa, leachedNitrogenKgPerHa, irrigationMmTotal, nutrientFactor,
+                nitrogenUptakeCumulative);
     }
 
     /**

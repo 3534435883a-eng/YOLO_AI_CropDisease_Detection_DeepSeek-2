@@ -47,7 +47,7 @@ class ManagementEconomicsModelTest {
         TomatoCropState crop = cropWithFruit(300.0);
         EconomicsState healthy = model.advance(model.initial(), ResourceUsage.none(), crop,
                 diseaseWithDamage(1.0), 1440);
-        double expectedYieldKg = 300.0 * EconomicsParameters.GREENHOUSE_AREA_M2 / 1000.0
+        double expectedYieldKg = 300.0 * SoilParameters.BED_AREA_M2 / 1000.0
                 / EconomicsParameters.FRUIT_DRY_MATTER_FRACTION;
         assertEquals(expectedYieldKg, healthy.getYieldKg(), 1e-6);
         double gradeA = expectedYieldKg * EconomicsParameters.GRADE_A_RATIO;

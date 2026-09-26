@@ -78,8 +78,18 @@ class SoilWaterNutrientModelTest {
         double nutrientFactor = depleted.getNutrientFactor();
         assertTrue(nutrientFactor >= 0.3, "养分因子不得低于下限 0.3，实际 " + nutrientFactor);
         assertTrue(nutrientFactor <= 1.0, "养分因子不得超过 1.0，实际 " + nutrientFactor);
-        assertTrue(nutrientFactor <= initial.getNutrientFactor() + 1e-9, "无施肥消耗后养分因子不应上升");
-        assertTrue(depleted.getNitrogenKgPerHa() <= initial.getNitrogenKgPerHa(), "作物带走后土壤氮不应增加");
+
+        // 2026-09-26 改：原断言为"无施肥时土壤氮不得增加"。那是在**施肥是唯一氮源**时成立，
+        // 模型补上土壤矿化供氮（SoilParameters.MINERALIZATION_KG_PER_HA_PER_DAY）之后就不再成立——
+        // 作物幼小时带走量低于矿化量，土壤氮**本来就应该上升**。删掉的是过期的前提，
+        // 不是放宽断言；下面换成真正该守的不变量。
+        assertTrue(depleted.getNitrogenKgPerHa() > 0.0, "矿化供氮下无施肥也不应把氮耗尽到 0");
+
+        // 施肥单调性：不施肥的氮池不得高于施肥的。这才是"施肥确实进了氮池"的有效判据。
+        SoilState fertilized = simulate(environment(26.0, 55.0, 620.0), DEPLETION_RUN_STEPS, false, 50.0);
+        assertTrue(fertilized.getNitrogenKgPerHa() > depleted.getNitrogenKgPerHa(),
+                "施肥后的土壤氮应高于不施肥：" + fertilized.getNitrogenKgPerHa()
+                        + " vs " + depleted.getNitrogenKgPerHa());
     }
 
     @Test

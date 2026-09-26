@@ -45,6 +45,4 @@ public final class EconomicsParameters {
     /** 番茄果实干物质率（干重/鲜重）。典型区间 5%–6%，用于把模型输出的果实干重折算为鲜重产量。 */
     public static final double FRUIT_DRY_MATTER_FRACTION = 0.055;
 
-    /** 模拟温室面积（m²），用于把 g/m² 的干重折算为总产量。 */
-    public static final double GREENHOUSE_AREA_M2 = 500.0;
 }

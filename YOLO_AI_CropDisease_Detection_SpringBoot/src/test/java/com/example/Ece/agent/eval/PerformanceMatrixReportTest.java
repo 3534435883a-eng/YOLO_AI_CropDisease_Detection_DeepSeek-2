@@ -41,9 +41,15 @@ class PerformanceMatrixReportTest {
         }
         System.out.println("--- 风险与合规 ---");
         System.out.printf("%-24s %10s %10s %10s %10s %10s %10s%n",
-                "策略", "高温min", "高湿min", "高VPD min", "病害压力", "严重度%", "冲突次数");
+                "策略", "高温min", "高湿min", "高VPD min", "病害压力", "严重度合计", "冲突次数");
+        // 「严重度合计」是 **4 种病害各自严重度之和**，每种上限 EpidemicParameters.MAX_SEVERITY=100，
+        // 合计上限 400。**它不是百分比**——列头原写作"严重度%"，出现过 P1 打印 150.35%
+        // 被读成"150% 作物发病"的误读（2026-09-26）。它也不是线性面积占比：
+        // 生长抑制由 1 − 合计/200 得到，故合计到 200 时作物生长已归零。
         for (EvaluationStrategy strategy : EvaluationStrategy.values()) {
             EvaluationOutcome o = batch.getOutcomes().get(strategy);
+            assertTrue(o.getFinalSeverityTotal() <= 4.0 * 100.0,
+                    "严重度合计不得超过「病害种类数 × 单病上限」：" + o.getFinalSeverityTotal());
             System.out.printf("%-24s %10d %10d %10d %10.1f %10.2f %10d%n",
                     strategy.name(), o.getHighTemperatureMinutes(), o.getHighHumidityMinutes(),
                     o.getHighVpdMinutes(), o.getDiseasePressureIntegral(), o.getFinalSeverityTotal(),

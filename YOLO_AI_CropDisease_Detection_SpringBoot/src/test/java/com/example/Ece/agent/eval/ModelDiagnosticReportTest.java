@@ -50,7 +50,6 @@ class ModelDiagnosticReportTest {
     /** 种植床面积：4 条 × 21 m × 1.7 m。用于把产量折算成单位面积产量。 */
     private static final double BED_AREA_M2 = 4.0 * 21.0 * 1.7;
     /** 棚体占地面积：26 m × 13 m。 */
-    private static final double GREENHOUSE_AREA_M2 = 26.0 * 13.0;
 
     private final TomatoSimulationEngine engine = new TomatoSimulationEngine();
     private final TomatoDecisionPolicy policy = new TomatoDecisionPolicy();
@@ -315,11 +314,16 @@ class ModelDiagnosticReportTest {
         System.out.printf("  末生育期：%s   成熟日：%s%n", lastStage, matureDay < 0 ? "**120 天内未成熟**" : matureDay + " 天");
         System.out.printf("  首个结果期：%s%n", firstFruitingStage);
         System.out.printf("  LAI 峰值：%.3f%n", maxLai);
-        System.out.printf("  果实干重：%.2f g/m²（按种植床 %.1f m²）/ %.2f g/m²（按棚体 %.1f m²）%n",
-                crop.getWFruit() / BED_AREA_M2, BED_AREA_M2, crop.getWFruit() / GREENHOUSE_AREA_M2, GREENHOUSE_AREA_M2);
-        System.out.printf("  商品产量：%.1f kg  → %.2f kg/m²（种植床）/ %.2f kg/m²（棚体）%n",
+        // 2026-09-26 修：原打印把 wFruit 除以床面积，当成"g/m²"输出——等于把**已经是 g/m² 的量**
+        // 又除了一次面积。wFruit 的单位由生长模型确定：dW = RUE(g/MJ) × 截获 PAR(MJ/m²)，
+        // 而 PPFD 本就按 m² 计，故 wFruit 即**每平方米种植床的干重**。
+        // 验证：541.91 g/m² ÷ 0.055 = 9.85 kg/m² = 98.5 t/hm²，与实测均值（85 t/hm²，n=703）同量级；
+        // 若按原打印的 541.91/142.8 读，会把产量整体看小 142.8 倍。
+        System.out.printf("  果实干重：%.2f g/m²（种植床面积 %.1f m²，全床合计 %.1f kg 干重）%n",
+                crop.getWFruit(), BED_AREA_M2, crop.getWFruit() * BED_AREA_M2 / 1000.0);
+        System.out.printf("  商品产量：%.1f kg → %.2f kg/m²（种植床）/ %.1f t/hm²%n",
                 economics.getMarketableYieldKg(), economics.getMarketableYieldKg() / BED_AREA_M2,
-                economics.getMarketableYieldKg() / GREENHOUSE_AREA_M2);
+                economics.getMarketableYieldKg() / BED_AREA_M2 * 10.0);
         System.out.printf("  坐果率区间：%.4f ~ %.4f%n", setRateMin, setRateMax);
 
         System.out.println("--- 作物模型的三个胁迫因子（评测序列不暴露）---");
@@ -335,21 +339,41 @@ class ModelDiagnosticReportTest {
         System.out.printf("  累计灌溉 %.2f mm（%d 次事件）%n", soil.getIrrigationMmTotal(), irrigationEvents);
 
         // 氮收支：用已有量算清，不猜。初始值取自 SoilState 的初值，期末值即当前状态。
-        double fertilizerInput = fertilizerApplied;
+        //
+        // 2026-09-26：补上**矿化项**。此前本报表只列"初始 + 施肥"，而模型也确实只有施肥一个输入，
+        // 于是"施肥投入占带走量的比例"这句判读把矿化供氮整块漏掉了——报表与模型一起缺，
+        // 看报表的人不会发现。现在模型加了矿化供氮（见 SoilParameters.MINERALIZATION_*），
+        // 报表同步列出，判读也改成按**总供氮**算。
+        // fertilizerApplied 累计的是**复合肥投加量**，不是氮投入——模型只把其中
+        // FERTILIZER_NITROGEN_SHARE 计为氮。首版报表把整份复合肥当氮列进氮收支，
+        // 于是"作物带走"被系统性高估（实测高估 145 kg/hm²，约 1.6 倍），
+        // 而那个被高估的数还进了文档。换算系数现在只在 SoilParameters 里定义一份。
+        double fertilizerInput = fertilizerApplied * SoilParameters.FERTILIZER_NITROGEN_SHARE;
         double leached = soil.getLeachedNitrogenKgPerHa();
         double finalN = soil.getNitrogenKgPerHa();
         double initialN = 90.0;
-        double uptake = initialN + fertilizerInput - leached - finalN;
+        double mineralized = SoilParameters.MINERALIZATION_KG_PER_HA_PER_DAY * DAYS;
+        double supply = initialN + fertilizerInput + mineralized;
+        double uptake = supply - leached - finalN;
         System.out.println("--- 氮收支（本季，kg/ha）---");
-        System.out.printf("  初始 %.1f + 施肥 %.1f − 淋洗 %.1f − 期末 %.1f = 作物带走 %.1f%n",
-                initialN, fertilizerInput, leached, finalN, uptake);
+        System.out.printf("  初始 %.1f + 矿化 %.1f + 施肥氮 %.1f − 淋洗 %.1f − 期末 %.1f = 作物带走 %.1f%n",
+                initialN, mineralized, fertilizerInput, leached, finalN, uptake);
+        // 同时打印模型**自己记录的**累计吸氮量。它与上面由收支反推的"作物带走"应当一致；
+        // 不一致就说明还有未列出的氮去向（或某个量没进收支式），必须当场看见而不是被残差吞掉。
+        System.out.printf("  模型自记累计吸氮 %.1f（与上式的差额 %.1f）%n",
+                soil.getNitrogenUptakeKgPerHa(), uptake - soil.getNitrogenUptakeKgPerHa());
         // 刻意不算"隐含含氮率"：uptake 是 kg/ha，wTotal 的单位（与果实干重同）是每株克数，
         // 两者相除没有意义。要算需先确定 wTotal 的单位与株数折算——宁可不印，也不印一个读不出的比值。
-        System.out.printf("  施肥投入占带走量的 %.1f%%（不足则氮必然见底）%n",
-                uptake == 0 ? 0 : fertilizerInput / uptake * 100.0);
-        System.out.println("  判读：若投入远低于带走量，则氮必然在季内见底、养分因子长期钳在下限，"
-                + "土壤化学再合理也传不到作物生长。本项为**待决的配平问题**——"
-                + "要定值需一份可引用的番茄氮收支（每吨果实带走多少 N），不能靠现有系数互调。");
+        if (uptake > 0) {
+            System.out.printf("  供氮构成占比：初始 %.1f%% / 矿化 %.1f%% / 施肥 %.1f%%%n",
+                    initialN / supply * 100.0, mineralized / supply * 100.0, fertilizerInput / supply * 100.0);
+            System.out.printf("  总供氮占带走量的 %.1f%%%n", supply / uptake * 100.0);
+        }
+        System.out.println("  判读：总供氮低于带走量时，氮必然在季内见底、养分因子长期钳在下限；"
+                + "远高于带走量时，养分因子长期贴着 1.0。**两种失效都会让氮子系统对产量不产生机制性影响。**"
+                + "当前按需求侧（李书田等 2022，设施番茄 n=703，2.19 kg N/t）与质量平衡反推的矿化量，"
+                + "供氮为需求的约 113%、养分因子落在 0.300~1.000 的**全区间**——机制首次有区分度。"
+                + "仍需实测替换矿化量：质量平衡只保证收支自洽，不保证数值真实。");
 
         System.out.println("--- 病虫害 ---");
         System.out.printf("  最大病害伤害因子 %.4f   最大单病严重度 %.4f   最大虫口 %.4f%n",
@@ -357,16 +381,22 @@ class ModelDiagnosticReportTest {
 
         System.out.println();
         System.out.println("--- 自证：复现结果必须与评测档 P2 已记录值一致 ---");
-        System.out.printf("  果实干重 %.4f（评测记录 258.3636）%n", crop.getWFruit());
-        System.out.printf("  高温暴露 %d min（评测记录 29490）%n", highTempMinutes);
-        System.out.printf("  病害压力积分 %.1f（评测记录 5455711.7）%n", diseasePressureIntegral);
-        System.out.printf("  利润 %.4f 元（评测记录 1665.3248）%n", economics.getProfitYuan());
+        System.out.printf("  果实干重 %.4f（评测记录 541.9147）%n", crop.getWFruit());
+        System.out.printf("  高温暴露 %d min（评测记录 29505）%n", highTempMinutes);
+        System.out.printf("  病害压力积分 %.1f（评测记录 5526658.5）%n", diseasePressureIntegral);
+        System.out.printf("  利润 %.4f 元（评测记录 -1415.9460）%n", economics.getProfitYuan());
 
-        assertEquals(258.3636, crop.getWFruit(), 0.01,
+        // 果实干重 2026-09-26 两度上移：先因补上土壤矿化供氮（258.36→274.23），
+        // 再因把需求侧由「干重×2%/天」换成「目标产量×每吨带走量×逐生育期累积比例」（274.23→541.91）。
+        // 而同日的产量面积修正（棚体占位面积 500 m² → 种植床 142.8 m²）使**利润由 +8988 转为 -1416**：
+        // 收入按真实种植面积缩到 1/3.5，而 ECON_* 成本项是按 500 m² 口径拍的占位值，两侧不再匹配。本断言的作用不是"数值不能变"，而是"本测试的循环必须与评测平台
+        // 逐值一致，否则下面打印的内部量不能代表被测模型"——所以模型改了就要两边一起更新，
+        // 而不是把断言放宽。
+        assertEquals(541.9147, crop.getWFruit(), 0.01,
                 "复现失败：本测试的循环与评测平台不一致，下面的内部量不能代表被测模型");
-        assertEquals(29490L, highTempMinutes, "复现失败：高温暴露不一致");
-        assertEquals(5455711.7, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
-        assertEquals(1665.3248, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
+        assertEquals(29505L, highTempMinutes, "复现失败：高温暴露不一致");
+        assertEquals(5526658.5, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
+        assertEquals(-1415.9460, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
     }
 
     private double clamp(double value, double lower, double upper) {

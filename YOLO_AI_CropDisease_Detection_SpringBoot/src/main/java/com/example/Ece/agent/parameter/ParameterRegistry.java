@@ -101,6 +101,21 @@ public class ParameterRegistry {
     private static final String TOMATO_WATER_NITROGEN_SOURCE =
             "马志军等《水氮互作对设施番茄土壤氮平衡及氮素利用效率的影响研究》，北京水务 2024 年第 5 期";
 
+    /** 需求量侧的正经出处：全国尺度 QUEFTS 汇总，登记表里质量最高的一条来源。 */
+    private static final String VEGETABLE_NUTRIENT_UPTAKE_DOI =
+            "https://doi.org/10.19928/j.cnki.1000-6346.2022.2001";
+
+    private static final String VEGETABLE_NUTRIENT_UPTAKE_SOURCE =
+            "李书田等《我国主要蔬菜的养分吸收和需求特征》，《中国蔬菜》2022"
+                    + "（中国农科院农业资源与农业区划研究所，国家重点研发计划 2016YFD0200103）";
+
+    /** 逐生育期吸收比例的出处：单篇田间试验，样本量远小于上面那条。 */
+    private static final String NUTRIENT_UPTAKE_CURVE_DOI =
+            "https://doi.org/10.11838/sfsc.1673-6257.19595";
+
+    private static final String NUTRIENT_UPTAKE_CURVE_SOURCE =
+            "褚屿等《番茄对氮磷钾及中微量元素的吸收规律研究》，《中国土壤与肥料》2021(1)";
+
     private static final List<ClassSpec> CLASSES = Collections.unmodifiableList(Arrays.asList(
             new ClassSpec(SoilParameters.class, "SOIL", "土壤水肥参数（模型 1）",
                     ParameterProvenance.Status.UNVERIFIED_LITERATURE,
@@ -166,6 +181,51 @@ public class ParameterRegistry {
                 ParameterProvenance.Status.VERIFIED,
                 TOMATO_WATER_NITROGEN_SOURCE + "：分 2 次追施（第 1 果、第 2 果膨大期）",
                 TOMATO_WATER_NITROGEN_DOI);
+        // ⚠️ 级别为「未核实」而非 VERIFIED，尽管它有 DOI。
+        // 2026-09-26 复核该论文表 5 后发现：10 个处理的「初始」与「矿化氮」几乎逐对相等
+        //（750.0/750.2、740.2/738.5、535.2/536.2、802.1/801.8…），相关系数接近 1——
+        // 这不是两次独立测定能得到的，矿化氮极可能是由同一份土壤氮测定推出的，而非矿化培养实测。
+        // 同一张表的输出侧还靠占输入 98% 的「其他损失」残差配平，
+        // 且「作物氮 14.10 kg/hm²」对 39.8 t/hm² 的产量折合 0.35 kg N/t，比常见值低一个量级——
+        // 说明该表整体是配平推演而非实测量表。**有个 DOI 不等于这个数可引用**，
+        // 这正是 ParameterProvenance 要区分「有链接」与「可引用」的原因。
+        add(map, "SOIL", "TARGET_MARKETABLE_YIELD_KG_PER_HA", "目标商品产量（需求侧产量基准）", "kg/hm²",
+                ParameterProvenance.Status.VERIFIED,
+                "李书田等《我国主要蔬菜的养分吸收和需求特征》，《中国蔬菜》2022：设施番茄 n=703，"
+                        + "平均产量 85.0 t/hm²。注意本模型作物模型可推演出约 177 t/hm²，"
+                        + "故按此产量计的养分需求对本模型是保守下界",
+                VEGETABLE_NUTRIENT_UPTAKE_DOI);
+        add(map, "SOIL", "NUTRIENT_REMOVAL_N_KG_PER_TONNE", "每吨果实氮带走量", "kg N/t",
+                ParameterProvenance.Status.VERIFIED,
+                VEGETABLE_NUTRIENT_UPTAKE_SOURCE + "：QUEFTS 最佳养分需求量 N 2.19 kg/t",
+                VEGETABLE_NUTRIENT_UPTAKE_DOI);
+        add(map, "SOIL", "NUTRIENT_REMOVAL_P2O5_KG_PER_TONNE", "每吨果实磷带走量", "kg P₂O₅/t",
+                ParameterProvenance.Status.VERIFIED,
+                VEGETABLE_NUTRIENT_UPTAKE_SOURCE + "：最佳需求量 P 0.56 kg/t（元素态），×2.291 折为 P₂O₅",
+                VEGETABLE_NUTRIENT_UPTAKE_DOI);
+        add(map, "SOIL", "NUTRIENT_REMOVAL_K2O_KG_PER_TONNE", "每吨果实钾带走量", "kg K₂O/t",
+                ParameterProvenance.Status.VERIFIED,
+                VEGETABLE_NUTRIENT_UPTAKE_SOURCE + "：最佳需求量 K 3.36 kg/t（元素态），×1.205 折为 K₂O",
+                VEGETABLE_NUTRIENT_UPTAKE_DOI);
+        add(map, "SOIL", "NUTRIENT_CUMULATIVE_SHARE_AT_FLOWERING", "开花期累计吸氮比例", null,
+                ParameterProvenance.Status.VERIFIED,
+                NUTRIENT_UPTAKE_CURVE_SOURCE + "：开花期累计吸收占全生育期 18.68%",
+                NUTRIENT_UPTAKE_CURVE_DOI);
+        add(map, "SOIL", "NUTRIENT_CUMULATIVE_SHARE_AT_LATE_FRUIT_SET", "坐果后期累计吸氮比例", null,
+                ParameterProvenance.Status.VERIFIED,
+                NUTRIENT_UPTAKE_CURVE_SOURCE + "：坐果后期累计吸收占全生育期 68.08%（成熟期为 100%）",
+                NUTRIENT_UPTAKE_CURVE_DOI);
+        // 该值为**质量平衡反推**，不是实测：需求侧 186.2 由李书田等（2022，n=703）给出，
+        // 初始 90、淋洗 22.2 取自模型自身，施肥氮 25.7 = 171×0.15，解出矿化 92.7。
+        // 之所以不用马志军等（2024）表 5 的 750，见 SoilParameters 中该常量的注释（两条独立理由）。
+        add(map, "SOIL", "MINERALIZATION_KG_PER_HA_PER_DAY", "土壤矿化供氮速率（一季均摊）", "kg N/(hm²·d)",
+                ParameterProvenance.Status.UNVERIFIED_LITERATURE,
+                "**质量平衡反推值，非实测**：= 作物带走 186.2（李书田等 2022，设施番茄 n=703，"
+                        + "2.19 kg N/t × 85 t/hm²）+ 淋洗 22.2 − 初始 90 − 施肥氮 25.7，得 92.7 kg/(hm²·季)，"
+                        + "按 120 天均摊为 0.7725。反推值落在农业土壤矿化常见区间（50~150 kg/(hm²·季)）；"
+                        + "未采用马志军等（2024）表 5 的 750（该表矿化氮与初始氮近逐对相等、疑似配平推演，"
+                        + "且量级不在常见区间；采用它会使供氮达需求的 465%、作物产量推演到 633 t/hm²）",
+                null);
         return map;
     }
 

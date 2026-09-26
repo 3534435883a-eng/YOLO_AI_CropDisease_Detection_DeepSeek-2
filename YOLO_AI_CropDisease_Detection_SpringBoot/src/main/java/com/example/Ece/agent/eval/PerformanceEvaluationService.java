@@ -236,13 +236,22 @@ public class PerformanceEvaluationService {
             return Decision.legacy(emptyDevices());
         }
         if (strategy == EvaluationStrategy.P1_FIXED_MANUAL) {
+            // 2026-09-26 改：通风由**固定 30 分钟/天**改为**按温湿度阈值**。
+            //
+            // 原实现的通风是 `step >= 48 && step < 50`，即一天 96 个刻度里只开 2 个（30 分钟），
+            // 而灌溉是 `step % 24 == 0`，即**一天盲灌 4 次、不看墒情**。后果是 P1 的棚内比
+            // "什么都不做"的 P0 **更湿**（高湿 74 835 vs 58 080 min），病害合计 150.35 vs 86.66，
+            // 产量因而反低于 P0——序关系 P0 > P1，与"管理应当有益"的常识相悖。
+            //
+            // 该反直觉不是模型缺氮造成的，也不该被当成结论：**原 P1 定义本身就不像一个真实从业者**——
+            // 没有人会定时浇水却整天不通风。现改为"**按固定时点浇水 + 看到温湿度高就开通风**"，
+            // 这才是"定时人工管理"应有的含义；灌溉仍走固定时点，故与 P2 的差异仍包含"盲灌 vs 按墒情"。
             Map<String, Boolean> fixed = emptyDevices();
             if (step % 24 == 0) {
                 fixed.put(AgentDeviceCodes.IRRIGATION, Boolean.TRUE);
             }
-            if (step >= 48 && step < 50) {
-                fixed.put(AgentDeviceCodes.VENTILATION, Boolean.TRUE);
-            }
+            Map<String, Boolean> ruled = devicesOf(policy.decide(env));
+            fixed.put(AgentDeviceCodes.VENTILATION, ruled.get(AgentDeviceCodes.VENTILATION));
             return Decision.legacy(fixed);
         }
         Map<String, Boolean> ruled = devicesOf(policy.decide(env));

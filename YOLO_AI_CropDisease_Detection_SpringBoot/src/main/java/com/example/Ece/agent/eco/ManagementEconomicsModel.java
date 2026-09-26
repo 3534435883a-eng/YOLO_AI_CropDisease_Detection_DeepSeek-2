@@ -49,7 +49,17 @@ public class ManagementEconomicsModel {
 
         double damageFactor = disease == null ? 1.0 : clamp(disease.getDiseaseDamageFactor(), 0.0, 1.0);
         double fruitDryGramPerM2 = crop == null ? 0.0 : Math.max(0.0, crop.getWFruit());
-        double yieldKg = fruitDryGramPerM2 * EconomicsParameters.GREENHOUSE_AREA_M2 / GRAMS_PER_KILOGRAM
+        // 2026-09-26 修：产量折算原来乘的是 `EconomicsParameters.GREENHOUSE_AREA_M2 = 500`
+        // （登记为"示例值"的占位棚体面积），而 `crop.getWFruit()` 的单位是**每平方米种植床**的干重。
+        // 用棚体面积乘，等于把"每平方米床"的量当成"每平方米棚"的量再乘棚体面积——产量被放大约 3.5 倍
+        // （500 / 142.8）。实证：修前 P2 折合 345 t/hm²，而全国设施番茄实测均值（李书田等 2022，
+        // n = 703）为 85 t/hm²；修后 P2 折合 98.5 t/hm²，落回可解释范围。
+        //
+        // 项目文档早就写过这条规则（见 SoilParameters.BED_AREA_M2 的注释：
+        // "与作物相关的折算（单位面积产量、灌溉水深）都该用床面积而非棚体面积"），
+        // 此处是漏改的一处。**两处用不同面积还会让"产量"与"kg/m²"自相矛盾**：
+        // 生产规划报告里的 kg/m² 除的是床面积（142.8），而产量本身乘的是 500。
+        double yieldKg = fruitDryGramPerM2 * SoilParameters.BED_AREA_M2 / GRAMS_PER_KILOGRAM
                 / EconomicsParameters.FRUIT_DRY_MATTER_FRACTION;
         double marketableYieldKg = yieldKg * damageFactor;
         double gradeAKg = marketableYieldKg * EconomicsParameters.GRADE_A_RATIO;
