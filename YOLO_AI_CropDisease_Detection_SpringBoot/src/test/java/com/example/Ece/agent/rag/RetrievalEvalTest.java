@@ -498,6 +498,61 @@ class RetrievalEvalTest {
         }
         System.out.println();
 
+        // ---- 成本/行情类知识是否真的"可检索" ----
+        // 赛题写的领域是"生产、营销、管理和服务"，而此前库里的非病害知识只有农事与水肥，
+        // 成本与行情一个类别都没有。2026-09-27 加了 INPUT_COST 类别与一份官方农资价格来源后，
+        // 必须验证**它真的能被问到**——入库了却检索不到或仍被判低分，等于没加。
+        // 实测这几句的口语化程度不同，结果也不同，故逐句打印（输出保持 ASCII，见上文编码说明）。
+        //
+        // **必须在"组合语料"上量**：本评测原本只索引 {@code /corpus/disease-corpus.json}
+        // （legacy disease 表 100 条 → 338 块），而生产库是 445 块——**标准/论文/药剂/农资价格
+        // 这些非病害知识从来不在本评测的索引里**。也就是说，本轮之前所有"加了标准但指标没变"
+        // 的观察，都不能说明那些知识可检索或不可检索：它们根本不在被测集合内。
+        // 这里临时把 CitedKnowledgeReader 的条目一并切块，才能量到真实可达性。
+        List<KnowledgeChunk> augmented = new ArrayList<KnowledgeChunk>(chunks);
+        for (KnowledgeSourceEntry entry : new CitedKnowledgeReader().readAll()) {
+            augmented.addAll(chunker.chunk(entry.getRecord().getSourceTable(), entry.getRecord().getSourceId(),
+                    entry.getRecord().getCropType(), entry.getRecord().getDiseaseName(),
+                    entry.getRecord().getFields()));
+        }
+        KnowledgeRetriever wide = new KnowledgeRetriever(probe.client, new KnowledgeEntityLexicon());
+        wide.rebuild(augmented);
+        System.out.println("[COST-RETRIEVAL] legacyChunks=" + chunks.size()
+                + " augmentedChunks=" + augmented.size());
+        String[] costQueries = {
+                "复合肥什么价格", "现在化肥什么价", "尿素多少钱一吨", "化肥价格走势"
+        };
+        int costTop5 = 0;
+        int costAnswerable = 0;
+        for (int i = 0; i < costQueries.length; i++) {
+            RetrievalResult r = wide.retrieve(costQueries[i], "番茄", 5);
+            String top = r.getItems().isEmpty()
+                    ? "none" : r.getItems().get(0).getChunk().getFieldType().name();
+            boolean inputCostInTop5 = false;
+            for (ScoredChunk item : r.getItems()) {
+                if (item.getChunk().getFieldType() == KnowledgeChunk.FieldType.INPUT_COST) {
+                    inputCostInTop5 = true;
+                    break;
+                }
+            }
+            System.out.printf("[COST-RETRIEVAL] q#%d lowScore=%s matched=%d coverage=%.2f top=%s inputCostInTop5=%s%n",
+                    i, wide.isLowScore(r), r.getMaxChunkMatchedTerms(), r.getQueryCoverage(),
+                    top, inputCostInTop5);
+            if (inputCostInTop5) {
+                costTop5++;
+            }
+            if (!wide.isLowScore(r)) {
+                costAnswerable++;
+            }
+        }
+        System.out.println();
+        assertTrue(costTop5 == costQueries.length,
+                "成本/行情条目应稳定进入 Top-5，实测 " + costTop5 + "/" + costQueries.length);
+        // 「尿素多少钱一吨」实测 matched=1 → 判低分。这是**已知边界**而非回归：
+        // 共现词数阈值 MIN_CHUNK_TERMS=2 对 6 字以内的短问句偏严，与口语化组 93.8% 未误拒同源。
+        assertTrue(costAnswerable >= 3,
+                "成本类问句可作答数过低，实测 " + costAnswerable + "/" + costQueries.length);
+
         // 别名专项：用"农户口语别名"代替规范作物名提问（如把 马铃薯 说成 土豆），
         // 考察查询归一化是否能让检索不受别名影响。
         // 别名专项（只测**真正会踩到别名问题**的两种场景）：

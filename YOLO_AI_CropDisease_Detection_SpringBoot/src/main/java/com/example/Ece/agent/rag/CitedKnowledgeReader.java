@@ -57,6 +57,12 @@ public class CitedKnowledgeReader {
      *   <li>**分档施肥**一份（天津 DB12）——给出按目标产量换算的施肥法，是"个性化"的落地形式；</li>
      *   <li>**育苗与营养液**各一份（辽宁 DB21、山西 DB14）——补齐育苗期粒度与 EC/pH 目标区间。</li>
      * </ul>
+     *
+     * <p>2026-09-27 追加一份**非标准**来源：辽宁省农业农村厅的《主要农资产品价格简讯》
+     *（{@code market-input-price-liaoning-2026w38.json}）。加它的原因是赛题写的领域是
+     * "生产、**营销、管理和服务**"，而库里的非病害知识此前只有农事与水肥，
+     * **成本与行情一个类别都没有**（{@code field_type} 里没有可以落的地方）。
+     * 该来源满足本读取器的全部要求：官方发布、有可核对 URL、有发布日期与数值口径。</p>
      */
     private static final String[] RESOURCES = {
             "/knowledge/standards-nyt5449.json",
@@ -67,7 +73,8 @@ public class CitedKnowledgeReader {
             "/knowledge/standards-db21t3417.json",
             "/knowledge/standards-db14t1700.json",
             "/knowledge/papers-tomato-npk-uptake.json",
-            "/knowledge/standards-pesticide-tomato.json"
+            "/knowledge/standards-pesticide-tomato.json",
+            "/knowledge/market-input-price-liaoning-2026w38.json"
     };
 
     public List<KnowledgeSourceEntry> readAll() {

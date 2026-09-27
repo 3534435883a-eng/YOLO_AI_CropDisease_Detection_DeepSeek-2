@@ -47,7 +47,8 @@ class CitedKnowledgeReaderTest {
         assertEquals(new HashSet<String>(Arrays.asList(
                 "std-nyt5449-2026", "std-db37t1849-2026", "std-db61t1422-2021",
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
-                "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft")), codes);
+                "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft",
+                "market-ln-input-price-2026w38")), codes);
     }
 
     /**
@@ -112,7 +113,7 @@ class CitedKnowledgeReaderTest {
                 KnowledgeChunk.FieldType.CULTIVATION, KnowledgeChunk.FieldType.WATER_FERT,
                 KnowledgeChunk.FieldType.ENVIRONMENT, KnowledgeChunk.FieldType.CTRL_AGRI,
                 KnowledgeChunk.FieldType.CTRL_PHYS, KnowledgeChunk.FieldType.CTRL_BIO,
-                KnowledgeChunk.FieldType.CTRL_CHEM)) {
+                KnowledgeChunk.FieldType.CTRL_CHEM, KnowledgeChunk.FieldType.INPUT_COST)) {
             assertTrue(used.contains(expected), "标准清单里缺类别 " + expected);
         }
     }
@@ -127,7 +128,8 @@ class CitedKnowledgeReaderTest {
                 KnowledgeChunk.FieldType.CULTIVATION, KnowledgeChunk.FieldType.WATER_FERT,
                 KnowledgeChunk.FieldType.ENVIRONMENT, KnowledgeChunk.FieldType.CTRL_AGRI,
                 KnowledgeChunk.FieldType.CTRL_PHYS, KnowledgeChunk.FieldType.CTRL_BIO,
-                KnowledgeChunk.FieldType.CTRL_CHEM, KnowledgeChunk.FieldType.OTHER)) {
+                KnowledgeChunk.FieldType.CTRL_CHEM, KnowledgeChunk.FieldType.OTHER,
+                KnowledgeChunk.FieldType.INPUT_COST)) {
             assertTrue(!type.isDiseaseField(), type + " 不应被判为病害类");
         }
     }
@@ -196,6 +198,13 @@ class CitedKnowledgeReaderTest {
         assertTrue(all.contains("吡噻菌胺 20% 悬浮剂 **65 mL**"), "缺灰霉病药剂用量");
         // 「征求意见稿」这个身份必须逐条带出——它是本清单最大的使用边界
         assertTrue(all.contains("征求意见稿"), "缺征求意见稿的身份说明");
+
+        // 辽宁省农业农村厅农资价格简讯：成本侧唯一的官方数值来源
+        assertTrue(all.contains("1747.50 元/吨"), "缺尿素全国出厂均价");
+        assertTrue(all.contains("3425.00 元/吨"), "缺 15-15-15 复合肥全国出厂均价");
+        assertTrue(all.contains("4775.00 元/吨"), "缺磷酸二铵全国出厂均价");
+        assertTrue(all.contains("2026-09-14 至 09-18"), "缺监测期——价格离开日期就没有意义");
+        assertTrue(all.contains("低于农户实际到手价"), "缺「出厂价不等于到手价」的口径提示");
     }
 
     /**

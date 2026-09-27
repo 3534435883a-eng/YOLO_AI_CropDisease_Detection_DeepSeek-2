@@ -117,6 +117,8 @@ public class KnowledgeChunker {
                 return "生物防治";
             case CTRL_CHEM:
                 return "化学防治";
+            case INPUT_COST:
+                return "投入品成本";
             default:
                 return "其他";
         }
