@@ -113,4 +113,25 @@ class KnowledgeSearchToolTest {
         assertEquals(10, ((List<?>) output.get("citations")).size(),
                 "工具不得按模型参数无限放大返回条数");
     }
+    /**
+     * 工具自述必须覆盖库里**真实存在**的类别。
+     *
+     * <p>2026-09-27 实测：原描述只写"作物病害知识库…用于回答病害识别、症状判断与防治方案问题"，
+     * 于是问「定植后这一周该做哪些农事管理」时，规划步**只调了温室状态工具、从未调用本工具**，
+     * 回答"知识库当前缺少该主题的依据"——而库里已有 53 块番茄农事知识。**系统拒答了它答得出的问题。**</p>
+     *
+     * <p>这条断言把"描述"与"库内容"绑在一起：库加了栽培/水肥/环境/防治/成本这些类别之后，
+     * 描述里必须相应出现它们的说法，否则规划步会再次被引开。
+     * 与 {@code prescription.draft} 那次是同一类错误的两个方向（那次工具**多报**了能力）。</p>
+     */
+    @Test
+    void descriptionCoversNonDiseaseKnowledgeCategories() {
+        String description = new KnowledgeSearchTool(null, null).description();
+        for (String keyword : new String[]{"栽培", "水肥", "环境", "防治"}) {
+            assertTrue(description.contains(keyword),
+                    "工具自述漏了库里已有的类别「" + keyword + "」，规划步会因此不检索：" + description);
+        }
+        assertTrue(description.contains("农事管理"),
+                "工具自述未点明农事管理用途——这正是实测被拒答的那类问题：" + description);
+    }
 }
