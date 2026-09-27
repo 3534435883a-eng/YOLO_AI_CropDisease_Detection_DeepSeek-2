@@ -49,7 +49,8 @@ class CitedKnowledgeReaderTest {
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
                 "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft",
                 "market-ln-input-price-2026w38", "std-db41t998-2014", "std-db41t1004-2014",
-                "std-db37t4057-2020", "std-db37t1851-2026")), codes);
+                "std-db37t4057-2020", "std-db37t1851-2026", "std-db1306t176-2021",
+                "std-db12t1357-2024")), codes);
     }
 
     /**
@@ -213,6 +214,12 @@ class CitedKnowledgeReaderTest {
         assertTrue(all.contains("20~25 m³/667m²"), "缺小麦单次灌水量");
         assertTrue(all.contains("氮肥基追比例 5:5"), "缺夏玉米氮肥基追比");
         assertTrue(all.contains("氮肥基追比例 4:6"), "缺小麦氮肥基追比");
+
+        // 苹果与葡萄（2026-09-27 第二批）：这两份都是附录里的逐生育期方案表
+        assertTrue(all.contains("26-12-12"), "缺苹果萌芽—开花期配方");
+        assertTrue(all.contains("15-15-30") && all.contains("9-10-38"), "缺苹果膨大期配方序列");
+        assertTrue(all.contains("14-6-40"), "缺葡萄转色期高钾配方");
+        assertTrue(all.contains("成熟前一个月内应严格控制灌水量"), "缺葡萄易裂果品种的控水边界");
     }
 
     /**

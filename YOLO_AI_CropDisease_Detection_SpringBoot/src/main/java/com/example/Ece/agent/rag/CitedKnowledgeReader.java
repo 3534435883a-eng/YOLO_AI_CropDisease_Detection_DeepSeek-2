@@ -81,7 +81,9 @@ public class CitedKnowledgeReader {
             "/knowledge/standards-db41t998-corn.json",
             "/knowledge/standards-db41t1004-wheat.json",
             "/knowledge/standards-db37t4057-potato.json",
-            "/knowledge/standards-db37t1851-strawberry.json"
+            "/knowledge/standards-db37t1851-strawberry.json",
+            "/knowledge/standards-db1306t176-apple.json",
+            "/knowledge/standards-db12t1357-grape.json"
     };
 
     public List<KnowledgeSourceEntry> readAll() {
