@@ -74,7 +74,14 @@ public class CitedKnowledgeReader {
             "/knowledge/standards-db14t1700.json",
             "/knowledge/papers-tomato-npk-uptake.json",
             "/knowledge/standards-pesticide-tomato.json",
-            "/knowledge/market-input-price-liaoning-2026w38.json"
+            "/knowledge/market-input-price-liaoning-2026w38.json",
+            // 2026-09-27：其余 8 种作物此前**只有病害知识、农事类为 0**，问"这一周该怎么管"
+            // 必然落到"依据不足"。先入"水肥一体化"这一批——它与番茄 DB37/T 1849 同型，
+            // 是唯一按生育期给水量与折纯养分量的形态，能直接把水肥处方从"给不出"变成"给得出"。
+            "/knowledge/standards-db41t998-corn.json",
+            "/knowledge/standards-db41t1004-wheat.json",
+            "/knowledge/standards-db37t4057-potato.json",
+            "/knowledge/standards-db37t1851-strawberry.json"
     };
 
     public List<KnowledgeSourceEntry> readAll() {

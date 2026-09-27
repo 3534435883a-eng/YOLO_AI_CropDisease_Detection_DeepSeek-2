@@ -48,7 +48,8 @@ class CitedKnowledgeReaderTest {
                 "std-nyt5449-2026", "std-db37t1849-2026", "std-db61t1422-2021",
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
                 "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft",
-                "market-ln-input-price-2026w38")), codes);
+                "market-ln-input-price-2026w38", "std-db41t998-2014", "std-db41t1004-2014",
+                "std-db37t4057-2020", "std-db37t1851-2026")), codes);
     }
 
     /**
@@ -205,6 +206,13 @@ class CitedKnowledgeReaderTest {
         assertTrue(all.contains("4775.00 元/吨"), "缺磷酸二铵全国出厂均价");
         assertTrue(all.contains("2026-09-14 至 09-18"), "缺监测期——价格离开日期就没有意义");
         assertTrue(all.contains("低于农户实际到手价"), "缺「出厂价不等于到手价」的口径提示");
+
+        // 其余作物的水肥制度（2026-09-27）：这几条是把"另 8 种作物农事类为 0"补起来的依据
+        assertTrue(all.contains("90 m³/667m²"), "缺马铃薯全生育期总灌水量");
+        assertTrue(all.contains("194 m³/667m²"), "缺日光温室草莓灌溉定额");
+        assertTrue(all.contains("20~25 m³/667m²"), "缺小麦单次灌水量");
+        assertTrue(all.contains("氮肥基追比例 5:5"), "缺夏玉米氮肥基追比");
+        assertTrue(all.contains("氮肥基追比例 4:6"), "缺小麦氮肥基追比");
     }
 
     /**
