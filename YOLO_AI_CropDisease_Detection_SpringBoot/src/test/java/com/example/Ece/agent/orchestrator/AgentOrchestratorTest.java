@@ -90,6 +90,72 @@ class AgentOrchestratorTest {
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
     }
 
+    /**
+     * 域内但库缺依据时，**允许用模型自身通用知识作答**，且必须带出处声明。
+     *
+     * <p>2026-09-27 政策调整：此前"无可靠证据"一律拒答。用户要求放开——让模型在库缺时也能
+     * 用学到的通用农艺知识回答。放开的判据是"本轮是否命中过关键词"：
+     * 命中过说明问题落在农业域内（只是库里依据不足），零命中说明问题与农业语料毫无交集。</p>
+     */
+    @Test
+    void answersFromGeneralKnowledgeWhenDomainMatchedButEvidenceWeak() {
+        List<KnowledgeChunk> corpus = new ArrayList<KnowledgeChunk>();
+        corpus.add(new KnowledgeChunk("disease", 1L, "番茄", "番茄早疫病",
+                KnowledgeChunk.FieldType.SYMPTOM, 0, 0, "番茄叶片出现褐色轮纹斑。", "h1"));
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                return history.toString().contains("已提供") || history.size() > 3
+                        ? "{\"tool\":\"FINALIZE\",\"input\":{}}"
+                        : "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"褐色的问题要怎么处理呢请问\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return AgentOrchestrator.GENERAL_KNOWLEDGE_BANNER
+                        + "\n棚内湿度高时应优先通风降湿，并在结果期避免叶面长时间带水。需人工确认。";
+            }
+        };
+        AgentOrchestrator orchestrator = new AgentOrchestrator(registryWith(corpus), llm);
+        AgentResult result = orchestrator.run("gk1", "褐色的问题要怎么处理呢请问", "番茄", null);
+
+        assertEquals(AgentResult.Status.DONE, result.getStatus(), "域内库缺时应放开为通用知识作答");
+        String reason = null;
+        for (AgentStepEvent event : result.getEvents()) {
+            if ("final".equals(event.getType())) {
+                reason = String.valueOf(event.getPayload().get("reason"));
+            }
+        }
+        assertEquals("GENERAL_KNOWLEDGE", reason, "终态原因码应标明这是通用知识回答");
+        assertTrue(result.getAnswer().startsWith(AgentOrchestrator.GENERAL_KNOWLEDGE_BANNER),
+                "通用知识回答必须带出处声明，实得：" + result.getAnswer());
+        assertTrue(result.getCitations().isEmpty(), "通用知识回答不得带引用编号");
+    }
+
+    /**
+     * **没带出处声明就不放行**：宁可拒答，也不能让"通用经验"被读成"知识库依据"。
+     */
+    @Test
+    void refusesWhenGeneralKnowledgeAnswerLacksTheProvenanceBanner() {
+        List<KnowledgeChunk> corpus = new ArrayList<KnowledgeChunk>();
+        corpus.add(new KnowledgeChunk("disease", 1L, "番茄", "番茄早疫病",
+                KnowledgeChunk.FieldType.SYMPTOM, 0, 0, "番茄叶片出现褐色轮纹斑。", "h1"));
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                return history.toString().contains("已提供") || history.size() > 3
+                        ? "{\"tool\":\"FINALIZE\",\"input\":{}}"
+                        : "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"褐色的问题要怎么处理呢请问\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return "棚内湿度高时应优先通风降湿。";   // 故意不带声明
+            }
+        };
+        AgentOrchestrator orchestrator = new AgentOrchestrator(registryWith(corpus), llm);
+        AgentResult result = orchestrator.run("gk2", "褐色的问题要怎么处理呢请问", "番茄", null);
+
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus(),
+                "未带出处声明的通用知识回答不得放行");
+    }
+
     @Test
     void renumbersAndDeduplicatesCitationsAcrossToolCalls() {
         AgentToolRegistry registry = registryWith(Arrays.asList(

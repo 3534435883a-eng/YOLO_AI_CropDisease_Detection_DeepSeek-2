@@ -325,6 +325,9 @@ function answerKind(status: TurnStatus, reason?: string): string {
 	}
 	if (status === 'error') return '执行失败';
 	if (status === 'running') return '生成中';
+	// 库缺依据时改用模型自身通用知识作答（2026-09-27 起）：仍是 DONE，但必须与
+	// "有知识库依据的结论"区分开，否则用户会把模型经验读成有出处的结论。
+	if (reason === 'GENERAL_KNOWLEDGE') return '通用经验（未引用知识库）';
 	return '结论';
 }
 
@@ -339,6 +342,7 @@ function reasonLabel(reason: string): string {
 		AUTO_EXECUTION_CLAIM: '回答声称已自动执行设备，被安全守门拦下',
 		LLM_ERROR: '大模型调用失败',
 		ANSWER_EMPTY: '模型未能生成回答（输出被截断或为空），请重试',
+		GENERAL_KNOWLEDGE: '未引用知识库：以下为模型掌握的通用农艺经验，需人工确认',
 		KNOWLEDGE_INSUFFICIENT: '资料库不足：知识库中没有该检测类别的可核对条目',
 		NEED_CROP: '需要先确认作物（同名类别在多个作物上都存在）',
 		STREAM_ERROR: '流式连接异常',

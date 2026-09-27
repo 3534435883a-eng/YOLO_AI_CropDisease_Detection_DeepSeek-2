@@ -125,6 +125,10 @@ public class KnowledgeSearchTool implements AgentTool {
         output.put("degradedReason", result.getDegradedReason());
         output.put("topScore", Double.valueOf(result.getTopScore()));
         output.put("lowScore", Boolean.valueOf(lowScore));
+        // 关键词命中数是编排层区分「离题」与「库缺」的唯一现成信号（2026-09-27 起公开）：
+        // 0 命中 = 整个问题与农业语料毫无交集（如"写一首诗"）→ 仍应直接拒答；
+        // >0 而低分 = 问题在域内、只是库里依据不足 → 允许模型用自身通用知识作答（须带出处声明）。
+        output.put("bm25HitCount", Integer.valueOf(result.getBm25HitCount()));
         // 无可用证据时给出**具体原因**：编排层会把它拼进拒答文案。
         // 用户看到的不该只是一句笼统的"没有可靠依据"，而要能分辨是"库里根本没这段"还是
         // "检索到了但相关性不够"——前者是资料缺口，后者往往换个问法就有。
@@ -139,12 +143,13 @@ public class KnowledgeSearchTool implements AgentTool {
                     + "建议核实名称、改问该作物已收录的病害，或联系当地农技人员。";
             output.put("unknownEntity", unknownEntity);
             output.put("note", message);
-            // 走**工具级终态**，不做查询改写重试：改写很可能把「黄秆虫」换成库里有条目的
-            // 另一种害虫，于是模型会针对那个害虫组织一篇有引用、可核对、**但答非所问**的回答。
-            // 检索层已确认这个名字不在语料里，换个说法不会让它出现，重试只是把拒答变成错答。
-            output.put("terminal", Boolean.TRUE);
-            output.put("terminalReason", "ENTITY_NOT_IN_KNOWLEDGE");
-            output.put("terminalAnswer", message);
+            // **2026-09-27 政策调整：这里不再走工具级终态。**
+            // 原先一旦发现"问题点名的病/虫库里没有"就直接终止本轮、拒答——它把难负样本拒答率
+            // 从 16.7% 拉到 94.4%，但也**把"放开提示词"这条新政策挡在门外**：实测
+            //「番茄脐腐病怎么防」在这里被拦下，永远走不到通用知识作答那一步。
+            // 现改为"低分 + 把缺什么说清楚"，由编排层裁决：命中过关键词 → 用模型自身通用农艺
+            // 知识作答（必须带出处声明）；零命中（离题）→ 仍直接拒答。
+            // 原终态真正要防的是"拿名字相近的病害替代作答"，那件事改由作答指令第 6 条明文禁止。
             output.put("inputDigest",
                     KnowledgeChunker.sha256(query + "|" + (crop == null ? "" : crop) + "|" + topN));
             return output;

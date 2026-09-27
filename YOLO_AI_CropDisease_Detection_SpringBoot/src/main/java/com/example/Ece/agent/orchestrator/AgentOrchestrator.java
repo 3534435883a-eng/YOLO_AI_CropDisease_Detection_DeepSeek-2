@@ -85,6 +85,33 @@ public class AgentOrchestrator {
                     + "请重试一次；若反复失败请检查模型服务配置。这不是知识库缺少依据。";
 
     /**
+     * 通用知识回答的**出处声明**（2026-09-27 新增）。
+     *
+     * <p>政策调整：此前"无可靠证据"一律拒答。用户要求放开——让模型在库缺时也能用自身
+     * 学到的通用农艺知识作答。放开的方式是**加声明，而不是取消边界**：回答第一行必须原样
+     * 写出这句话，编排层**逐字校验**，没带就不放行——宁可拒答，也不能让"通用经验"
+     * 被读成"知识库依据"。</p>
+     */
+    public static final String GENERAL_KNOWLEDGE_BANNER = "【以下不来自本项目知识库，属通用农艺经验】";
+
+    /**
+     * 通用知识作答步的指令。
+     *
+     * <p>三条硬边界保留：<b>不给药剂剂量</b>（留给当地登记与产品标签）、
+     * <b>不声称已执行设备操作</b>、<b>结尾提示人工确认</b>。放开的是"能不能答"，
+     * 不是"能不能给出具体用药量"。</p>
+     */
+    private static final String GENERAL_KNOWLEDGE_INSTRUCTION =
+            "本轮**没有检索到可引用的本项目知识库依据**。请改用你自身掌握的通用农艺知识回答，但必须遵守：\n"
+                    + "1. 回答的**第一行**必须是下面这句，一字不改：" + GENERAL_KNOWLEDGE_BANNER + "\n"
+                    + "2. 不得给出任何具体药剂名称、剂量、稀释倍数或安全间隔期——那条线只能由当地登记与产品标签决定；\n"
+                    + "3. 不得声称已执行任何设备操作；\n"
+                    + "4. 结尾必须提示需人工确认并遵循当地登记与用药规范；\n"
+                    + "5. 若通用知识也不足以回答，就直接说依据不足，不要编；\n"
+                    + "6. 若问题点名的病/虫/主题在本项目知识库中没有条目，**必须明确指出这一点**，"
+                    + "并说明下面给的是通用经验——**不得用名字相近的其他病害替代作答**。";
+
+    /**
      * 作答阶段的系统提示。
      *
      * <p><b>为什么必须单独一套</b>：规划阶段的系统提示写着"每一步只输出一个 JSON"，
@@ -185,6 +212,9 @@ public class AgentOrchestrator {
         List<Map<String, Object>> citations = new ArrayList<Map<String, Object>>();
         List<ScoredChunk> evidenceChunks = new ArrayList<ScoredChunk>();
         boolean reliableEvidence = false;
+        // 本轮是否**命中过关键词**（农业域内的信号）。用于区分两种"没有可靠证据"：
+        // 关键词零命中 = 问题与农业语料毫无交集（离题）；有命中而低分 = 域内但库缺依据。
+        boolean sawKeywordHits = false;
         boolean degradedSeen = false;
         // 工具给出的"解释性说明"（如视觉类别对应哪条知识、为何没有依据）。
         // 有证据时喂给作答步以便回答点明依据来源；无证据时如实写进拒答文案，
@@ -244,6 +274,10 @@ public class AgentOrchestrator {
             List<Map<String, Object>> stepCitations = new ArrayList<Map<String, Object>>();
             Object rawCitations = output.get("citations");
             boolean lowScore = Boolean.TRUE.equals(output.get("lowScore"));
+            Object rawHits = output.get("bm25HitCount");
+            if (rawHits instanceof Number && ((Number) rawHits).intValue() > 0) {
+                sawKeywordHits = true;
+            }
             if (rawCitations instanceof List) {
                 stepCitations.addAll((List<Map<String, Object>>) rawCitations);
             }
@@ -324,6 +358,29 @@ public class AgentOrchestrator {
         // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，
         // 也不给模型"顺手编个结论"的机会——这条路径的答案本来就会被丢弃。
         if (!reliableEvidence) {
+            // 2026-09-27 政策调整：**不再一律拒答**。若检索确实命中过关键词（问题落在农业域内、
+            // 只是库里依据不足），就允许模型用自身通用农艺知识作答——但回答必须逐字带出处声明。
+            // 关键词零命中（如"帮我写一首诗"）仍直接拒答：那不是知识缺口，是不该答的问题。
+            if (sawKeywordHits) {
+                List<Map<String, Object>> generalHistory = new ArrayList<Map<String, Object>>(history);
+                generalHistory.add(message("user", GENERAL_KNOWLEDGE_INSTRUCTION));
+                String general = null;
+                try {
+                    general = unwrapAnswer(llmClient.compose(composeHistory(generalHistory)));
+                } catch (RuntimeException error) {
+                    general = null;
+                }
+                // 逐字校验出处声明：没带就不放行。宁可拒答，也不能让"通用经验"被读成"知识库依据"。
+                if (general != null && general.contains(GENERAL_KNOWLEDGE_BANNER)) {
+                    GuardrailCheck generalGuardrail =
+                            guardrailService.check(general, new ArrayList<ScoredChunk>(), degradedSeen);
+                    if (generalGuardrail.isAllowed()) {
+                        return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                                AgentResult.Status.DONE, "GENERAL_KNOWLEDGE", general);
+                    }
+                    blockReason = generalGuardrail.getReason();
+                }
+            }
             String refusal = observations.isEmpty() ? REFUSAL_ANSWER
                     : REFUSAL_ANSWER + "（" + String.join("；", observations) + "）";
             return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
@@ -429,8 +486,17 @@ public class AgentOrchestrator {
         // 但循环随后仍可能凭已有证据成功作答——若原样透传，成功回答就会挂着
         // "DUPLICATE_TOOL_CALL" 这类内部原因（2026-09-26 真实会话落库后发现：
         // agent_chat_history 出现 status=DONE 而 refusal_reason=DUPLICATE_TOOL_CALL）。
-        // reason 只对非 DONE 终态有意义。
-        payload.put("reason", status == AgentResult.Status.DONE ? null : reason);
+        // reason 只对非 DONE 终态有意义——**唯一例外是 GENERAL_KNOWLEDGE**：
+        // 它不是内部故障码，而是**回答性质**的标记（"这段是模型自己的通用知识，不来自知识库"）。
+        // 若也按 DONE 一律清空，客户端无法标注、审计记录里也留不下痕迹，
+        // 那"未引用知识库"就成了无痕的——而它恰恰是放开提示词后最需要被看见的一件事。
+        boolean generalKnowledge = status == AgentResult.Status.DONE
+                && "GENERAL_KNOWLEDGE".equals(reason);
+        payload.put("reason", status == AgentResult.Status.DONE
+                ? (generalKnowledge ? reason : null) : reason);
+        if (generalKnowledge) {
+            payload.put("generalKnowledge", Boolean.TRUE);
+        }
         payload.put("citationCount", Integer.valueOf(kept.size()));
         payload.put("steps", Integer.valueOf(executed));
         AgentStepEvent finalEvent = new AgentStepEvent("final", executed, null, finalAnswer, payload);
