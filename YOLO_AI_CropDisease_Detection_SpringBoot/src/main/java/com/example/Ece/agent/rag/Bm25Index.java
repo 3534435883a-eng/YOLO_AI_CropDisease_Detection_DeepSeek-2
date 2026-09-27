@@ -123,6 +123,42 @@ public class Bm25Index {
         return new LinkedHashSet<String>(tokenizer.tokenize(query)).size();
     }
     /**
+     * 指定作物下的病名清单（去重），含**去掉作物前缀的短名**。
+     *
+     * <p>供 {@link UnknownEntityDetector} 判断"问题里点名的病/虫在语料里是否真的存在"。
+     * 之所以要连短名一起收：语料里的病名带作物前缀（「番茄早疫病」），而问句里常只写
+     * 「早疫病」；只保留全名会把正常提问判成未知、造成误拒。</p>
+     *
+     * <p>作物过滤规则与 {@code KnowledgeRetriever.filterByCrop} 保持一致：
+     * 块的作物为空视为通配，否则要求互相包含。</p>
+     *
+     * @param cropType 作物；null 或空表示不限作物（返回全部病名）
+     */
+    public Set<String> diseaseInventoryOf(String cropType) {
+        Set<String> inventory = new LinkedHashSet<String>();
+        String crop = cropType == null ? null : cropType.trim();
+        boolean scoped = crop != null && !crop.isEmpty();
+        for (KnowledgeChunk chunk : documents) {
+            String chunkCrop = chunk.getCropType();
+            if (scoped && chunkCrop != null && !chunkCrop.trim().isEmpty() && !chunkCrop.contains(crop)) {
+                continue;
+            }
+            String name = chunk.getDiseaseName();
+            if (name == null || name.trim().isEmpty()) {
+                continue;
+            }
+            inventory.add(name.trim());
+            if (scoped && name.startsWith(crop)) {
+                String shortName = name.substring(crop.length()).trim();
+                if (shortName.length() >= 2) {
+                    inventory.add(shortName);
+                }
+            }
+        }
+        return inventory;
+    }
+
+    /**
      * 查询词覆盖率（IDF 加权）：命中词的权重和 / 全部查询词权重和。
      *
      * <p>用于回答"这个问题到底有多少内容落在语料里"。仅判断"有没有命中"过于宽松——

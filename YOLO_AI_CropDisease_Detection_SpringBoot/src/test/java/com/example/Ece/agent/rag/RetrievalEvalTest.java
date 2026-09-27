@@ -431,6 +431,73 @@ class RetrievalEvalTest {
                 KnowledgeRetriever.MIN_CHUNK_TERMS);
         System.out.println();
 
+        // ---- 「问题点名的病/虫不在语料中」信号（**纯测量，先不接判据**）----
+        // 前三个被撤除的信号都是统计量（词频、覆盖率、余弦），它们问"像不像"，
+        // 因而在口语化长问句上与负样本重叠。本信号问的是**存在问题**：
+        // 问题里那个病/虫，本作物语料里到底有没有。先量误标率与命中率，再决定是否接判据。
+        int unknownPositiveHitsCount = 0;
+        int unknownPositiveTotal = 0;
+        List<String> unknownPositiveSamples = new ArrayList<String>();
+        for (int i = 0; i < Math.min(PREFIX_QUESTIONS, usable.size()); i++) {
+            JSONObject record = usable.get(i);
+            RetrievalResult o = retriever.retrieve(cut(record.getString("symptom"), 60),
+                    record.getString("crop"), 3);
+            unknownPositiveTotal++;
+            if (o.getUnknownEntityToken() != null) {
+                unknownPositiveHitsCount++;
+                unknownPositiveSamples.add("症状前缀/" + record.getString("crop")
+                        + "「" + o.getUnknownEntityToken() + "」");
+            }
+        }
+        for (String[] row : COLLOQUIAL) {
+            if (row[1] == null) {
+                continue;
+            }
+            RetrievalResult o = retriever.retrieve(row[2], row[0], 3);
+            unknownPositiveTotal++;
+            if (o.getUnknownEntityToken() != null) {
+                unknownPositiveHitsCount++;
+                unknownPositiveSamples.add("口语/" + row[0] + "「" + o.getUnknownEntityToken() + "」");
+            }
+        }
+        int unknownHardHit = 0;
+        List<String> unknownHardMisses = new ArrayList<String>();
+        for (int rowIndex = 0; rowIndex < HARD_NEGATIVE_QUERIES.length; rowIndex++) {
+            String[] row = HARD_NEGATIVE_QUERIES[rowIndex];
+            RetrievalResult o = retriever.retrieve(row[1], row[0], 3);
+            if (o.getUnknownEntityToken() != null) {
+                unknownHardHit++;
+            } else {
+                // 只报序号与作物：问句是中文，经 GBK 控制台会乱码，序号足以定位
+                unknownHardMisses.add("#" + (rowIndex + 1) + "(" + row[0] + ")");
+            }
+        }
+        // 输出刻意全用 ASCII：本机控制台是 GBK，中文诊断行会被转码毁掉，
+        // 而这几个数字正是要读的东西。病名本身另起一行原样打印，读不到也不影响判定。
+        System.out.printf("[UNKNOWN-ENTITY] positives_mislabeled=%d/%d%n",
+                unknownPositiveHitsCount, unknownPositiveTotal);
+        for (String sample : unknownPositiveSamples) {
+            // 把非 ASCII 转成反斜杠-u 加四位十六进制：控制台是 GBK，中文直出会乱码，
+            // 转义后换任何编码都能读回。（注释里也不能出现反斜杠-u 序列——
+            // Java 的 Unicode 转义预处理会连注释一起扫，编译期直接报"非法的 Unicode 转义"。）
+            StringBuilder escaped = new StringBuilder();
+            for (int ci = 0; ci < sample.length(); ci++) {
+                char ch = sample.charAt(ci);
+                if (ch < 0x80) {
+                    escaped.append(ch);
+                } else {
+                    escaped.append(String.format("\\u%04x", (int) ch));
+                }
+            }
+            System.out.println("[UNKNOWN-ENTITY]   false-positive: " + escaped);
+        }
+        System.out.printf("[UNKNOWN-ENTITY] hard_negatives_flagged=%d/%d%n",
+                unknownHardHit, HARD_NEGATIVE_QUERIES.length);
+        for (String miss : unknownHardMisses) {
+            System.out.println("[UNKNOWN-ENTITY]   missed: " + miss);
+        }
+        System.out.println();
+
         // 别名专项：用"农户口语别名"代替规范作物名提问（如把 马铃薯 说成 土豆），
         // 考察查询归一化是否能让检索不受别名影响。
         // 别名专项（只测**真正会踩到别名问题**的两种场景）：

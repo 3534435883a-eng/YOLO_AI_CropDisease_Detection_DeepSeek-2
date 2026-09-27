@@ -26,6 +26,16 @@ public class RetrievalResult {
      */
     private double topVectorSimilarity;
 
+    /**
+     * 问题里点名的病/虫**在语料中不存在**时的那个词（否则为 null）。
+     *
+     * <p>由检索层在召回后算出（见 {@link UnknownEntityDetector}）。与覆盖率、融合分这类
+     * 统计信号不同，它是个**二值事实**：问题问的那个病/虫，本作物的语料里有没有。
+     * 难负样本（{@code 玉米黄秆虫怎么防治}）能靠「玉米」+「防治」两个通用词通过
+     * 共现判据，但「黄秆虫」在语料里根本不存在——这正是本条要捕捉的。</p>
+     */
+    private String unknownEntityToken;
+
     public RetrievalResult(List<ScoredChunk> items, boolean degraded, String degradedReason,
                            int bm25HitCount, int vectorHitCount, double queryCoverage, double maxChunkCoverage,
                            int maxChunkMatchedTerms) {
@@ -64,6 +74,12 @@ public class RetrievalResult {
 
     /** 由检索层在融合后回填：Top-1 块在向量结果里的原始余弦。 */
     public void setTopVectorSimilarity(double value) { this.topVectorSimilarity = value; }
+
+    /** 问题里点名但语料中不存在的病/虫（null 表示未发现此类问题）。 */
+    public String getUnknownEntityToken() { return unknownEntityToken; }
+
+    /** 由检索层在召回后回填：见字段说明。 */
+    public void setUnknownEntityToken(String value) { this.unknownEntityToken = value; }
 
     public double getTopScore() { return items.isEmpty() ? 0.0 : items.get(0).getScore(); }
 }

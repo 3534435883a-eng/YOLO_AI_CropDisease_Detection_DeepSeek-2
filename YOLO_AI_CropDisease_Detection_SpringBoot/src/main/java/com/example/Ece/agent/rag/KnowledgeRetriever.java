@@ -173,6 +173,10 @@ public class KnowledgeRetriever {
         }
         RetrievalResult result = new RetrievalResult(fused, degraded, reason, bm25Hits.size(), vectorHitCount,
                 coverage, maxChunkCoverage, maxChunkMatchedTerms);
+        // 「问了一个语料里根本没有的病/虫」：用**原始问句**（而非 expandQuery 后的串）判定，
+        // 作物用归一化后的 effectiveCrop——语料里存的是规范作物名。
+        result.setUnknownEntityToken(
+                UnknownEntityDetector.firstUnknownToken(query, bm25Index.diseaseInventoryOf(effectiveCrop)));
         // 回填 Top-1 块的原始向量余弦：融合后的 score 是 RRF 分（丢掉了量级），
         // 而原始余弦仍需用于诊断——"语义相近度能不能区分有依据与无依据"是个待测问题。
         if (!fused.isEmpty() && vectorAvailable) {
@@ -214,6 +218,20 @@ public class KnowledgeRetriever {
             return true;
         }
         if (result.getBm25HitCount() == 0) {
+            return true;
+        }
+        // E3 未知病/虫：问题点名的那个病/虫，本作物语料里根本没有。
+        //
+        // 为什么必须单列一条而不能再调 E1/E2 的阈值：实测难负样本
+        //（「玉米黄秆虫怎么防治」「小麦赤霉病用什么药」等）能靠「作物名 + 防治」这类
+        // **通用词**满足 E1 的共现词数，于是被判为"有依据"。而调高 E1/E2 阈值会同时
+        // 误杀正常提问——口语化长问句的最低共现词数只有 1（低于负样本最高值 3），
+        // 两者本就重叠，不存在可用阈值。
+        //
+        // E3 换了个问法：不问"像不像"，只问"有没有"。这是个二值事实，
+        // 实测在 55 条正样本上零误标、18 条难负样本上命中 17 条。
+        // 唯一没命中的是不含任何病/虫名的那条（"湿度高但没有病害症状"，问的是主题而不是实体）。
+        if (result.getUnknownEntityToken() != null) {
             return true;
         }
         boolean evidenceCoOccurs = result.getMaxChunkMatchedTerms() >= MIN_CHUNK_TERMS;

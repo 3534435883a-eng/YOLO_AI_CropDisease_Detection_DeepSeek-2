@@ -108,6 +108,26 @@ public class KnowledgeSearchTool implements AgentTool {
         // 用户看到的不该只是一句笼统的"没有可靠依据"，而要能分辨是"库里根本没这段"还是
         // "检索到了但相关性不够"——前者是资料缺口，后者往往换个问法就有。
         StringBuilder note = new StringBuilder();
+        String unknownEntity = result.getUnknownEntityToken();
+        if (unknownEntity != null) {
+            // 缺的是**具体的名字**，就把它说出来。笼统的"依据不足"会让农户以为是自己问法
+            // 有问题、反复换说法；指出「黄秆虫」这个条目没收录，才是可执行的反馈。
+            String message = "知识库里没有「" + unknownEntity + "」这个病/虫的条目"
+                    + "（按本次问到的作物范围检索），因此无法就它给出依据。"
+                    + "本系统不用名字相近的其他病害替代作答——那等于答非所问。"
+                    + "建议核实名称、改问该作物已收录的病害，或联系当地农技人员。";
+            output.put("unknownEntity", unknownEntity);
+            output.put("note", message);
+            // 走**工具级终态**，不做查询改写重试：改写很可能把「黄秆虫」换成库里有条目的
+            // 另一种害虫，于是模型会针对那个害虫组织一篇有引用、可核对、**但答非所问**的回答。
+            // 检索层已确认这个名字不在语料里，换个说法不会让它出现，重试只是把拒答变成错答。
+            output.put("terminal", Boolean.TRUE);
+            output.put("terminalReason", "ENTITY_NOT_IN_KNOWLEDGE");
+            output.put("terminalAnswer", message);
+            output.put("inputDigest",
+                    KnowledgeChunker.sha256(query + "|" + (crop == null ? "" : crop) + "|" + topN));
+            return output;
+        }
         if (lowScore) {
             note.append(result.getBm25HitCount() == 0
                     ? "知识库里没有与「" + query + "」匹配的关键词依据（关键词零命中）"
