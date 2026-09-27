@@ -8,9 +8,14 @@ import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.eval.PerformanceEvaluationService;
 import com.example.Ece.agent.rag.CitationFormatter;
+import com.example.Ece.agent.rag.EmbeddingClient;
+import com.example.Ece.agent.rag.EmbeddingUnavailableException;
+import com.example.Ece.agent.rag.KnowledgeChunk;
+import com.example.Ece.agent.rag.KnowledgeRetriever;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +39,26 @@ class ProductionReportToolTest {
 
     private ProductionReportTool tool() {
         return new ProductionReportTool(evaluationService,
-                new PlatformSnapshotEvidence(new CitationFormatter()));
+                new PlatformSnapshotEvidence(new CitationFormatter()), null, new CitationFormatter());
+    }
+
+    /**
+     * 带知识库检索的报告工具：小语料含一条水肥条目，用于验证"报告会带上可落地依据"。
+     *
+     * <p>实测过的故障：不带检索时整份回答**只有 1 条引用**（报告快照本身），
+     * 并写出"水肥结论当前不可用"——而库里水肥与植保条目都是齐的。</p>
+     */
+    private ProductionReportTool toolWithKnowledge() {
+        KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) throws EmbeddingUnavailableException {
+                throw new EmbeddingUnavailableException("down");   // 降级为 BM25，够用
+            }
+        });
+        retriever.rebuild(Arrays.asList(new KnowledgeChunk("standard_db37t1849", 1L, "番茄", "水肥管理",
+                KnowledgeChunk.FieldType.WATER_FERT, 0, 0,
+                "灌溉制度与施肥制度：膜下滴灌，每次每亩浇水 10~12 m³，追肥随水施入", "h1")));
+        return new ProductionReportTool(evaluationService,
+                new PlatformSnapshotEvidence(new CitationFormatter()), retriever, new CitationFormatter());
     }
 
     private Map<String, Object> runWith(int days) throws Exception {
@@ -98,7 +122,45 @@ class ProductionReportToolTest {
         String note = String.valueOf(output.get("note"));
         assertTrue(note.contains("待人工确认"));
         assertTrue(note.contains("不是现场实测"));
-        assertTrue(note.contains("水肥调控结论当前不可用"), "水肥解耦必须写进报告说明");
+        assertTrue(note.contains("引用随本工具一并返回的知识库条目"),
+                "应把模型指向随工具返回的知识库依据，否则它只能拿推演数字凑答案");
+        assertFalse(note.contains("水肥调控结论当前不可用"),
+                "这句是氮池见底时期的旧话——氮收支已自洽，留着它会主动让模型说「水肥给不出」");
+    }
+
+    /**
+     * 报告必须自带可落地依据，而不是只有推演数字。
+     *
+     * <p>2026-09-27 实测：问"给我出一份这季番茄的生产规划报告"时工具链是
+     * {@code report.draft, report.draft}——规划步只调本工具、从不调 knowledge.search，
+     * 于是整份回答只引 1 条（报告快照），并写出"水肥结论当前不可用"。
+     * 这与 {@code prescription.draft} 同型：工具替规划步"包圆"了，检索就再也不会发生。</p>
+     */
+    @Test
+    void reportAttachesKnowledgeEvidenceSoThePlanIsActionable() throws Exception {
+        Map<String, Object> output = toolWithKnowledge().execute(new LinkedHashMap<String, Object>());
+        List<?> citations = (List<?>) output.get("citations");
+        assertTrue(citations.size() > 1,
+                "报告除快照外必须带上知识库依据，实测曾只有 1 条：现在 " + citations.size());
+        boolean hasKnowledge = false;
+        for (Object item : citations) {
+            if ("WATER_FERT".equals(String.valueOf(((Map<?, ?>) item).get("fieldType")))) {
+                hasKnowledge = true;
+            }
+        }
+        assertTrue(hasKnowledge, "引用的知识库条目应来自水肥/栽培等类别");
+        assertFalse(((List<?>) output.get("kbEvidence")).isEmpty(),
+                "kbEvidence 应单独暴露，便于审计「哪些片段进了编号」");
+    }
+
+    /** 没有检索器时不得抛错，只是不带知识库依据——降级要静默且安全。 */
+    @Test
+    void missingRetrieverDegradesToSnapshotOnlyInsteadOfFailing() throws Exception {
+        Map<String, Object> output = tool().execute(new LinkedHashMap<String, Object>());
+        assertEquals(Boolean.TRUE, output.get("available"));
+        assertEquals(1, ((List<?>) output.get("citations")).size(),
+                "无检索器时只应剩报告快照这一条证据");
+        assertEquals(Boolean.TRUE, output.get("kbLowScore"));
     }
 
     @Test

@@ -5,12 +5,18 @@ import com.example.Ece.agent.eval.EvaluationBatch;
 import com.example.Ece.agent.eval.EvaluationOutcome;
 import com.example.Ece.agent.eval.EvaluationStrategy;
 import com.example.Ece.agent.eval.PerformanceEvaluationService;
+import com.example.Ece.agent.rag.CitationFormatter;
+import com.example.Ece.agent.rag.KnowledgeRetriever;
+import com.example.Ece.agent.rag.RetrievalResult;
 import com.example.Ece.agent.rag.ScoredChunk;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 生产规划报告工具：让用户能直接"要一份报告"。
@@ -36,13 +42,36 @@ public class ProductionReportTool implements AgentTool {
     private static final int DEFAULT_DAYS = 120;
     private static final long DEFAULT_SEED = 20260921L;
 
+    /**
+     * 报告附带的默认检索主题（2026-09-27 新增）。
+     *
+     * <p><b>为什么报告要自带检索</b>：实测问「给我出一份这季番茄的生产规划报告」时，工具链是
+     * {@code report.draft, report.draft}——规划步只调本工具、**从不调 knowledge.search**，
+     * 于是整份回答只引用了 1 条（报告快照本身），并写出"水肥结论当前不可用"，
+     * 而库里当时水肥与植保条目都是齐的。这与 {@code prescription.draft} 的情况**完全同型**：
+     * 工具宣称能出报告，规划步就不再检索，报告于是只剩推演数字、没有可落地依据。</p>
+     *
+     * <p>主题覆盖报告的三个下游分支：水肥调控、病虫害防治、栽培（农事）管理。</p>
+     */
+    private static final String[] DEFAULT_TOPICS = {
+            "番茄 水肥管理 灌溉制度 施肥制度 追肥 灌水量",
+            "番茄 病虫害防治 农业防治 物理防治 生物防治 药剂",
+            "番茄 环境调控 温度 湿度 通风 遮阳 补光"
+    };
+
     private final PerformanceEvaluationService evaluationService;
     private final PlatformSnapshotEvidence evidence;
+    private final KnowledgeRetriever retriever;
+    private final CitationFormatter citationFormatter;
 
     public ProductionReportTool(PerformanceEvaluationService evaluationService,
-                                PlatformSnapshotEvidence evidence) {
+                                PlatformSnapshotEvidence evidence,
+                                KnowledgeRetriever retriever,
+                                CitationFormatter citationFormatter) {
         this.evaluationService = evaluationService;
         this.evidence = evidence;
+        this.retriever = retriever;
+        this.citationFormatter = citationFormatter;
     }
 
     public String name() {
@@ -116,20 +145,63 @@ public class ProductionReportTool implements AgentTool {
 
         // 可核对引用：来源标识用批次号与种子——任何人可用同一 URL 复算得到同一份报告，
         // 而不是给一个 run=0;step=0 这种无意义标识（那会把"可回查"变成假的）。
-        List<ScoredChunk> items = evidence.items(
+        List<ScoredChunk> items = new ArrayList<ScoredChunk>(evidence.items(
                 batch.getSeed(), 0, "番茄", TITLE, summary,
                 "SIM-REPORT-" + batch.getBatchId().hashCode(),
                 "场景推演生产规划报告（SIMULATED，不是实测）",
-                "batch=" + batch.getBatchId() + ";seed=" + batch.getSeed() + ";days=" + batch.getDays());
+                "batch=" + batch.getBatchId() + ";seed=" + batch.getSeed() + ";days=" + batch.getDays()));
+
+        // 报告的可落地依据：水肥怎么调、病虫害怎么防、环境怎么控——这三件事都不在推演数值里，
+        // 而在知识库。判据沿用检索层的 lowScore，与 knowledge.search **完全一致**：
+        // 相关性不足的片段不占引用编号，免得"编了号却撑不住结论"。
+        //
+        // **必须按分支分开检索**（2026-09-27 实测）：最初用一条混合主题的词串检索，
+        // 结果被"水肥"词占满——模型据此写出"知识库缺少温度管理、环境调控和病虫害防治依据"，
+        // 而这三类条目在库里都有。一次检索只能命中一个分支，多分支必须多次检索后合并。
+        Object rawTopic = input == null ? null : input.get("topic");
+        String explicitTopic = rawTopic == null ? "" : String.valueOf(rawTopic).trim();
+        String[] topics = explicitTopic.isEmpty() ? DEFAULT_TOPICS : new String[]{explicitTopic};
+        List<ScoredChunk> kbEvidence = new ArrayList<ScoredChunk>();
+        Set<String> seenChunks = new HashSet<String>();
+        boolean kbLowScore = true;
+        for (String topic : topics) {
+            RetrievalResult retrieval = retriever == null ? null : retriever.retrieve(topic, "番茄", 3);
+            if (retrieval == null || retriever.isLowScore(retrieval)) {
+                continue;
+            }
+            kbLowScore = false;
+            for (ScoredChunk item : retrieval.getItems()) {
+                // 同一块可能被多个分支命中，按引用去重键（来源表|来源ID|片段号）去重
+                String key = item.getChunk().getSourceTable() + "|" + item.getChunk().getSourceId()
+                        + "|" + item.getChunk().getChunkNo();
+                if (seenChunks.add(key)) {
+                    kbEvidence.add(item);
+                }
+            }
+        }
+        if (!kbLowScore) {
+            items.addAll(kbEvidence);
+        }
         output.put("items", items);
-        output.put("citations", evidence.citations(items));
+        output.put("citations", citationFormatter == null
+                ? evidence.citations(items) : citationFormatter.toCitations(items));
+        output.put("kbEvidence", citationFormatter == null
+                ? kbEvidence : citationFormatter.toCitations(kbEvidence));
+        output.put("kbLowScore", Boolean.valueOf(kbLowScore));
+        // 报告快照本身是权威事实来源（批次号 + 种子可复算），故整体不判低分；
+        // 知识库片段只在通过同一判据时才并入编号，两个层次不混。
         output.put("lowScore", Boolean.FALSE);
         output.put("source", "SIMULATED");
         output.put("stepSummary", NAME + " 生成报告摘要（推荐 " + best.getLabel() + "）");
+        // 2026-09-27 修：原文写死"水肥调控结论当前不可用（氮收支未配平）"。
+        // 那是氮池见底时期的状态；此后补了矿化项、需求侧改为按累积吸收曲线，收支已自洽，
+        // 而这句仍在**主动指示模型说"水肥给不出"**——实测报告回答里确实照抄了这句。
+        // 现在改为把模型指向随本工具返回的知识库条目，并如实保留"推演值 + 待实测替换"的边界。
         output.put("note", "本报告为**待人工确认的场景推演草案**，全部数值为 SIMULATED，不是现场实测，"
-                + "不得作为工程设定值或真实耗量。系统不执行任何设备操作。"
-                + "涉及药剂须遵循当地登记与用药规范；水肥调控结论当前不可用（氮收支未配平）。"
-                + "完整报告请通过导出接口获取。");
+                + "不得作为工程设定值或真实耗量。系统不执行任何设备操作，涉及药剂须遵循当地登记与用药规范。"
+                + "**报告只给方案层面的取舍；具体的灌溉、施肥与病虫害防治，请引用随本工具一并返回的"
+                + "知识库条目**（编号已与报告快照统一编号），不要用推演数值反推用量——"
+                + "推演数值不是实测，且氮池定标与矿化量仍待实测替换。完整报告请通过导出接口获取。");
         return output;
     }
 
