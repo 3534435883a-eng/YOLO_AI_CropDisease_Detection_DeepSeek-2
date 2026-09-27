@@ -5,7 +5,8 @@
   `spring-boot:run` 会 fork 一个独立 JVM；只杀 maven，9999 仍被占着，下次启动会以为还活着。
   同理 MySQL 是 mysqld.exe、Flask 是 python.exe，按名字杀会误伤别的项目。
 
-  用法：pwsh -File scripts\stop-local-agent.ps1
+  用法：scripts\stop-local-agent.cmd
+        （或 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-local-agent.ps1）
 #>
 $ErrorActionPreference = 'Stop'
 

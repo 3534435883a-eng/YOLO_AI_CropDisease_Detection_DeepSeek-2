@@ -4,12 +4,16 @@
   启动链：MySQL(3306) → Flask 向量/识别服务(5000) → Spring Boot 后端(9999)
   三个服务都**先探端口**，已在监听就跳过，因此可以反复执行。
 
-  用法：
-    pwsh -File scripts\start-local-agent.ps1                  # 启动后端链
-    pwsh -File scripts\start-local-agent.ps1 -Full             # 同时重建 RAG 索引（需 Flask 在线）
-    pwsh -File scripts\start-local-agent.ps1 -WithFrontend     # 另起 Vue 开发服务器
+  用法（**本机只有 Windows PowerShell 5.1，没有 pwsh**——`pwsh` 是 PowerShell 7，敲了会报
+  "'pwsh' 不是内部或外部命令"。任选一种）：
 
-  停止：scripts\stop-local-agent.ps1
+    scripts\start-local-agent.cmd                  # 推荐：cmd/资源管理器里直接跑，双击也行
+    scripts\start-local-agent.cmd -WithFrontend    # 连前端一起起
+    powershell -NoProfile -ExecutionPolicy Bypass -File scripts\start-local-agent.ps1
+
+  -Full 会同时重建 RAG 索引（需 Flask 在线，启动从秒级变成分钟级）。
+
+  停止：powershell -NoProfile -ExecutionPolicy Bypass -File scripts\stop-local-agent.ps1
 
   ⚠ 调用方式：**直接跑，不要接管道**。
   `pwsh -File scripts\start-local-agent.ps1 | Select-Object -Last 20` 这种写法会"卡住不返回"——
@@ -180,7 +184,7 @@ Write-Host '      $b = [Text.Encoding]::UTF8.GetBytes(''{"sessionId":"1","questi
 Write-Host '      (Invoke-WebRequest http://localhost:9999/ai/agent/chat -Method POST -ContentType application/json -Body $b).Content' -ForegroundColor DarkGray
 Write-Host ''
 Write-Host '  日志目录                : ' -NoNewline; Write-Host $logDir -ForegroundColor DarkGray
-Write-Host '  停止全部                : ' -NoNewline; Write-Host 'pwsh -File scripts\stop-local-agent.ps1' -ForegroundColor DarkGray
+Write-Host '  停止全部                : ' -NoNewline; Write-Host 'scripts\stop-local-agent.cmd' -ForegroundColor DarkGray
 Write-Host ''
 Write-Host '  提示：智能体需要一个正在进行的「模拟运行」才有棚内状态可依据；' -ForegroundColor DarkGray
 Write-Host '        库里已有历史运行，若状态接口报无活动运行，先在指挥中心创建一个。' -ForegroundColor DarkGray
