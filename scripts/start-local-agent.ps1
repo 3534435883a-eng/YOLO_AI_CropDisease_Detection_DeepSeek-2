@@ -145,23 +145,39 @@ if (Test-Port 9999) {
 
 # ---------- 5. 可选前端 ----------
 if ($WithFrontend) {
-    if (Test-Port 3100) {
-        Write-Step 'vue' '3100 已在监听，跳过'
+    # 端口取自 Vue 项目的 .env（VITE_PORT = 8100），不是猜的。
+    # 路由是 hash 模式，对话页为 http://localhost:8100/#/agentChat
+    if (Test-Port 8100) {
+        Write-Step 'vue' '8100 已在监听，跳过'
     } else {
         Write-Step 'vue' '正在启动 Vue 开发服务器…' 'Yellow'
         Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $vue -WindowStyle Hidden `
             -RedirectStandardOutput (Join-Path $logDir 'vue.out.log') `
             -RedirectStandardError  (Join-Path $logDir 'vue.err.log')
-        Write-Step 'vue' '已拉起（端口见 vue.out.log；就绪与否不影响智能体本身）' 'Green'
+        Wait-Port 8100 90 '前端' | Out-Null
+        Write-Step 'vue' '已就绪 → http://localhost:8100/#/agentChat' 'Green'
     }
 }
 
 # ---------- 汇总 ----------
 Write-Host ''
 Write-Host '=== 就绪 ===' -ForegroundColor Green
-Write-Host '  智能体对话（SSE 流式） : http://localhost:9999/ai/agent/chat'
-Write-Host '  生产规划报告（Markdown）: http://localhost:9999/ai/agent/report'
-Write-Host '  知识库状态              : http://localhost:9999/ai/knowledge/status'
+Write-Host '  对话页面（需前端在跑，加 -WithFrontend）: ' -NoNewline
+Write-Host 'http://localhost:8100/#/agentChat' -ForegroundColor Cyan
+Write-Host ''
+Write-Host '  这些可以直接用浏览器打开（GET）：'
+Write-Host '    知识库状态            : http://localhost:9999/ai/knowledge/status'
+Write-Host '    生产规划报告(Markdown): http://localhost:9999/ai/agent/report'
+Write-Host ''
+# ⚠ 这一条特别说明：/ai/agent/chat 是 **POST + SSE**，浏览器直接打开会得到
+#   "Request method ''GET'' not supported" 的 405 页——那是正常的，不是系统故障。
+#   首版脚本把它印成可点击地址，用户照点必然撞上 405，故在此改掉。
+Write-Host '  智能体对话接口（POST + SSE，浏览器直接打开会报 405，这是正常的）：' -ForegroundColor Yellow
+Write-Host '    POST http://localhost:9999/ai/agent/chat'
+Write-Host '    body: {"sessionId":"1","question":"番茄早疫病怎么防治？","crop":"番茄"}'
+Write-Host '    PowerShell 里试一发（中文必须走 UTF-8 字节，否则 Jackson 会报 Invalid UTF-8）：' -ForegroundColor DarkGray
+Write-Host '      $b = [Text.Encoding]::UTF8.GetBytes(''{"sessionId":"1","question":"番茄早疫病怎么防治？","crop":"番茄"}'');' -ForegroundColor DarkGray
+Write-Host '      (Invoke-WebRequest http://localhost:9999/ai/agent/chat -Method POST -ContentType application/json -Body $b).Content' -ForegroundColor DarkGray
 Write-Host ''
 Write-Host '  日志目录                : ' -NoNewline; Write-Host $logDir -ForegroundColor DarkGray
 Write-Host '  停止全部                : ' -NoNewline; Write-Host 'pwsh -File scripts\stop-local-agent.ps1' -ForegroundColor DarkGray
