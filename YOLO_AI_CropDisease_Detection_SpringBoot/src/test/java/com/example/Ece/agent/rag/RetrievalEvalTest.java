@@ -129,6 +129,7 @@ class RetrievalEvalTest {
 
         EmbeddingProbe probe = probeEmbedding();
         KnowledgeRetriever retriever = new KnowledgeRetriever(probe.client, new KnowledgeEntityLexicon());
+        retriever.setSymptomLexicon(new SymptomLexicon());
         retriever.rebuild(chunks);
         // 诊断用：同一批切块建独立 BM25 索引，逐题打印命中词，用于解释拒答判据。
         Bm25Index diagIndex = new Bm25Index();
@@ -516,6 +517,7 @@ class RetrievalEvalTest {
                     entry.getRecord().getFields()));
         }
         KnowledgeRetriever wide = new KnowledgeRetriever(probe.client, new KnowledgeEntityLexicon());
+        wide.setSymptomLexicon(new SymptomLexicon());
         wide.rebuild(augmented);
         System.out.println("[COST-RETRIEVAL] legacyChunks=" + chunks.size()
                 + " augmentedChunks=" + augmented.size());

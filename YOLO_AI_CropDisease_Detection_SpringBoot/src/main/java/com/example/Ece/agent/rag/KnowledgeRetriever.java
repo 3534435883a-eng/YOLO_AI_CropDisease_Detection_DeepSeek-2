@@ -2,6 +2,7 @@ package com.example.Ece.agent.rag;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,17 @@ public class KnowledgeRetriever {
     public static final String DEGRADED_EMBEDDING = "EMBEDDING_UNAVAILABLE";
 
     private final EmbeddingClient embeddingClient;
+    /**
+     * 症状口语词表（可选）：农户说"一圈一圈"、语料写"同心轮纹"，bigram 对不上。
+     * 用 setter 注入而非构造函数，是为了不动既有调用方（测试里大量直接 new）。
+     * 未注入时检索行为与接线前完全一致。
+     */
+    private SymptomLexicon symptomLexicon;
+
+    @Autowired(required = false)
+    public void setSymptomLexicon(SymptomLexicon symptomLexicon) {
+        this.symptomLexicon = symptomLexicon;
+    }
     /** 作物别名词典；为 null 时不做归一化（单元测试只需 BM25/向量时可以不传）。 */
     private final KnowledgeEntityLexicon entityLexicon;
     private final Bm25Index bm25Index = new Bm25Index();
@@ -135,6 +147,12 @@ public class KnowledgeRetriever {
         String effectiveCrop = entityLexicon == null ? cropType : entityLexicon.canonicalizeCrop(cropType);
         // 再扩展查询：问题里出现别名时补上规范作物名（知识块头部就带"作物：马铃薯"，补上后才对得上）。
         String effectiveQuery = entityLexicon == null ? query : entityLexicon.expandQuery(query);
+        // 再补症状口语词的规范写法：农户说"一圈一圈"，语料写"同心轮纹"，两者几乎没有一个
+        // bigram 重叠——实测口语化提问 Top-1 仅 73.3%，而照抄原文的症状前缀题是 95%。
+        // 同样追加而非替换，用户原话仍参与匹配。
+        if (symptomLexicon != null) {
+            effectiveQuery = symptomLexicon.expandQuery(effectiveQuery);
+        }
         List<ScoredChunk> bm25Hits = filterByCrop(bm25Index.search(effectiveQuery, TOP_K_EACH), effectiveCrop);
         List<ScoredChunk> vectorHitsForBackfill = new ArrayList<ScoredChunk>();
         List<List<ScoredChunk>> lists = new ArrayList<List<ScoredChunk>>();
