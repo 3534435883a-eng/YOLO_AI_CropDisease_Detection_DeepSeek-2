@@ -327,6 +327,13 @@ public class AgentOrchestrator {
             payload.put("degraded", Boolean.valueOf(Boolean.TRUE.equals(output.get("degraded"))));
             payload.put("degradedReason", output.get("degradedReason"));
             payload.put("lowScore", Boolean.valueOf(lowScore));
+            // 关键词命中数**必须透传到流里**（2026-09-27 补）：它是"这次为什么走了通用知识
+            // 而不是拒答"的唯一判据（0 命中=离题→拒答；>0 低分=域内库缺→通用知识作答）。
+            // 不透传的话，接口层面只看到一个 DONE，排查得翻后端日志。
+            Object hitsInPayload = output.get("bm25HitCount");
+            if (hitsInPayload != null) {
+                payload.put("bm25HitCount", hitsInPayload);
+            }
             payload.put("durationMs", Long.valueOf(durationMs));
             payload.put("error", output.get("error"));
             // 工具入参一并下发：前端可展示"用什么参数调的"，排查时也不必靠猜。
