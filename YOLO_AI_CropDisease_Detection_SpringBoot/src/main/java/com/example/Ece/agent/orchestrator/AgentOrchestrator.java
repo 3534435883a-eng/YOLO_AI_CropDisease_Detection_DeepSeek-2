@@ -95,6 +95,21 @@ public class AgentOrchestrator {
     public static final String GENERAL_KNOWLEDGE_BANNER = "【以下不来自本项目知识库，属通用农艺经验】";
 
     /**
+     * **检索降级**时的拒答文案（2026-09-27 新增）。
+     *
+     * <p>必须与 {@link #REFUSAL_ANSWER} 分开：前者说的是"知识库里没有"，后者说的是
+     * "检索能力不完整"。把后者说成前者，会把用户引向**补知识**，而该做的其实是**重试或修服务**。</p>
+     *
+     * <p>实测踩到：聊天页的**预设示例问题**被拒，原因码 {@code TOOL_REPEAT_LIMIT}——
+     * 步进记录显示两步都是 {@code LOW_SCORE} 且 {@code degraded=1}、耗时 0~3ms，
+     * 即向量服务（Flask）当时不可达、检索降级为纯 BM25、未达阈值，模型反复重试后触顶。
+     * 而那句话在知识库里有 7 条依据，服务恢复后重问即正常。**界面却只显示"已拒答"。**</p>
+     */
+    public static final String DEGRADED_REFUSAL_ANSWER =
+            "检索能力当前不完整：向量检索服务不可达，本轮已降级为纯关键词检索，未能取得可用依据。"
+                    + "这**不代表知识库里没有相关内容**——请稍后重试，或确认向量服务（Flask，端口 5000）已启动。";
+
+    /**
      * 通用知识作答步的指令。
      *
      * <p>三条硬边界保留：<b>不给药剂剂量</b>（留给当地登记与产品标签）、
@@ -365,6 +380,15 @@ public class AgentOrchestrator {
         // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，
         // 也不给模型"顺手编个结论"的机会——这条路径的答案本来就会被丢弃。
         if (!reliableEvidence) {
+            // 降级优先于其它拒答原因：TOOL_REPEAT_LIMIT / DUPLICATE_TOOL_CALL 这类"模型反复重试"
+            // 在降级时几乎总是同一件事的后果（检索总不达标 → 再试一次），
+            // 若按 blockReason 报出去，用户看到的是内部原因码，看不到"服务掉线"这个真因。
+            if (degradedSeen) {
+                String degradedRefusal = DEGRADED_REFUSAL_ANSWER
+                        + (observations.isEmpty() ? "" : "（" + String.join("；", observations) + "）");
+                return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
+                        AgentResult.Status.REFUSED, "DEGRADED_RETRIEVAL", degradedRefusal);
+            }
             // 2026-09-27 政策调整：**不再一律拒答**。若检索确实命中过关键词（问题落在农业域内、
             // 只是库里依据不足），就允许模型用自身通用农艺知识作答——但回答必须逐字带出处声明。
             // 关键词零命中（如"帮我写一首诗"）仍直接拒答：那不是知识缺口，是不该答的问题。

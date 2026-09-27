@@ -33,7 +33,7 @@ class AgentOrchestratorTest {
 
     private AgentToolRegistry registryWith(List<KnowledgeChunk> corpus) {
         KnowledgeRetriever retriever = new KnowledgeRetriever(new EmbeddingClient() {
-            public double[] embed(String text) {
+            public double[] embed(String text) throws com.example.Ece.agent.rag.EmbeddingUnavailableException {
                 return new double[]{1.0, 0.0};
             }
         });
@@ -662,5 +662,52 @@ class AgentOrchestratorTest {
 
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
         assertEquals(0, composeCalls[0], "无可靠证据时不应调用作答步");
+    }
+    /**
+     * **检索降级不能被说成"知识库里没有"**。
+     *
+     * <p>2026-09-27 实测踩到：聊天页预设示例问题被拒，原因码 `TOOL_REPEAT_LIMIT`，
+     * 而步进记录显示两步都 `LOW_SCORE` 且 `degraded=1`、耗时 0~3ms——
+     * 向量服务不可达、检索降级为纯 BM25、模型反复重试后触顶。
+     * 那句话在知识库里有 7 条依据，服务恢复后重问即正常。
+     * 把「服务掉线」说成「知识缺口」会把用户引向补知识，而该做的是重试。</p>
+     */
+    @Test
+    void degradedRetrievalIsReportedAsServiceIssueNotKnowledgeGap() {
+        KnowledgeRetriever dead = new KnowledgeRetriever(new EmbeddingClient() {
+            public double[] embed(String text) throws com.example.Ece.agent.rag.EmbeddingUnavailableException {
+                throw new com.example.Ece.agent.rag.EmbeddingUnavailableException("down");
+            }
+        });
+        dead.rebuild(new ArrayList<KnowledgeChunk>());
+        AgentToolRegistry degradedRegistry = new AgentToolRegistry();
+        degradedRegistry.register(new KnowledgeSearchTool(dead, new CitationFormatter()));
+
+        LlmClient llm = new LlmClient() {
+            public String plan(List<Map<String, Object>> history) {
+                return history.toString().contains("未提供可用证据") || history.size() > 3
+                        ? "{\"tool\":\"FINALIZE\",\"input\":{}}"
+                        : "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"番茄叶片褐色轮纹\"}}";
+            }
+
+            public String compose(List<Map<String, Object>> history) {
+                return "不应走到作答步";
+            }
+        };
+        AgentOrchestrator orchestrator = new AgentOrchestrator(degradedRegistry, llm);
+        AgentResult result = orchestrator.run("dg1", "番茄叶片褐色轮纹", "番茄", null);
+
+        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertTrue(result.getAnswer().contains("检索能力当前不完整"),
+                "降级拒答必须说明是检索服务问题，而不是资料库不足：" + result.getAnswer());
+        assertFalse(result.getAnswer().contains("知识库里没有能支撑这个问题的可靠依据"),
+                "降级时不得复用「资料库不足」文案");
+        String reason = null;
+        for (AgentStepEvent event : result.getEvents()) {
+            if ("final".equals(event.getType())) {
+                reason = String.valueOf(event.getPayload().get("reason"));
+            }
+        }
+        assertEquals("DEGRADED_RETRIEVAL", reason);
     }
 }

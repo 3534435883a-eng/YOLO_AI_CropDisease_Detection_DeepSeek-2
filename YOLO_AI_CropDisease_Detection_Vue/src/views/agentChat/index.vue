@@ -321,6 +321,8 @@ function elapsedLabel(turn: Turn): string {
  */
 function answerKind(status: TurnStatus, reason?: string): string {
 	if (status === 'refused') {
+		// 检索降级不是"拒答"——是能力不完整，用户该重试而不是换问法
+		if (reason === 'DEGRADED_RETRIEVAL') return '检索降级';
 		return reason === 'ANSWER_EMPTY' || reason === 'LLM_ERROR' ? '执行失败' : '已拒答';
 	}
 	if (status === 'error') return '执行失败';
@@ -343,6 +345,7 @@ function reasonLabel(reason: string): string {
 		LLM_ERROR: '大模型调用失败',
 		ANSWER_EMPTY: '模型未能生成回答（输出被截断或为空），请重试',
 		GENERAL_KNOWLEDGE: '未引用知识库：以下为模型掌握的通用农艺经验，需人工确认',
+		DEGRADED_RETRIEVAL: '检索降级：向量服务不可达，本轮只用关键词检索，未取得依据；请稍后重试（这不代表知识库没有依据）',
 		KNOWLEDGE_INSUFFICIENT: '资料库不足：知识库中没有该检测类别的可核对条目',
 		NEED_CROP: '需要先确认作物（同名类别在多个作物上都存在）',
 		STREAM_ERROR: '流式连接异常',
