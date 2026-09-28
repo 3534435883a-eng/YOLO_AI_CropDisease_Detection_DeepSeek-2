@@ -8,7 +8,9 @@
 
 1. 备份 `cropdisease` 数据库。
 2. 在目标数据库执行 `database/migrations/V20260921_01__agent_simulation.sql`。该文件只创建 `agent_*` InnoDB 表，不应重新导入 `cropdisease.sql`。
-   后续迁移（`V20260922_01` … `V20260928_01`）按编号依次执行；全部为 create-only，只新建 `agent_*` 表，不改动旧表。
+   后续迁移（`V20260922_01` … `V20260929_01`）按编号依次执行；全部为 create-only，只新建 `agent_*` 表，不改动旧表。
+   **项目没有引入 Flyway**（pom 里无 `flyway-core`），迁移是**带外手工执行**的：
+   `mysql -u <user> -p <db> < database/migrations/V2026xxxx_01__xxx.sql`。
 3. 配置 Spring Boot 的 `CROPDISEASE_DB_USER` 和 `CROPDISEASE_DB_PASSWORD`。
 4. 启动后端（默认 `9999`）和 Vue 前端（开发代理默认转发到 `9999`）。
 5. 打开“智能体指挥中心”，创建 8 号温室番茄模拟。
@@ -93,6 +95,18 @@ GET  /ai/agent/history?sessionId={id}&limit=N     # 某会话的历史，时间�
 GET  /ai/agent/history/recent?limit=N             # 全局最近若干条，时间倒序
 GET  /ai/agent/history/export?limit=N             # 导出 JSONL，供离线回答质量评测
 GET  /ai/agent/report?seed=N&days=N               # 导出生产规划报告（Markdown 文档）
+```
+
+农事规划推演（独立通道，见下节）：
+
+```text
+POST /ai/agri/plan/deduce              # SSE 流式推演（主链路）
+POST /ai/agri/plan/situation/parse     # 自然语言 → 待确认的农情草稿
+POST /ai/agri/plan/situation/upload    # CSV 上传 → 待确认的农情草稿 + 列映射报告
+GET  /ai/agri/plan/fields              # 农情字段定义（前端表单由它驱动）
+GET  /ai/agri/plan/template.csv        # CSV 列名模板（带 UTF-8 BOM，Excel 双击不乱码）
+GET  /ai/agri/plan/history?limit=N     # 推演记录，倒序
+GET  /ai/agri/plan/{id}/export         # 导出 Markdown（推演正文 + 内嵌可复算基线）
 ```
 
 ## 当地农情数据接入
@@ -190,6 +204,96 @@ POST /ai/knowledge/graph/refresh                     # 按当前知识库重建�
 
 **周期不足的提示**：番茄坐果在推演期后段（约第 50 天后）才发生，短周期下各档商品产量都是 0，
 此时"按利润取最高"实际只反映资源成本。报告在检测到零产量时会显式说明**不足以据此排产**。
+
+## 农事规划推演（2026-09-28 新增）
+
+**与决策助手并行的第二条通道。** 决策助手检索、带引用、按证据决定答不答；
+推演**不检索**，让模型用自己的知识针对用户棚况做条件推演，产出农事管理方案、
+病虫害防治建议、水肥调控处方与生产规划报告。政策边界见 `docs/answer-policy.md` §七。
+
+**它是独立链路，不是编排器的一个模式。** `AgentOrchestrator` 一行未改——
+它的三道闸门（无证据拒答、引用强制校验、越权与药剂护栏）与"放开"逐条冲突，
+用开关合流会让两条政策互相污染。推演也**不注册为 AgentTool**
+（`AgentToolRegistryWiringTest` 断言工具数恰为 6，本方案不新增工具）。
+
+### 三条录入通道，汇到同一种形状
+
+表单填写 / CSV 上传 / 自然语言描述，最终都变成 `AgriSituationInput`。
+字段定义是**唯一登记表** `SituationFields`，CSV 列名映射、抽取提示词、范围校验、
+前端表单、接口 `/fields` 全部由它派生——分开写必然漂移。
+
+- **CSV**：不加新依赖（用已在依赖里的 Hutool）。剥 UTF-8 BOM；**编码探测顺序不能反**——
+  先严格 UTF-8 试解，失败才退 GB18030；反过来的话 GB18030 几乎能解任意字节，
+  永远不失败、于是永远不回落。`containsHeader` 显式关掉，首行判定由本类自己负责。
+  **列名认不出就不映射，绝不按列位置猜**，认不出的列进 `unrecognizedColumns` 如实报出。
+  多行数据取**最后一行**为当前棚况，并把行数报出来。
+- **自然语言**：**模型只负责"抽"，不负责"判"**。一切数值合法性、单位剥离、范围校验、
+  缺失判定都在 Java 侧。**逐字段回带原话 `rawText`，没有原话支撑的字段一律丢弃**——
+  与"引用必须可追溯到原文"是同一条纪律，只是对象从知识库换成了用户输入。
+  相对时间（"上个月"）**不换算成日期**：缺锚点，任何换算都是猜。
+  抽取结果回显成可编辑表单，用户确认后才进推演。
+
+### 真 token 流式
+
+现有 `DeepSeekService.chat()` 是 `stream=false` 整段返回。推演报告动辄两千字，
+只给阶段标签用户要干等十几秒。因此新增 `chatStream()`，逐 token 下发，
+**思考（`reasoning_content`）与正文（`content`）分两路**。
+
+四处不做就会炸：
+
+1. **流式必须单独一个 RestTemplate bean**。既有的读超时是 60s（`DeepSeekHttpConfig`），
+   而 `HttpURLConnection` 的 readTimeout 是**每次 read 的阻塞上限**——
+   首 token 之前的静默期超过 60s 就会把整条流掐断。流式 bean 用 `setReadTimeout(0)`，
+   由 emitter 超时兜底。**实测推演一次 61 秒，已经越过那条线。**
+   不要改走 Apache HttpClient：pom 里的 httpclient 是 4.2.1，而 Spring 5.x 的
+   `HttpComponentsClientHttpRequestFactory` 要求 4.3+。
+2. **必须设 `Accept-Encoding: identity`**。默认协商 gzip，一旦上游或中间代理返回 gzip，
+   JDK 的 `GZIPInputStream` 会预读填充，token 级流退化成"停顿—一阵突发"。
+3. **必须显式给 SSE 超时**。`application.properties` 里没有 `spring.mvc.async.request-timeout`，
+   不显式传就落到 **Tomcat 默认 30 秒**。推演自定 240s（`agent.plan.timeout-ms`），
+   **不复用编排器的 90s**。
+4. **断开即取消**。`SseEmitter` 的断开回调置一个标志，增量回调据此返回 `false`，
+   `chatStream` 随即关闭上游连接。只"停止下发"是不够的——那样用户关了页面仍在为推演付费。
+   取消后返回的是**半截正文**，看起来与完整回答无异，因此服务端抛
+   `DeductionCancelledException` 短路掉落库，控制器安静结束、不报 error。
+
+### 参考基线：只做固定标准情景
+
+基线来自 `PerformanceEvaluationService.runBatch()`，其初始条件是写死的，
+**不采用用户的农情输入**。因此它随结果下发时固定带 `scopeNote`，
+界面上紧贴数值展示——把这份数字说成"你棚里的预测"就是拿仿真冒充实测。
+
+**按 (seed, days) 缓存**：一次 `runBatch` 是 7 档 × 天数 × 96 步，service 层没有缓存
+（缓存只在 `EvaluationController` 且只存最近 5 批）。
+
+**`windowNote`（实测补的）**：60 天窗口下利润是 **-1447.70 元**——番茄坐果在推演后段才发生，
+短窗口里产量没上来而资源成本已计满。既有的报告只对"零产量"提示，覆盖不到这种中间地带。
+不解释的话，看到那个负数的人只会得出反向结论。
+
+**个性化生长曲线刻意没做**，原因见 `docs/answer-policy.md` §七：
+缺光照时 `TomatoCropGrowthModel` 会产出"生育期照常推进、全株干重零增长"的假曲线，
+且不报错。
+
+### 落库
+
+`agent_plan_run`（迁移 `V20260929_01`）记录推演的输入、正文、结构化清单、
+**是否降级**（`stream_mode` / `fallback_reason`）与**声明是否为服务端补的**（`banner_injected`）。
+后两项是"这次推演到底可不可信"的判据，不落库就事后无从判断。
+
+与 `agent_chat_history` 刻意不合并：推演的输入（结构化农情）、基线标识、降级与补声明，
+在问答那边都没有对应物，硬塞进一张表会让两边都出现一堆恒为 NULL 的列。
+
+数据库不可用时写本地 JSONL 兜底（`agent.plan.fallback-path`，默认在 `logs/` 下），
+**任何持久化失败都不影响推演本身**。
+
+### 配置
+
+```properties
+agent.plan.allow-pesticide-dosage=false   # 默认不给具体农药剂量与安全间隔期
+agent.plan.default-days=120
+agent.plan.timeout-ms=240000
+agent.plan.delta-flush-millis=60
+```
 
 ## 智能体的工具面（能做什么 / 不能做什么）
 
