@@ -168,6 +168,23 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				},
 			},
 			{
+				// 与「决策助手」并行的另一条通道：那条带检索与引用，这条不检索、
+				// 让模型用自己的知识做推演。两条通道的可信度来源不同，界面上也分开。
+				path: '/agentSimulation',
+				name: 'agentSimulation',
+				component: () => import('/@/views/agentSimulation/index.vue'),
+				meta: {
+					title: '农事规划推演',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-znws',
+				},
+			},
+			{
 				path: '/diseaseDetection',
 				name: 'diseaseDetection',
 				component: () => import('/@/layout/routerView/parent.vue'),

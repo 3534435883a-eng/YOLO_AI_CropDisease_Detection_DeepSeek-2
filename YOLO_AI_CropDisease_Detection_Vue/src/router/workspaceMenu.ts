@@ -17,7 +17,7 @@ export function buildWorkspaceMenu(routes: RouteRecordRaw[]): RouteRecordRaw[] {
 	return [
 		...children(['/homePage']),
 		...children(['/imgPredict']),
-		...children(['/agentChat']),
+		...children(['/agentChat', '/agentSimulation']),
 		group('/greenhouseWorkspace', '温室推演', 'iconfontjs icon-znws', [
 			'/agentCenter', '/digitalTwin', '/detailsEnv', '/infoGreenhouse',
 		]),

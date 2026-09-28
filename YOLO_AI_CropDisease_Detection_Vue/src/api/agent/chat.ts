@@ -1,18 +1,13 @@
-import { Session } from '/@/utils/storage';
+import { SseFrame, streamSse } from './sse';
 
 /**
  * 智能体会话（SSE）客户端。
  *
- * 后端 `/ai/agent/chat` 是 **POST + text/event-stream**，浏览器原生 `EventSource` 只支持 GET，
- * 因此这里用 `fetch` + `ReadableStream` 手工解析 SSE 帧。
+ * 传输层（POST + text/event-stream、跨 chunk 缓冲、帧边界处理）已抽到 `./sse`，
+ * 与农事规划推演共用同一份实现——那段边界逻辑的失败模式是**静默丢帧**，
+ * 界面上的表现是"回答少了半段"，复制第二份等于等着两份实现各自腐坏。
  *
- * 帧格式（Spring `SseEmitter` 输出）：
- * ```
- * event:step
- * data:{"type":"step","stepNo":1,...}
- *
- * ```
- * 分片不保证落在帧边界上，所以必须跨 chunk 缓冲，不能对单个 chunk 直接 split。
+ * 本文件只负责把帧里的 JSON 解释成 {@link AgentStepEvent}。
  */
 
 export interface AgentChatRequest {
@@ -67,102 +62,34 @@ export async function streamAgentChat(
 	handlers: AgentStreamHandlers,
 	signal?: AbortSignal
 ): Promise<void> {
-	let response: Response;
-	try {
-		const headers: Record<string, string> = {
-			'Content-Type': 'application/json;charset=UTF-8',
-			Accept: 'text/event-stream',
-		};
-		const token = Session.get('token');
-		if (token) {
-			headers['Authorization'] = `${token}`;
-		}
-		response = await fetch(ENDPOINT, {
-			method: 'POST',
-			headers,
-			body: JSON.stringify(request),
+	await streamSse(
+		{
+			url: ENDPOINT,
+			body: request,
 			signal,
-		});
-	} catch (error) {
-		if (isAbort(error)) {
-			handlers.onClosed();
-			return;
+			connectErrorMessage: '无法连接智能体服务，请确认后端已在 9999 端口启动。',
+			httpErrorMessage: (status) => `智能体服务返回 HTTP ${status}，请检查后端日志。`,
+			interruptedMessage: '流式连接中断，请重试。',
+		},
+		{
+			onFrame: (frame) => dispatchFrame(frame, handlers),
+			onFatal: handlers.onFatal,
+			onClosed: handlers.onClosed,
 		}
-		handlers.onFatal('无法连接智能体服务，请确认后端已在 9999 端口启动。');
-		return;
-	}
-
-	if (!response.ok) {
-		handlers.onFatal(`智能体服务返回 HTTP ${response.status}，请检查后端日志。`);
-		return;
-	}
-	if (!response.body) {
-		handlers.onFatal('当前浏览器不支持流式响应（缺少 ReadableStream）。');
-		return;
-	}
-
-	const reader = response.body.getReader();
-	const decoder = new TextDecoder('utf-8');
-	let buffer = '';
-	try {
-		for (;;) {
-			const { done, value } = await reader.read();
-			if (done) break;
-			buffer += decoder.decode(value, { stream: true });
-			// SSE 帧之间以空行分隔；\n\n 与 \r\n\r\n 都要兼容。
-			let boundary = findFrameBoundary(buffer);
-			while (boundary.index >= 0) {
-				dispatchFrame(buffer.slice(0, boundary.index), handlers);
-				buffer = buffer.slice(boundary.index + boundary.length);
-				boundary = findFrameBoundary(buffer);
-			}
-		}
-		buffer += decoder.decode();
-		if (buffer.trim()) {
-			dispatchFrame(buffer, handlers);
-		}
-		handlers.onClosed();
-	} catch (error) {
-		if (isAbort(error)) {
-			handlers.onClosed();
-			return;
-		}
-		handlers.onFatal('流式连接中断，请重试。');
-	} finally {
-		reader.releaseLock();
-	}
+	);
 }
 
-function findFrameBoundary(text: string): { index: number; length: number } {
-	const lf = text.indexOf('\n\n');
-	const crlf = text.indexOf('\r\n\r\n');
-	if (lf < 0 && crlf < 0) return { index: -1, length: 0 };
-	if (crlf >= 0 && (lf < 0 || crlf < lf)) return { index: crlf, length: 4 };
-	return { index: lf, length: 2 };
-}
-
-function dispatchFrame(frame: string, handlers: AgentStreamHandlers): void {
-	let eventName = 'message';
-	const dataLines: string[] = [];
-	for (const rawLine of frame.split(/\r?\n/)) {
-		if (!rawLine || rawLine.startsWith(':')) continue;
-		const separator = rawLine.indexOf(':');
-		const field = separator < 0 ? rawLine : rawLine.slice(0, separator);
-		let value = separator < 0 ? '' : rawLine.slice(separator + 1);
-		if (value.startsWith(' ')) value = value.slice(1);
-		if (field === 'event') eventName = value;
-		else if (field === 'data') dataLines.push(value);
-	}
-	if (!dataLines.length) return;
+function dispatchFrame(frame: SseFrame, handlers: AgentStreamHandlers): void {
+	if (!frame.data) return;
 	let payload: Record<string, unknown>;
 	try {
-		payload = JSON.parse(dataLines.join('\n')) as Record<string, unknown>;
+		payload = JSON.parse(frame.data) as Record<string, unknown>;
 	} catch {
 		handlers.onFatal('收到无法解析的流式数据。');
 		return;
 	}
 	// 后端把真实事件名写在 event 行；data 里也带一份 type 作为兜底。
-	const type = String(payload.type || eventName || 'message');
+	const type = String(payload.type || frame.event || 'message');
 	const stepNo = Number(payload.stepNo ?? 0);
 	if (type === 'error') {
 		handlers.onFatal(String(payload.message || '智能体执行失败'));
@@ -175,10 +102,6 @@ function dispatchFrame(frame: string, handlers: AgentStreamHandlers): void {
 		message: payload.message === undefined || payload.message === null ? '' : String(payload.message),
 		data: (payload.data as Record<string, unknown> | null) ?? null,
 	});
-}
-
-function isAbort(error: unknown): boolean {
-	return error instanceof DOMException && error.name === 'AbortError';
 }
 
 /** 从 step 事件的 data 中取出本次新增的引用。 */
