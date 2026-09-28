@@ -9,6 +9,7 @@ import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.KnowledgeChunker;
 import com.example.Ece.agent.rag.ScoredChunk;
 import com.example.Ece.agent.service.AgentChatHistoryService;
+import com.example.Ece.agent.support.JsonBlockScanner;
 import com.example.Ece.agent.tool.AgentTool;
 import com.example.Ece.agent.tool.AgentToolRegistry;
 import org.slf4j.Logger;
@@ -30,6 +31,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
+import java.util.function.Predicate;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -543,29 +545,17 @@ public class AgentOrchestrator {
      *
      * <p>真实模型（尤其思考模式）常把 JSON 包在 ```json 围栏里，或在前面加一句"好的，下一步："。
      * 原来直接 {@code parseObject(raw.trim())} 会把这类输出整体判为不可解析——接入真实模型后
-     * 这是最容易出现的"智能体一步不动"故障。这里改为扫描第一个**花括号配对完整**的对象，
-     * 且扫描时跳过字符串字面量内的括号，避免 {@code {"input":{"q":"a{b"}}} 这类内容被截断。</p>
+     * 这是最容易出现的"智能体一步不动"故障。扫描逻辑已抽到 {@link JsonBlockScanner}，
+     * 与农事规划推演链路共用同一份实现。</p>
+     *
+     * <p>只认带 {@code tool} 字段的对象：模型在给正式动作前先输出一段示例 JSON 是常态。</p>
      */
     private JSONObject parsePlan(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String text = raw.trim();
-        if (text.isEmpty()) {
-            return null;
-        }
-        int start = text.indexOf('{');
-        while (start >= 0) {
-            int end = matchingBrace(text, start);
-            if (end > start) {
-                JSONObject object = tryParse(text.substring(start, end + 1));
-                if (object != null && object.containsKey("tool")) {
-                    return object;
-                }
+        return JsonBlockScanner.firstObject(raw, new Predicate<JSONObject>() {
+            public boolean test(JSONObject object) {
+                return object.containsKey("tool");
             }
-            start = text.indexOf('{', start + 1);
-        }
-        return null;
+        });
     }
 
     /**
@@ -613,7 +603,7 @@ public class AgentOrchestrator {
             if (start < 0) {
                 return raw;
             }
-            int end = matchingBrace(text, start);
+            int end = JsonBlockScanner.matchingBrace(text, start);
             boolean jsonDominates = end > start && start <= 8 && text.length() - (end + 1) <= 8;
             if (!jsonDominates) {
                 return raw;
@@ -636,45 +626,6 @@ public class AgentOrchestrator {
             return object.containsKey("tool") ? null : raw;
         } catch (RuntimeException error) {
             return raw;
-        }
-    }
-
-    /** 返回与 {@code start} 处 '{' 配对的 '}' 下标；不配对时返回 -1。字符串字面量内的括号不算数。 */
-    private int matchingBrace(String text, int start) {
-        int depth = 0;
-        boolean inString = false;
-        boolean escaped = false;
-        for (int index = start; index < text.length(); index++) {
-            char current = text.charAt(index);
-            if (inString) {
-                if (escaped) {
-                    escaped = false;
-                } else if (current == '\\') {
-                    escaped = true;
-                } else if (current == '"') {
-                    inString = false;
-                }
-                continue;
-            }
-            if (current == '"') {
-                inString = true;
-            } else if (current == '{') {
-                depth++;
-            } else if (current == '}') {
-                depth--;
-                if (depth == 0) {
-                    return index;
-                }
-            }
-        }
-        return -1;
-    }
-
-    private JSONObject tryParse(String candidate) {
-        try {
-            return JSON.parseObject(candidate);
-        } catch (RuntimeException error) {
-            return null;
         }
     }
 
