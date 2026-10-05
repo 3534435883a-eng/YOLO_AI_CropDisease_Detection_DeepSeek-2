@@ -1,0 +1,580 @@
+{
+  "schemaVersion": 2,
+  "observationsSha256": "49423e611242cf219186c6d1196c81eaaf21116afd3536238b6b6c15b00d2dd7",
+  "sourceCount": 434,
+  "quality": {
+    "years": [
+      {
+        "measurementDates": [
+          "2023-05-07",
+          "2023-05-14",
+          "2023-05-21",
+          "2023-05-28",
+          "2023-06-04",
+          "2023-06-10",
+          "2023-06-20",
+          "2023-06-26",
+          "2023-07-01"
+        ],
+        "heightRecords": 702,
+        "plantsWithHeight": 78,
+        "selectedHeightRecords": 27,
+        "duplicateGrowthFilesExcluded": [
+          "2023/202306/raw_data/grow_index/2023夏季西红柿.csv"
+        ],
+        "duplicateSensorRows": 2661,
+        "conflictingSensorRows": 0,
+        "conflicts": [],
+        "invalidHeightRecords": 0,
+        "inputCoverage": {
+          "totalSlots": 2640,
+          "observedSlots": 2589,
+          "referenceSlots": 0,
+          "meanSlots": 51,
+          "observedCoveragePct": 98.06818181818181,
+          "policy": "REFERENCE_THEN_TRAINING_YEARS_INTRADAY_MEAN"
+        }
+      },
+      {
+        "measurementDates": [
+          "2024-09-21",
+          "2024-09-28",
+          "2024-10-05",
+          "2024-10-12",
+          "2024-10-19",
+          "2024-10-26",
+          "2024-11-02",
+          "2024-11-09",
+          "2024-11-13"
+        ],
+        "heightRecords": 918,
+        "plantsWithHeight": 102,
+        "selectedHeightRecords": 54,
+        "duplicateGrowthFilesExcluded": [],
+        "duplicateSensorRows": 1243,
+        "conflictingSensorRows": 0,
+        "conflicts": [],
+        "invalidHeightRecords": 54,
+        "inputCoverage": {
+          "totalSlots": 2544,
+          "observedSlots": 2304,
+          "referenceSlots": 186,
+          "meanSlots": 54,
+          "observedCoveragePct": 90.56603773584905,
+          "policy": "REFERENCE_THEN_TRAINING_YEARS_INTRADAY_MEAN"
+        }
+      },
+      {
+        "measurementDates": [
+          "2025-04-19",
+          "2025-04-26",
+          "2025-05-10",
+          "2025-05-17",
+          "2025-05-28",
+          "2025-05-31",
+          "2025-06-07",
+          "2025-06-13"
+        ],
+        "heightRecords": 864,
+        "plantsWithHeight": 108,
+        "selectedHeightRecords": 48,
+        "duplicateGrowthFilesExcluded": [],
+        "duplicateSensorRows": 9329,
+        "conflictingSensorRows": 44,
+        "conflicts": [
+          {
+            "sensorId": "region:（处理1）前",
+            "at": "2025-04-20T11:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-04-20",
+              "row": 26,
+              "columns": {
+                "temperatureC": "空气温度（处理1）前",
+                "airHumidityPct": "相对湿度（处理1）前",
+                "co2Ppm": "二氧化碳（处理1）前",
+                "lightRaw": "光照（处理1）前",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "ck-back",
+            "at": "2025-04-20T11:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-04-20",
+              "row": 26,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-24T01:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-24",
+              "row": 5,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-24T01:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-24",
+              "row": 5,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-29T01:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-29",
+              "row": 5,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-29T01:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-29",
+              "row": 5,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-20T11:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-20",
+              "row": 26,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-20T11:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-20",
+              "row": 26,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-23T09:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 22,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-23T09:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 22,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-23T10:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 24,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-23T10:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 24,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-04-23T10:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 25,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-04-23T10:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-04-23",
+              "row": 25,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）前",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-24",
+              "row": 35,
+              "columns": {
+                "temperatureC": "空气温度（处理1）前",
+                "airHumidityPct": "相对湿度（处理1）前",
+                "co2Ppm": "二氧化碳（处理1）前",
+                "lightRaw": "光照（处理1）前",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "ck-back",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-24",
+              "row": 35,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）前",
+            "at": "2025-05-22T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-22",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（处理1）前",
+                "airHumidityPct": "相对湿度（处理1）前",
+                "co2Ppm": "二氧化碳（处理1）前",
+                "lightRaw": "光照（处理1）前",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "ck-back",
+            "at": "2025-05-22T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-22",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）前",
+            "at": "2025-05-26T09:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-26",
+              "row": 22,
+              "columns": {
+                "temperatureC": "空气温度（处理1）前",
+                "airHumidityPct": "相对湿度（处理1）前",
+                "co2Ppm": "二氧化碳（处理1）前",
+                "lightRaw": "光照（处理1）前",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "ck-back",
+            "at": "2025-05-26T09:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-26",
+              "row": 22,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）前",
+            "at": "2025-05-11T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-11",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（处理1）前",
+                "airHumidityPct": "相对湿度（处理1）前",
+                "co2Ppm": "二氧化碳（处理1）前",
+                "lightRaw": "光照（处理1）前",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "ck-back",
+            "at": "2025-05-11T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-05-11",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-05-11T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-11",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-05-11T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-11",
+              "row": 31,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-05-30T10:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-30",
+              "row": 24,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-05-30T10:31:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-30",
+              "row": 24,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-24",
+              "row": 35,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-24",
+              "row": 35,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理6）中",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-24",
+              "row": 36,
+              "columns": {
+                "temperatureC": "空气温度（处理6）中",
+                "airHumidityPct": "相对湿度（处理6）中",
+                "co2Ppm": "二氧化碳（处理6）中",
+                "lightRaw": "光照（处理6）中",
+                "soilMoistureVwcPct": "土壤水分（处理6）"
+              }
+            }
+          },
+          {
+            "sensorId": "region:（处理1）后",
+            "at": "2025-05-24T16:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202505/raw_data/sensor_data/sensor3.xlsx",
+              "sheet": "2025-05-24",
+              "row": 36,
+              "columns": {
+                "temperatureC": "空气温度（处理1）后",
+                "airHumidityPct": "相对湿度（处理1）后",
+                "co2Ppm": "二氧化碳（处理1）后",
+                "lightRaw": "光照（处理1）后",
+                "soilMoistureVwcPct": "土壤水分（处理1）"
+              }
+            }
+          }
+        ],
+        "invalidHeightRecords": 0,
+        "inputCoverage": {
+          "totalSlots": 2640,
+          "observedSlots": 2477,
+          "referenceSlots": 125,
+          "meanSlots": 38,
+          "observedCoveragePct": 93.82575757575758,
+          "policy": "REFERENCE_THEN_TRAINING_YEARS_INTRADAY_MEAN"
+        }
+      }
+    ],
+    "totalHeightRecords": 2484,
+    "measurementDates": 26
+  }
+}

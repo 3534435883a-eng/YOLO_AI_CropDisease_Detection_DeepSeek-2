@@ -11,6 +11,8 @@ public class AgentRunResponse {
     private String status;
     private Integer currentStep;
     private Integer totalSteps;
+    private Integer tickMinutes;
+    private java.util.Map<String, Object> profile;
     private Integer progress;
     private String simulatedAt;
     private String createdAt;
@@ -34,6 +36,10 @@ public class AgentRunResponse {
     public void setStatus(String status) { this.status = status; }
     public Integer getCurrentStep() { return currentStep; }
     public void setCurrentStep(Integer currentStep) { this.currentStep = currentStep; }
+    public Integer getTickMinutes() { return tickMinutes; }
+    public void setTickMinutes(Integer value) { tickMinutes = value; }
+    public java.util.Map<String, Object> getProfile() { return profile; }
+    public void setProfile(java.util.Map<String, Object> value) { profile = value; }
     public Integer getTotalSteps() { return totalSteps; }
     public void setTotalSteps(Integer totalSteps) { this.totalSteps = totalSteps; }
     public Integer getProgress() { return progress; }

@@ -12,12 +12,15 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FreeCameraControls } from './freeCamera';
-import { GREENHOUSE_LAYOUT, roofHeightAt } from './greenhouseLayout';
+import { GREENHOUSE_LAYOUT, plantPositionAt, roofHeightAt } from './greenhouseLayout';
 import { buildEquipment, type EquipmentEntry } from './equipment';
+import { EquipmentInteraction } from './equipmentInteraction';
+import { OperatingFlows } from './operatingFlows';
+import { SceneTour } from './sceneTour';
 import { buildSiteDetails } from './siteDetails';
 import { TomatoCanopy, createRadialTexture, type PlantSlot } from './plants';
+import {WeatherEffects,type WeatherState} from './weather';
 
 const DEG = Math.PI / 180;
 const UP_AXIS_X = new THREE.Vector3(1, 0, 0);
@@ -46,17 +49,16 @@ const BED_WIDTH = GREENHOUSE_LAYOUT.bedWidth;
 const BED_Z = [...GREENHOUSE_LAYOUT.bedCenters];
 const ROWS = BED_Z.length;
 const PLANTS_PER_ROW = GREENHOUSE_LAYOUT.plantsPerBed;
-const PLANT_SPACING = BED_LEN / PLANTS_PER_ROW;
 export const PLANT_TOTAL = ROWS * PLANTS_PER_ROW;
 
 const AISLE_HALF = GREENHOUSE_LAYOUT.centerAisleWidth / 2;
 const VENT_SLATS = 6;
-const LAMP_ROWS = 8;
+const LAMP_ROWS = ROWS * 2;
 
 /** 拱形屋面的高度剖面（t: 0→1 从 -Z 侧到 +Z 侧） */
 const archY = (t: number) => EAVE_H + ARCH_RISE * Math.pow(Math.sin(Math.PI * clamp(t, 0, 1)), 0.86);
 const archPoint = (t: number, bayCenter: number, target = new THREE.Vector3()) =>
-	target.set(0, archY(t), bayCenter - WIDTH / 4 + (WIDTH / 2) * t);
+	target.set(0, archY(t), bayCenter - GREENHOUSE_LAYOUT.spanWidth / 2 + GREENHOUSE_LAYOUT.spanWidth * t);
 
 /* -------------------------------------------------------------------------- */
 /*                                  工具函数                                   */
@@ -72,9 +74,9 @@ const mulberry32 = (seed: number) => {
 	};
 };
 
-/** 太阳高度角/方位角（纬度 34.3°N，郑州） */
+/** 太阳高度角/方位角（纬度 45.8°N，哈尔滨城市近似，非 M3 精确坐标） */
 const solarAngles = (dayOfYear: number, hour: number) => {
-	const lat = 34.3 * DEG;
+	const lat = 45.8 * DEG;
 	const decl = 23.44 * DEG * Math.sin((2 * Math.PI * (284 + dayOfYear)) / 365);
 	const ha = (hour - 12) * 15 * DEG;
 	const sinEl = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
@@ -292,6 +294,7 @@ const createMeshAlphaTexture = () => {
 export type CameraPreset = 'overview' | 'closeup' | 'top' | 'fruit';
 
 export interface TwinFrameState {
+    weather?:WeatherState;
 	lai: number;
 	plantHeightCm: number;
 	fruitCount: number;
@@ -309,6 +312,7 @@ export interface TwinFrameState {
 	exhaustFan?: boolean;
 	coolingPad?: boolean;
 	roofVent?: boolean;
+	heating?: boolean;
 	temperatureC?: number;
 	airHumidityPct?: number;
 	co2Ppm?: number;
@@ -386,9 +390,10 @@ export class GreenhouseTwin {
 
 	private canopy!: TomatoCanopy;
 	private equipment!: ReturnType<typeof buildEquipment>;
+	private interaction!: EquipmentInteraction;
+	private flows!: OperatingFlows;
+	private tour!: SceneTour;
 	private inspectHandler: ((entry: InspectionInfo | null) => void) | null = null;
-	private raycaster = new THREE.Raycaster();
-	private pointer = new THREE.Vector2();
 	private disposables: Array<{ dispose: () => void }> = [];
 	private matSteel!: THREE.MeshStandardMaterial;
 	private matDark!: THREE.MeshStandardMaterial;
@@ -434,6 +439,7 @@ export class GreenhouseTwin {
 	private elapsed = 0;
 	private raf = 0;
 	private disposed = false;
+    private weatherEffects!:WeatherEffects;
 	private paused = false;
 	private frameCount = 0;
 	private fpsAccum = 0;
@@ -474,7 +480,7 @@ export class GreenhouseTwin {
 		soilMoisturePct: 55,
 		severity: { BOTRYTIS: 0, LATE_BLIGHT: 0, POWDERY_MILDEW: 0, LEAF_MOLD: 0 },
 		hour: 12,
-		dayOfYear: 264,
+		dayOfYear: 109,
 	};
 	private current: TwinFrameState = {
 		...this.target,
@@ -506,42 +512,29 @@ export class GreenhouseTwin {
 		this.buildDiseases();
 		this.buildCanopy();
 		this.equipment = buildEquipment(this.scene);
+		this.interaction = new EquipmentInteraction(this.canvas, this.camera, this.scene, this.equipment, entry => {
+			if (entry) {
+				const { object, ...info } = entry;
+				this.inspectHandler?.({ ...info });
+			} else this.inspectHandler?.(null);
+		});
+		this.flows = new OperatingFlows(this.scene, this.equipment.entries);
+        this.weatherEffects=new WeatherEffects(this.scene);
+		this.tour = new SceneTour(this.camera, this.controls.target);
 		void this.loadBlenderAssets();
 
 		this.resize();
-		this.canvas.addEventListener('click', this.handleInspection);
+		this.canvas.addEventListener('pointerdown', this.cancelTour);
+		this.canvas.addEventListener('wheel', this.cancelTour, { passive: true });
 		document.addEventListener('visibilitychange', this.onVisibility);
 		this.loop();
 	}
 
 	private async loadBlenderAssets() {
-		const loader = new GLTFLoader();
-		const base = `${import.meta.env.BASE_URL}models/greenhouse/`;
-		try {
-			const [structure, equipment] = await Promise.all([
-				loader.loadAsync(`${base}greenhouse-structure.glb`),
-				loader.loadAsync(`${base}greenhouse-equipment.glb`),
-			]);
-			if (this.disposed) return;
-			structure.scene.name = 'blender-greenhouse-structure';
-			structure.scene.traverse((node) => {
-				if (node instanceof THREE.Mesh) {
-					node.castShadow = true;
-					node.receiveShadow = true;
-				}
-			});
-			equipment.scene.traverse((node) => {
-				if (node instanceof THREE.Mesh) node.castShadow = true;
-			});
-			this.equipment.replaceVisuals(equipment.scene);
-			this.scene.add(structure.scene);
-			this.legacyFrame.visible = false;
-			this.assetStatus = 'blender';
-		} catch (error) {
-			this.assetStatus = 'fallback';
-			if (!this.disposed) console.error('Blender greenhouse assets could not be loaded; using the procedural model.', error);
-		}
-	}
+        // Bundled GLBs describe the old 26×13 m greenhouse. Keep the M3 parameterized
+        // structure until an asset explicitly built for this profile is available.
+        this.assetStatus = 'fallback';
+    }
 
 	getAssetStatus() {
 		return this.assetStatus;
@@ -575,7 +568,7 @@ export class GreenhouseTwin {
 		this.scene.fog = new THREE.Fog(0x9fb4c4, 45, 165);
 
 		this.camera = new THREE.PerspectiveCamera(46, 1, 0.08, 400);
-		this.camera.position.set(17.5, 8.6, 16.5);
+		this.camera.position.set(43, 28, 43);
 
 		this.controls = new OrbitControls(this.camera, this.canvas);
 		this.controls.enableDamping = true;
@@ -588,6 +581,7 @@ export class GreenhouseTwin {
 		this.controls.enablePan = true;
 		this.controls.screenSpacePanning = false;
 		this.controls.addEventListener('start', () => {
+			this.tour?.stop();
 			this.autoRotate = false;
 			this.controls.autoRotate = false;
 			this.followFruit = false;
@@ -758,7 +752,7 @@ export class GreenhouseTwin {
 		this.matGlassFallback = glassLow;
 
 		// —— 拱形覆盖面 ——
-		const segX = 26;
+		const segX = LEN;
 		const segA = 30;
 		for (const bayCenter of GREENHOUSE_LAYOUT.bayCenters) {
 			const cover = new THREE.Mesh(this.archSurface(segX, segA, bayCenter), glassHigh);
@@ -808,11 +802,11 @@ export class GreenhouseTwin {
 		const ribCurve = new THREE.CatmullRomCurve3(ribPts);
 		const ribGeo = new THREE.TubeGeometry(ribCurve, 40, 0.038, 6, false);
 		const ribCount = 14;
-		const ribs = new THREE.InstancedMesh(ribGeo, steel, ribCount * 2);
+		const ribs = new THREE.InstancedMesh(ribGeo, steel, ribCount * GREENHOUSE_LAYOUT.spanCount);
 		const m4 = new THREE.Matrix4();
-		for (let bay = 0; bay < 2; bay++) {
+		for (let bay = 0; bay < GREENHOUSE_LAYOUT.spanCount; bay++) {
 			for (let i = 0; i < ribCount; i++) {
-				m4.makeTranslation(-HALF_L + (LEN * i) / (ribCount - 1), 0, bay * WIDTH / 2);
+				m4.makeTranslation(-HALF_L + (LEN * i) / (ribCount - 1), 0, bay * GREENHOUSE_LAYOUT.spanWidth);
 				ribs.setMatrixAt(bay * ribCount + i, m4);
 			}
 		}
@@ -822,7 +816,10 @@ export class GreenhouseTwin {
 		this.disposables.push(ribGeo, ribs);
 
 		// —— 纵向檩条 ——
-		const purlinZ = [0, -3.25, 3.25, -HALF_W + 0.001, HALF_W - 0.001];
+		const purlinZ = [
+			...GREENHOUSE_LAYOUT.bayCenters,
+			...Array.from({ length: GREENHOUSE_LAYOUT.spanCount + 1 }, (_, i) => -HALF_W + GREENHOUSE_LAYOUT.spanWidth * i),
+		];
 		const purlinGeo = new THREE.CylinderGeometry(0.032, 0.032, LEN, 6).rotateZ(Math.PI / 2);
 		const purlins = new THREE.InstancedMesh(purlinGeo, steel, purlinZ.length);
 		purlinZ.forEach((z, i) => {
@@ -841,8 +838,8 @@ export class GreenhouseTwin {
 			const x = -HALF_L + (LEN * i) / 8;
 			postPos.push([x, -HALF_W], [x, 0], [x, HALF_W]);
 		}
-		for (let i = 1; i < 4; i++) {
-			const z = -HALF_W + (WIDTH * i) / 4;
+		for (let i = 1; i < GREENHOUSE_LAYOUT.spanCount; i++) {
+			const z = -HALF_W + GREENHOUSE_LAYOUT.spanWidth * i;
 			postPos.push([-HALF_L, z], [HALF_L, z]);
 		}
 		const posts = new THREE.InstancedMesh(postGeo, steel, postPos.length);
@@ -857,9 +854,10 @@ export class GreenhouseTwin {
 
 		// —— 天沟 ——
 		const gutterGeo = new THREE.CylinderGeometry(0.13, 0.13, LEN, 8, 1, true).rotateZ(Math.PI / 2);
-		for (const s of [-1, 0, 1]) {
+		for (let boundary = 0; boundary <= GREENHOUSE_LAYOUT.spanCount; boundary++) {
+			const z = -HALF_W + GREENHOUSE_LAYOUT.spanWidth * boundary;
 			const g = new THREE.Mesh(gutterGeo, steelDark);
-			g.position.set(0, EAVE_H - 0.06, s * (HALF_W + 0.02));
+			g.position.set(0, EAVE_H - 0.06, z + (Math.abs(z) === HALF_W ? Math.sign(z) * 0.02 : 0));
 			this.legacyFrame.add(g);
 		}
 		this.disposables.push(gutterGeo);
@@ -950,7 +948,7 @@ export class GreenhouseTwin {
 			const x = -HALF_L + (LEN * i) / segX;
 			for (let j = 0; j <= segA; j++) {
 				const t = j / segA;
-				pos.push(x, archY(t), bayCenter - WIDTH / 4 + (WIDTH / 2) * t);
+				pos.push(x, archY(t), bayCenter - GREENHOUSE_LAYOUT.spanWidth / 2 + GREENHOUSE_LAYOUT.spanWidth * t);
 				uv.push(i / segX, t);
 			}
 		}
@@ -1041,8 +1039,8 @@ export class GreenhouseTwin {
 		let wi = 0;
 		for (let r = 0; r < ROWS; r++) {
 			for (let i = 0; i < PLANTS_PER_ROW; i++) {
-				const x = -BED_HALF + PLANT_SPACING * (i + 0.5);
-				m4.makeTranslation(x, 0.247, BED_Z[r]);
+				const point = plantPositionAt(r, i);
+				m4.makeTranslation(point.x, 0.247, point.z);
 				this.wetMesh.setMatrixAt(wi++, m4);
 			}
 		}
@@ -1056,11 +1054,14 @@ export class GreenhouseTwin {
 		// 滴灌支管（沿苗床铺设）
 		const pipeMat = new THREE.MeshStandardMaterial({ color: 0x1d1f22, roughness: 0.62, metalness: 0.1 });
 		const pipeGeo = new THREE.CylinderGeometry(0.016, 0.016, BED_LEN, 8).rotateZ(Math.PI / 2);
-		const pipes = new THREE.InstancedMesh(pipeGeo, pipeMat, ROWS);
+		const pipes = new THREE.InstancedMesh(pipeGeo, pipeMat, ROWS * GREENHOUSE_LAYOUT.plantRowsPerPlot);
 		const m4 = new THREE.Matrix4();
-		BED_Z.forEach((z, i) => {
-			m4.makeTranslation(0, 0.265, z - BED_WIDTH / 2 + 0.28);
-			pipes.setMatrixAt(i, m4);
+		BED_Z.forEach((z, plotIndex) => {
+			for (let ridge = 0; ridge < GREENHOUSE_LAYOUT.plantRowsPerPlot; ridge++) {
+				const rowZ = z + (ridge === 0 ? -1 : 1) * GREENHOUSE_LAYOUT.rowSpacing / 2;
+				m4.makeTranslation(0, 0.265, rowZ);
+				pipes.setMatrixAt(plotIndex * GREENHOUSE_LAYOUT.plantRowsPerPlot + ridge, m4);
+			}
 		});
 		pipes.instanceMatrix.needsUpdate = true;
 		pipes.castShadow = true;
@@ -1094,8 +1095,9 @@ export class GreenhouseTwin {
 		let di = 0;
 		for (let r = 0; r < ROWS; r++) {
 			for (let i = 0; i < PLANTS_PER_ROW; i++) {
-				const x = -BED_HALF + PLANT_SPACING * (i + 0.5);
-				const z = BED_Z[r] - BED_WIDTH / 2 + 0.28;
+				const point = plantPositionAt(r, i);
+				const x = point.x;
+				const z = point.z;
 				for (let s = 0; s < 2; s++) {
 					pos[di * 3] = x + (s === 0 ? -0.06 : 0.06);
 					pos[di * 3 + 1] = 0.245;
@@ -1406,9 +1408,10 @@ export class GreenhouseTwin {
 		const slots: PlantSlot[] = [];
 		for (let r = 0; r < ROWS; r++) {
 			for (let i = 0; i < PLANTS_PER_ROW; i++) {
+				const point = plantPositionAt(r, i);
 				slots.push({
-					x: -BED_HALF + PLANT_SPACING * (i + 0.5) + (rnd() - 0.5) * 0.07,
-					z: BED_Z[r] + (rnd() - 0.5) * 0.16,
+					x: point.x + (rnd() - 0.5) * 0.04,
+					z: point.z + (rnd() - 0.5) * 0.04,
 					row: r,
 					phase: rnd() * Math.PI * 2,
 					seed: 1000 + r * 977 + i * 31,
@@ -1425,7 +1428,9 @@ export class GreenhouseTwin {
 
 	/** 接收当前（可插值的）推演状态。所有动画都向目标值平滑过渡，不会跳变。 */
 	applyState(s: TwinFrameState) {
+        this.weatherEffects.apply(s.weather);
 		const t = this.target;
+        t.weather=s.weather;
 		t.lai = s.lai;
 		t.plantHeightCm = s.plantHeightCm;
 		t.fruitCount = s.fruitCount;
@@ -1487,7 +1492,7 @@ export class GreenhouseTwin {
 		// —— 侧窗开合 ——
 		this.ventOpen = lerp(this.ventOpen, t.ventilation ? 1 : 0, 1 - Math.exp(-dt * 1.5));
 		this.writeVents();
-		this.canopy.setWind(0.45 + this.ventOpen * 1.1 + (t.circulationFan ? 0.32 : 0));
+		this.canopy.setWind(0.45 + this.ventOpen * 1.1 + (t.circulationFan ? 0.32 : 0)+(t.weather?.windMps??0)*0.06);
 
 		// —— 遮阳幕滑动 ——
 		this.curtainDeploy = lerp(this.curtainDeploy, t.shade ? 1 : 0, 1 - Math.exp(-dt * 0.85));
@@ -1508,6 +1513,7 @@ export class GreenhouseTwin {
 			exhaustFan: Boolean(t.exhaustFan),
 			coolingPad: Boolean(t.coolingPad),
 			roofVent: Boolean(t.roofVent),
+			heating: Boolean(t.heating),
 			temperatureC: t.temperatureC ?? 24,
 			airHumidityPct: t.airHumidityPct ?? 68,
 			co2Ppm: t.co2Ppm ?? 600,
@@ -1612,7 +1618,7 @@ export class GreenhouseTwin {
 		uBot.copy(bot).multiplyScalar(0.4 + 0.6 * dayF);
 		this.skyMat.uniforms.uStars.value = clamp(1 - dayF * 1.6, 0, 1) * 0.9;
 
-		const sunI = sampleSun(elDeg, this.sunColor) * daylight;
+		const sunI = sampleSun(elDeg, this.sunColor) * daylight*(1-(this.target.weather?.cloud??0)*.45);
 		this.sun.color.copy(this.sunColor);
 		this.sun.intensity = sunI;
 		sunDirection(el, az, this.tmpVec);
@@ -1631,7 +1637,8 @@ export class GreenhouseTwin {
 		this.hemi.groundColor.set('#4a4636').multiplyScalar(0.35 + 0.5 * dayF);
 		this.hemi.intensity = 0.2 + 0.92 * dayF * daylight + 0.28 * this.lampGlow;
 		this.fill.intensity = 0.3 + 0.5 * (1 - dayF) + 0.22 * this.lampGlow;
-		this.ambient.intensity = 0.06 + 0.1 * dayF + 0.05 * this.lampGlow;
+		// 夜间保留观察用的环境补光，使结构和设备可辨；不改变传感输入或补光设备状态。
+		this.ambient.intensity = 0.55 - 0.39 * dayF + 0.05 * this.lampGlow;
 		this.renderer.toneMappingExposure = 0.98 + 0.12 * (1 - dayF) + 0.06 * this.lampGlow;
 	}
 
@@ -1675,11 +1682,12 @@ export class GreenhouseTwin {
 	/* ------------------------------------------------------------------ */
 
 	setCameraPreset(preset: CameraPreset) {
+		this.tour?.stop();
 		const target = this.controls.target.clone();
 		let pos: THREE.Vector3;
 		switch (preset) {
 			case 'overview':
-				pos = new THREE.Vector3(17.5, 8.6, 16.5);
+				pos = new THREE.Vector3(43, 28, 43);
 				target.set(0, 1.7, 0);
 				this.followFruit = false;
 				break;
@@ -1689,7 +1697,7 @@ export class GreenhouseTwin {
 				this.followFruit = false;
 				break;
 			case 'top':
-				pos = new THREE.Vector3(0.01, 21.5, 0.7);
+				pos = new THREE.Vector3(0.01, 62, 0.7);
 				target.set(0, 0, 0);
 				this.followFruit = false;
 				break;
@@ -1723,12 +1731,14 @@ export class GreenhouseTwin {
 	}
 
 	setAutoRotate(on: boolean) {
+		this.tour?.stop();
 		this.autoRotate = on && this.navigationMode === 'orbit';
 		this.controls.autoRotate = this.autoRotate;
 		if (on) this.followFruit = false;
 	}
 
 	setNavigationMode(mode: 'orbit' | 'fly') {
+		this.tour?.stop();
 		if (this.navigationMode === mode) return;
 		if (mode === 'fly') {
 			this.autoRotate = false;
@@ -1774,6 +1784,7 @@ export class GreenhouseTwin {
 
 	private applyQuality(quality: TwinStats['quality']) {
 		this.quality = quality;
+		this.flows?.setQuality(quality);
 		this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, quality === 'high' ? 2 : quality === 'medium' ? 1.5 : 1));
 		const shadowSize = quality === 'high' ? 2048 : quality === 'medium' ? 1536 : 1024;
 		this.sun.shadow.mapSize.set(shadowSize, shadowSize);
@@ -1801,8 +1812,10 @@ export class GreenhouseTwin {
 	}
 
 	focusEquipment(code: string): InspectionInfo | null {
+		this.tour.stop();
 		const entry = this.equipment.entries.find((item) => item.code === code);
 		if (!entry) return null;
+		this.interaction.select(code);
 		const target = entry.object.getWorldPosition(new THREE.Vector3());
 		const direction = target.z > 0 ? -1 : 1;
 		const position = target.clone().add(new THREE.Vector3(2.2, 1.15, direction * 2));
@@ -1825,24 +1838,24 @@ export class GreenhouseTwin {
 		return this.getInspectionInfo(code);
 	}
 
-	private handleInspection = (event: MouseEvent) => {
-		if (!this.inspectHandler) return;
-		const rect = this.canvas.getBoundingClientRect();
-		if (this.navigationMode === 'fly' && document.pointerLockElement === this.canvas) this.pointer.set(0, 0);
-		else this.pointer.set(((event.clientX - rect.left) / rect.width) * 2 - 1, -((event.clientY - rect.top) / rect.height) * 2 + 1);
-		this.raycaster.setFromCamera(this.pointer, this.camera);
-		for (const hit of this.raycaster.intersectObject(this.equipment.roots, true)) {
-			let node: THREE.Object3D | null = hit.object;
-			while (node && !node.userData.deviceCode) node = node.parent;
-			const entry = this.equipment.entries.find((item) => item.code === node?.userData.deviceCode);
-			if (entry) {
-				const { object, ...info } = entry;
-				this.inspectHandler({ ...info });
-				return;
-			}
-		}
-		this.inspectHandler(null);
-	};
+	selectEquipment(code: string | null) { this.interaction.select(code); }
+	getHoverLabel() { return this.interaction.getHoverLabel(this.sizeW, this.sizeH); }
+	setFlowVisible(visible: boolean) { this.flows.setEnabled(visible); }
+	getTourState() { return this.tour.getState(); }
+	startTour() {
+		this.setNavigationMode('orbit');
+		this.autoRotate = false;
+		this.controls.autoRotate = false;
+		this.followFruit = false;
+		this.tween = null;
+		// Remove orbit damping momentum before the tour takes control.
+		this.controls.update();
+		this.tour.start();
+	}
+	pauseTour() { this.tour.pause(); }
+	resumeTour() { this.tour.resume(); }
+	stopTour() { this.tour.stop(); }
+	private cancelTour = () => { this.tour.stop(); };
 
 	/** 供 HUD 叠加层使用：4 种病害标签的屏幕坐标 */
 	getDiseaseMarkers(): DiseaseMarker[] {
@@ -1925,6 +1938,11 @@ export class GreenhouseTwin {
 
 		if (this.navigationMode === 'fly') this.freeControls.update(dt);
 		else this.controls.update();
+		this.tour.update(dt);
+		if (this.tour.getState().status === 'playing') this.camera.lookAt(this.controls.target);
+		this.flows.update(dt);
+        this.weatherEffects.update(dt,this.quality);
+		this.interaction.update(dt, this.navigationMode === 'orbit');
 		const inside = Math.abs(this.camera.position.x) < HALF_L && Math.abs(this.camera.position.z) < HALF_W && this.camera.position.y < roofHeightAt(this.camera.position.z);
 		if (inside !== this.insideShell) {
 			this.insideShell = inside;
@@ -1952,7 +1970,7 @@ export class GreenhouseTwin {
 	}
 
 	private handleVisibility() {
-		if (document.hidden) this.pause();
+		if (document.hidden) { this.tour.pause(); this.pause(); }
 		else this.resume();
 	}
 
@@ -1976,7 +1994,12 @@ export class GreenhouseTwin {
 		if (this.raf) cancelAnimationFrame(this.raf);
 		this.raf = 0;
 		document.removeEventListener('visibilitychange', this.onVisibility);
-		this.canvas.removeEventListener('click', this.handleInspection);
+		this.canvas.removeEventListener('pointerdown', this.cancelTour);
+		this.canvas.removeEventListener('wheel', this.cancelTour);
+		this.tour.stop();
+		this.interaction.dispose();
+		this.flows.dispose();
+        this.weatherEffects.dispose();
 		this.inspectHandler = null;
 
 		this.scene.traverse((obj) => {

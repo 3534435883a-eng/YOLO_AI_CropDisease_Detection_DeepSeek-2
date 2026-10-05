@@ -1,9 +1,14 @@
 <template>
-	<div ref="shellRef" class="twin-shell" :style="{ '--twin-h': shellHeight + 'px' }">
+	<div ref="shellRef" class="twin-shell" :class="{'is-autonomous':autonomousShowcase}" :style="{ '--twin-h': shellHeight + 'px' }">
 		<canvas ref="canvasRef" class="twin-canvas" tabindex="0"></canvas>
+		<Transition name="scene-fade">
+			<div v-if="hoverLabel" class="equipment-hover" :style="{ left: hoverLabel.x + 'px', top: hoverLabel.y + 'px' }">
+				<strong>{{ hoverLabel.name }}</strong><span>{{ hoverLabel.zone }} · 点击查看</span>
+			</div>
+		</Transition>
 
 		<!-- 病害悬浮标签 -->
-		<div v-show="showHud && twinDataMode === 'daily'" class="disease-layer">
+		<div v-show="showHud && !m3Mode && twinDataMode === 'daily'" class="disease-layer">
 			<div
 				v-for="m in diseaseMarkers"
 				:key="m.code"
@@ -20,38 +25,52 @@
 		<!-- ─────────────── 顶栏 ─────────────── -->
 		<header class="topbar">
 			<div class="brand">
-				<span class="mark">TW</span>
+				<span class="mark">M3</span>
 				<div class="brand-txt">
-					<h1>番茄温室数字孪生</h1>
-					<p>TOMATO GREENHOUSE · DIGITAL TWIN</p>
+					<h1>番茄模拟温室</h1>
+					<p>Horti-M3 · 广辉201 / CK 参考场景 · 40×40 m · 14 小区</p>
 				</div>
 			</div>
 
 			<div class="sim-badge">
 				<i class="pulse"></i>
-				{{ twinDataMode === 'agent' ? 'AGENT RUN · 15分钟规则推演（非实测）' : 'SIMULATED · 日级评测（非实测）' }}
+				{{ m3Mode ? 'M3参考 · 事件与AI处置' : twinDataMode === 'agent' ? `${agentRun?.tickMinutes || 30} 分钟规则推演` : '日级模型 · 非实测' }}
 			</div>
 
 			<div class="top-right">
-				<span v-if="twinDataMode === 'agent'" class="chip ok">{{ agentRun?.status || '未创建运行' }}</span>
+				<el-button v-if="!autonomousShowcase" class="takeover-button" size="small" type="primary" :loading="autonomyStarting" @click="startAutonomous">一键自动接管</el-button>
+				<el-button-group v-if="!m3Mode" class="workspace-modes">
+					<el-button size="small" :type="twinDataMode === 'agent' ? 'primary' : ''" @click="selectTwinMode('agent')">半小时仿真</el-button>
+					<el-button size="small" :type="!m3Mode && twinDataMode === 'daily' ? 'primary' : ''" @click="selectTwinMode('daily')">日级评测</el-button>
+				</el-button-group>
+				<el-button size="small" @click="showCalibration=true">校准过程</el-button>
+				<el-button v-if="!m3Mode" size="small" :type="showSceneTools ? 'primary' : ''" @click="toggleSceneTools">场景交互</el-button>
+				<el-button v-if="!autonomousShowcase" size="small" :type="showHud ? 'primary' : ''" @click="toggleHud">{{ showHud ? '收起数据' : '运行数据' }}</el-button>
+				<span v-if="m3Mode" class="chip ok">三年数据 · 冻结参数回放</span><span v-else-if="twinDataMode === 'agent'" class="chip ok">规则仿真 · {{ agentRun?.status || '未创建运行' }}</span>
 				<span v-else class="chip" :class="source === 'demo' ? 'warn' : 'ok'">
-					{{ source === 'demo' ? '示例数据' : '接口数据' }}
+					{{ source === 'demo' ? '离线示例数据' : '后端离线评测' }}
 				</span>
-				<span v-if="twinDataMode === 'daily'" class="chip mono" :title="batchId">{{ batchId }}</span>
-				<span class="chip mono">{{ stats.fps > 0 ? stats.fps.toFixed(0) + ' FPS' : '— FPS' }} · {{ stats.drawCalls }} DC</span>
+				<span class="chip mono render-chip" :title="`${stats.drawCalls} Draw calls · ${stats.width}×${stats.height}`">{{ stats.fps > 0 ? stats.fps.toFixed(0) + ' FPS' : '— FPS' }}</span>
 				<span v-if="stats.degraded" class="chip warn">已自动降级</span>
-				<el-button size="small" :loading="twinDataMode === 'agent' ? agentLoading : loading" @click="twinDataMode === 'agent' ? loadAgentRun() : reload()">重新加载</el-button>
+				<el-button v-if="!autonomousShowcase" size="small" :loading="twinDataMode === 'agent' ? agentLoading : loading" @click="m3Mode ? m3Replay?.reload() : twinDataMode === 'agent' ? loadAgentRun() : reload()">重新加载</el-button>
+				<el-button size="small" @click="toggleFullscreen">{{ isFullscreen ? '退出全屏' : '全屏' }}</el-button>
 			</div>
 		</header>
 
-		<div v-if="twinDataMode === 'daily' && source === 'demo' && showHud" class="demo-alert">
+		<M3ReplayPanel v-if="m3Mode" v-show="showHud&&!autonomousShowcase" ref="m3Replay" compact @frame="m3State = $event" @run="m3Run=$event" @playback="autonomyPlaying=$event" @error="autonomyError=$event" />
+        <ScenarioPanel v-if="m3Mode && showHud && !autonomousShowcase && m3Run?.current.scenario" :run="m3Run" @change="m3Replay?.acceptSnapshot($event)" />
+		<AutonomousShowcase v-if="autonomousShowcase" :run="m3Run" :playing="autonomyPlaying" :starting="autonomyStarting" :error="autonomyError" @resume="startAutonomous" @pause="pauseAutonomous" @exit="exitAutonomous" @chat="openAutonomousChat" @calibration="showCalibration=true" />
+		<CalibrationStory v-if="showCalibration" :run="m3Run" @close="showCalibration=false" />
+		<details v-if="!m3Mode" class="m3-profile-note"><summary>M3 场景模拟 · 未校准</summary><p>默认观测窗口 2025-04-19 至 06-13（56 天），计算步长 30 分钟。棚体与小区规模参考论文；屋架跨数、布局、设备容量、天气和作物参数为示意假设。840 株为全试验区规模，不是 CK 样本量。三年原始资料已导入，观测对照请打开模型校准；当前规则/日级视图仍是原机制，未自动替换为校准参数。</p><a :href="HORTI_M3_PROFILE.paperUrl" target="_blank" rel="noopener noreferrer">查看论文依据 ↗</a></details>
+
+		<div v-if="!m3Mode && twinDataMode === 'daily' && source === 'demo' && showHud" class="demo-alert">
 			<span>示例数据 · 接口不可用（{{ apiError || '未知原因' }}）</span>
 			<button type="button" @click="showDemoDetails = !showDemoDetails">{{ showDemoDetails ? '收起' : '数据说明' }}</button>
 			<p v-if="showDemoDetails">/api/eval/{{ batchId }}/series 不可用。当前指标由离线作物模型生成，非实测、非后端推演结果；三维模型与此数据集联动，额外设备开关仅本地演示。</p>
 		</div>
 
 		<!-- ─────────────── 左栏 ─────────────── -->
-		<aside v-show="showHud && twinDataMode === 'daily'" class="hud hud-left">
+		<aside v-show="showHud && !m3Mode && twinDataMode === 'daily'" class="hud hud-left">
 			<section class="panel">
 				<div class="panel-hd">
 					<span class="ttl">环境</span>
@@ -98,11 +117,11 @@
 		</aside>
 
 		<!-- ─────────────── 右栏 ─────────────── -->
-		<aside v-show="showHud && twinDataMode === 'daily'" class="hud hud-right">
+		<aside v-show="showHud && !m3Mode && twinDataMode === 'daily'" class="hud hud-right">
 			<section class="panel">
 				<div class="panel-hd">
-					<span class="ttl">土壤与病虫害</span>
-					<span class="sub">SOIL &amp; PEST</span>
+					<span class="ttl">基质与病虫害模型</span>
+					<span class="sub">SUBSTRATE &amp; PEST</span>
 				</div>
 				<div class="grid-2">
 					<div class="metric">
@@ -138,13 +157,13 @@
 				</div>
 			</section>
 
-			<section v-if="twinDataMode === 'daily'" class="panel">
+			<section v-if="!m3Mode && twinDataMode === 'daily'" class="panel">
 				<div class="panel-hd"><span class="ttl">模型设备演示</span><span class="sub">LOCAL · SIMULATED</span></div>
-				<p class="eco-note">以下开关仅驱动三维模型，不代表日级评测或真实设备命令。</p>
-				<div class="model-switch"><span>HAF 环流风机</span><el-switch v-model="demoActuators.circulationFan" size="small" /></div>
-				<div class="model-switch"><span>端墙强制排风</span><el-switch v-model="demoActuators.exhaustFan" size="small" @change="onExhaustToggle" /></div>
-				<div class="model-switch"><span>湿帘循环水</span><el-switch v-model="demoActuators.coolingPad" size="small" @change="onCoolingToggle" /></div>
-				<div class="model-switch"><span>屋面通风窗</span><el-switch v-model="demoActuators.roofVent" size="small" /></div>
+				<p class="eco-note">{{ source === 'demo' ? '以下开关仅驱动三维模型，不代表日级评测或真实设备命令。' : '当前动画跟随评测数据，场景演示开关不可用。' }}</p>
+				<div class="model-switch"><span>HAF 环流风机</span><el-switch v-model="demoActuators.circulationFan" :disabled="source !== 'demo'" size="small" /></div>
+				<div class="model-switch"><span>端墙强制排风</span><el-switch v-model="demoActuators.exhaustFan" :disabled="source !== 'demo'" size="small" @change="onExhaustToggle" /></div>
+				<div class="model-switch"><span>湿帘循环水</span><el-switch v-model="demoActuators.coolingPad" :disabled="source !== 'demo'" size="small" @change="onCoolingToggle" /></div>
+				<div class="model-switch"><span>屋面通风窗</span><el-switch v-model="demoActuators.roofVent" :disabled="source !== 'demo'" size="small" /></div>
 			</section>
 
 			<section class="panel">
@@ -174,7 +193,7 @@
 				</div>
 				<div class="grid-2">
 					<div class="metric">
-						<span class="lb">实测帧率</span>
+						<span class="lb">浏览器帧率</span>
 						<span class="vl mono" :class="{ hot: stats.fps > 0 && stats.fps < 45 }">
 							{{ stats.fps > 0 ? stats.fps.toFixed(1) : '—' }}<em>fps</em>
 						</span>
@@ -237,22 +256,22 @@
 			</section>
 		</aside>
 
-		<aside v-if="showHud && twinDataMode === 'agent'" class="hud hud-left agent-hud">
+		<aside v-if="!m3Mode && showHud && twinDataMode === 'agent'" class="hud hud-left agent-hud">
 			<section class="panel">
-				<div class="panel-hd"><span class="ttl">运行快照</span><span class="sub">15 MIN · SAVED</span></div>
+				<div class="panel-hd"><span class="ttl">运行快照</span><span class="sub">{{ agentRun?.tickMinutes || 30 }} MIN · SAVED</span></div>
 				<p class="eco-note">{{ agentRun?.runCode || '尚无运行' }} · {{ agentFrame?.environment.simulatedAt || '—' }}</p>
 				<p v-if="agentFrame?.modelVersion" class="eco-note">模型 {{ agentFrame.modelVersion }} · 规则推演，未经过现场标定</p>
 				<p class="eco-note">{{ agentFrame?.recorded ? '设备和库存取自该步保存的快照；番茄植株形态仅作固定示意' : '无完整设备快照：执行器统一待机，作物仅作固定示意；环境数值仅在有历史快照时显示' }}。所有指标为模拟值。</p>
-				<p v-if="agentError" class="agent-error">{{ agentError }}</p>
+				<p v-if="agentError" class="agent-error">{{ agentError }} <button type="button" @click="loadAgentRun">重试连接</button></p>
 				<div class="agent-actions">
 					<el-button v-if="!agentRun" size="small" type="primary" :loading="agentLoading" @click="createTwinRun">创建仿真运行</el-button>
 					<template v-else>
 						<el-button v-if="agentRun.status !== 'RUNNING'" size="small" type="primary" :disabled="agentRun.status === 'COMPLETED'" :loading="agentLoading" @click="operateTwinRun('start')">自动运行</el-button>
 						<el-button v-else size="small" type="warning" :loading="agentLoading" @click="operateTwinRun('pause')">暂停</el-button>
-						<el-button size="small" :loading="agentLoading" :disabled="agentRun.status === 'COMPLETED' || agentRun.status === 'RUNNING'" @click="advanceTwinRun">推进15分钟</el-button>
+						<el-button size="small" :loading="agentLoading" :disabled="agentRun.status === 'COMPLETED' || agentRun.status === 'RUNNING'" @click="advanceTwinRun">推进{{ agentRun.tickMinutes || 30 }}分钟</el-button>
 						<el-button size="small" :loading="agentLoading" @click="operateTwinRun('reset')">重置</el-button>
 						<el-button size="small" :loading="agentLoading" @click="loadAgentRun">同步快照</el-button>
-						<el-button v-if="agentFrames.some((item) => !item.recorded)" size="small" :loading="agentLoading" @click="createTwinRun">新建兼容运行</el-button>
+						<el-button size="small" :loading="agentLoading" @click="createTwinRun">新建 M3 运行</el-button>
 					</template>
 				</div>
 			</section>
@@ -279,22 +298,18 @@
 				<div v-for="(item, index) in agentFrame.consumption" :key="`${item.deviceCode}-${item.resourceCode}-${index}`" class="agent-row"><span>{{ agentFrame.devices.find((device) => device.code === item.deviceCode)?.name || item.deviceCode }} · {{ item.resourceCode }}</span><b>{{ fmt(item.quantity, 3) }} {{ item.unit }}</b></div>
 			</section>
 		</aside>
-		<aside v-if="showHud && twinDataMode === 'agent' && agentFrame?.recorded" class="hud hud-right agent-hud">
+		<aside v-if="!m3Mode && showHud && twinDataMode === 'agent' && agentFrame?.recorded" class="hud hud-right agent-hud">
 			<section class="panel">
-				<div class="panel-hd"><span class="ttl">执行设备</span><span class="sub">ACTUAL STATE</span></div>
+				<div class="panel-hd"><span class="ttl">执行设备</span><span class="sub">SAVED ACTION</span></div>
 				<div v-for="item in agentFrame.devices" :key="item.code" class="agent-row"><span>{{ item.name }} <small>{{ item.controlMode }}</small></span><b :class="item.actualState === 'ON' ? 'agent-on' : ''">{{ item.actualState }}</b></div>
 				<p class="eco-note">湿帘需要排风；对外换气期间禁止 CO₂ 补气。设备状态仅是保存的仿真动作。</p>
 			</section>
 		</aside>
 
 		<!-- ─────────────── 相机预设 ─────────────── -->
-		<div class="cam-bar" :class="{ 'is-immersive': !showHud }">
-			<el-button-group>
-				<el-button size="small" :type="twinDataMode === 'agent' ? 'primary' : ''" @click="selectTwinMode('agent')">15分钟仿真</el-button>
-				<el-button size="small" :type="twinDataMode === 'daily' ? 'primary' : ''" @click="selectTwinMode('daily')">日级评测</el-button>
-			</el-button-group>
-			<el-button size="small" @click="toggleHud">{{ showHud ? '隐藏数据面板' : '显示数据面板' }}</el-button>
-			<el-button size="small" :type="showEquipmentList ? 'success' : ''" @click="showEquipmentList = !showEquipmentList">设备目录</el-button>
+		<div class="cam-bar" :class="{ 'is-immersive': !showHud, 'has-tools': showSceneTools }">
+			<span class="camera-label">视角</span>
+			<el-button size="small" :type="showEquipmentList ? 'primary' : ''" @click="showEquipmentList = !showEquipmentList">设备目录</el-button>
 			<el-button size="small" :type="navigationMode === 'fly' ? 'success' : 'primary'" @click="toggleNavigationMode">
 				{{ navigationMode === 'fly' ? '退出自由漫游' : '进入自由漫游' }}
 			</el-button>
@@ -308,28 +323,78 @@
 				</el-button>
 			</el-button-group>
 			<el-button size="small" :type="autoRotate ? 'primary' : ''" :disabled="navigationMode === 'fly'" @click="toggleAutoRotate">自动旋转</el-button>
-			<el-button size="small" :type="diurnal ? 'primary' : ''" :disabled="twinDataMode === 'agent'" @click="diurnal = !diurnal">昼夜循环</el-button>
-			<span class="clock mono">{{ clockText }}</span>
+			<el-button size="small" :type="diurnal ? 'primary' : ''" :disabled="m3Mode || twinDataMode === 'agent'" @click="toggleDaylight">昼夜循环</el-button>
 		</div>
+		<Transition name="scene-fade">
+			<section v-if="!m3Mode && showSceneTools" class="scene-tools" :class="{ 'with-hud': showHud }" aria-label="场景交互与动画">
+				<div class="tools-heading"><div><small>EXPLORE THE GREENHOUSE</small><h2>探索大棚</h2></div><button type="button" aria-label="收起场景交互" @click="showSceneTools = false">×</button></div>
+				<div v-if="!m3Mode && twinDataMode === 'daily'" class="tools-tabs" role="tablist" aria-label="大棚控制分类"><button type="button" role="tab" :aria-selected="sceneToolsTab === 'explore'" @click="sceneToolsTab = 'explore'">设备与巡览</button><button type="button" role="tab" :aria-selected="sceneToolsTab === 'playback'" @click="sceneToolsTab = 'playback'">生长与光照</button></div>
+				<p class="tools-hint">悬停辨认 · 点击查看 · 拖动接管镜头</p>
+				<div v-show="sceneToolsTab === 'explore' || twinDataMode === 'agent'" class="tools-section">
+					<div class="tools-row"><strong>棚内巡览</strong><span>{{ tourState.status === 'idle' ? '5 个站点' : `${tourState.index} / ${tourState.total}` }}</span></div>
+					<p v-if="tourState.status !== 'idle'" class="tour-caption">{{ tourState.title }} · {{ { playing: '巡览中', paused: '已暂停', finished: '已完成', idle: '' }[tourState.status] }}</p>
+					<div class="tools-buttons">
+						<el-button v-if="tourState.status === 'idle' || tourState.status === 'finished'" size="small" @click="startSceneTour">{{ tourState.status === 'finished' ? '重新巡览' : '巡览大棚' }}</el-button>
+						<el-button v-else size="small" @click="toggleTourPause">{{ tourState.status === 'playing' ? '暂停巡览' : '继续巡览' }}</el-button>
+						<el-button v-if="tourState.status !== 'idle'" size="small" @click="stopSceneTour">结束巡览</el-button>
+					</div>
+				</div>
+				<div v-show="sceneToolsTab === 'explore' || twinDataMode === 'agent'" class="tools-section">
+					<div class="tools-row"><label for="flow-switch">运行流向</label><el-switch id="flow-switch" v-model="showFlows" size="small" @change="twin?.setFlowVisible(showFlows)" /></div>
+					<div class="flow-legend"><span class="air">气流</span><span class="water">水路</span><span class="heat">热流</span></div>
+					<small>运行时显示，停机后淡出 · 流向仅为示意</small>
+				</div>
+				<div v-if="!m3Mode && twinDataMode === 'daily' && source === 'demo' && sceneToolsTab === 'explore'" class="tools-section">
+					<div class="tools-row"><strong>场景设备演示</strong><button type="button" class="reset-demo" @click="resetDeviceDemo">复位</button></div>
+					<div class="demo-controls">
+					<div class="model-switch"><span>环流风机</span><el-switch v-model="demoActuators.circulationFan" aria-label="演示环流风机" size="small" /></div>
+					<div class="model-switch"><span>强制排风</span><el-switch v-model="demoActuators.exhaustFan" aria-label="演示强制排风" size="small" @change="onExhaustToggle" /></div>
+					<div class="model-switch"><span>湿帘循环水</span><el-switch v-model="demoActuators.coolingPad" aria-label="演示湿帘循环水" size="small" @change="onCoolingToggle" /></div>
+					<div class="model-switch"><span>屋面通风窗</span><el-switch v-model="demoActuators.roofVent" aria-label="演示屋面通风窗" size="small" /></div>
+					</div>
+					<small>仅场景演示，数值仍取当前日快照；更多设备可从目录选中。</small>
+				</div>
+				<template v-if="!m3Mode && twinDataMode === 'daily' && sceneToolsTab === 'playback'">
+					<div class="tools-section">
+						<div class="tools-row"><strong>生长回放</strong><span>第 {{ currentIndex }} / {{ maxDay }} 天</span></div>
+						<el-slider v-model="sliderPos" aria-label="生长回放天数" :min="1" :max="Math.max(2, maxDay)" :step="1" :disabled="maxDay < 2" :show-tooltip="false" @input="onScrub" />
+						<div class="tools-buttons"><el-button size="small" :disabled="maxDay < 2" @click="togglePlay">{{ playing ? '暂停回放' : '播放生长' }}</el-button><el-button size="small" @click="playing = false; setDay(1)">回到首日</el-button><el-button size="small" @click="speed = speed === 1 ? 4 : 1">{{ speed }}×</el-button></div>
+						<small>{{ source === 'demo' ? '离线示例长势' : '日级模型长势' }} · 非 M3 实测回放</small>
+					</div>
+					<div class="tools-section">
+						<div class="tools-row"><strong>光照演示时钟</strong><span class="mono">{{ clockText }}</span></div>
+						<el-slider :model-value="clockHour" aria-label="光照演示时钟" :min="0" :max="23.75" :step="0.25" :show-tooltip="false" @input="setLightClock" />
+						<div class="tools-buttons"><el-button size="small" @click="toggleDaylight">{{ diurnal ? '定格光照' : '昼夜循环' }}</el-button><el-button size="small" @click="restoreLightClock">跟随序列</el-button></div>
+						<small>只改变场景光照，环境指标保持当前日快照</small>
+					</div>
+				</template>
+				<p v-if="twinDataMode === 'agent'" class="tools-hint">半小时模式的光照跟随保存时刻，植株形态为固定示意；历史回放使用下方时间轴。</p>
+			</section>
+		</Transition>
 		<div v-if="showEquipmentList" class="equipment-directory">
 			<div class="directory-heading"><strong>设备与测点</strong><span>点击定位 · 可继续自由漫游</span></div>
-			<button v-for="item in equipmentOptions" :key="item.code" type="button" @click="inspectEquipment(item.code)">
+			<el-input v-model="equipmentQuery" size="small" clearable placeholder="搜索设备、测点或分区" aria-label="搜索设备" />
+			<button v-for="item in filteredEquipment" :key="item.code" type="button" @click="inspectEquipment(item.code)">
 				<span>{{ item.kind === 'sensor' ? '◇' : '●' }} {{ item.name }}</span><small>{{ item.zone }}</small>
 			</button>
+			<p v-if="!filteredEquipment.length" class="directory-empty">没有找到对应设备，请换一个名称或分区。</p>
 		</div>
 		<div v-if="navigationMode === 'fly'" class="flight-reticle"></div>
-		<div v-if="inspected" class="inspection-panel">
-			<div class="inspection-top"><span>{{ inspected.kind === 'sensor' ? '感知节点' : '执行设备' }} · SIMULATED</span><button type="button" @click="inspected = null">×</button></div>
+		<div v-if="inspected" class="inspection-panel" :class="{ 'with-hud': showHud }">
+			<div class="inspection-top"><span>{{ inspected.kind === 'sensor' ? '感知节点' : '执行设备' }} · SIMULATED</span><button type="button" aria-label="关闭设备详情" @click="clearInspection">×</button></div>
 			<strong>{{ inspected.name }}</strong>
 			<span class="inspection-zone">{{ inspected.zone }} · {{ inspected.code }}</span>
 			<p>{{ inspected.description }}</p>
-			<b v-if="inspected.kind === 'sensor'">{{ fmt(inspected.value, 1) }} {{ inspected.unit }}</b>
+			<b v-if="inspected.kind === 'sensor'">{{ inspectionValue === undefined ? '未记录' : `${fmt(inspectionValue, 1)} ${inspected.unit || ''}` }}</b>
 			<b v-else :class="{ active: inspected.active }">{{ inspected.active ? '模型运行中' : '模型待机' }}</b>
-			<small>{{ twinDataMode === 'agent' ? '保存快照驱动的仿真状态 · 非实物遥测' : '本地模型状态 · 非实物遥测/控制命令' }}</small>
+			<small>{{ m3Mode ? 'M3历史参考 · 仿真事件与设备响应' : twinDataMode === 'agent' ? '保存快照驱动的仿真状态 · 非实物遥测' : '本地模型状态 · 非实物遥测/控制命令' }}</small>
+			<el-button size="small" class="focus-button" @click="inspectEquipment(inspected.code)">靠近查看</el-button>
+			<el-button v-if="!m3Mode && twinDataMode === 'daily' && source === 'demo' && inspected.kind === 'actuator'" size="small" class="focus-button" @click="toggleInspectedDemo">{{ inspected.active ? '演示停机' : '演示运行' }}</el-button>
+			<small v-if="!m3Mode && twinDataMode === 'daily' && source === 'demo' && inspected.kind === 'actuator'">演示按钮仅改变三维效果，不修改评测结果</small>
 		</div>
 
 		<!-- ─────────────── 播放条 ─────────────── -->
-		<footer v-show="showHud && twinDataMode === 'daily'" class="playbar">
+		<footer v-show="showHud && !m3Mode && twinDataMode === 'daily'" class="playbar">
 			<el-button class="pp" :type="playing ? 'warning' : 'primary'" circle @click="togglePlay">
 				{{ playing ? '❚❚' : '▶' }}
 			</el-button>
@@ -361,7 +426,7 @@
 				</el-button>
 			</div>
 		</footer>
-		<footer v-if="showHud && twinDataMode === 'agent'" class="playbar agent-playbar">
+		<footer v-if="!m3Mode && showHud && twinDataMode === 'agent'" class="playbar agent-playbar">
 			<el-button class="pp" :type="agentPlaying ? 'warning' : 'primary'" circle :disabled="agentFrames.length < 2" @click="toggleAgentPlayback">{{ agentPlaying ? '❚❚' : '▶' }}</el-button>
 			<span class="chip ok">历史快照回放</span>
 			<div class="scrub">
@@ -403,10 +468,19 @@
  *   · 3D 场景使用相邻两天之间的线性插值，保证植株不会跳变
  */
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import M3ReplayPanel from '../modelCalibration/M3LiveWorkbench.vue';
+import ScenarioPanel from './components/ScenarioPanel.vue';
+import AutonomousShowcase from './components/AutonomousShowcase.vue';
+import CalibrationStory from './components/CalibrationStory.vue';
+import type {M3LiveRun,M3LiveFrame} from '/@/api/m3/live';
+import type { M3ReplayState } from '/@/api/m3';
 import * as echarts from 'echarts';
 import { ElMessageBox } from 'element-plus';
+import { HORTI_M3_PROFILE } from './hortiM3Profile';
 import { GreenhouseTwin, type CameraPreset, type InspectionInfo, type TwinStats } from './scene';
+import type { HoverLabel } from './equipmentInteraction';
+import type { TourState } from './sceneTour';
 import {
 	createAgentRun,
 	getActiveAgentRun,
@@ -445,9 +519,35 @@ import {
 
 const BASE_DAYS_PER_SEC = 1.15; // 1× 播放速度：天/秒
 const route = useRoute();
+const router = useRouter();
+const m3Mode = computed(() => route.query.mode === 'm3');
+const m3Replay = ref<InstanceType<typeof M3ReplayPanel>>();
+const m3State = ref<M3ReplayState | null>(null);
+const m3Run=ref<M3LiveRun|null>(null);
+const autonomousShowcase=ref(['1','paused'].includes(String(route.query.autonomous))),autonomyStarting=ref(false),autonomyPlaying=ref(false),autonomyError=ref(''),showCalibration=ref(false);
+async function startAutonomous(){
+ if(autonomyStarting.value)return;
+ autonomyStarting.value=true;autonomyError.value='';showHud.value=true;showSceneTools.value=false;playing.value=false;agentPlaying.value=false;diurnal.value=false;
+ try{
+  if(!m3Mode.value||route.query.autonomous!=='1'){const id=route.query.liveRun||sessionStorage.getItem('m3ActiveRun');await router.replace({query:{...route.query,mode:'m3',autonomous:'1',...(id?{liveRun:id}:{})}});}
+  autonomousShowcase.value=true;await nextTick();
+  if(!m3Replay.value)throw new Error('大棚工作台尚未准备好');
+  await m3Replay.value.startAutomatic();
+ }catch(e){autonomyError.value=e instanceof Error?e.message:String(e);}
+ finally{autonomyStarting.value=false;}
+}
+function pauseAutonomous(){m3Replay.value?.pause();void router.replace({query:{...route.query,autonomous:'paused'}});}
+function exitAutonomous(){m3Replay.value?.pause();autonomousShowcase.value=false;showHud.value=true;const query={...route.query};delete query.autonomous;void router.replace({query});}
+function openAutonomousChat(){if(m3Run.value)router.push({path:'/agentChat',query:{liveRun:m3Run.value.runId}});}
+watch(()=>[route.path,route.query.autonomous] as const,([path,flag])=>{
+ if(path!=='/digitalTwin')return;
+ if(flag==='1')void startAutonomous();
+ else if(flag==='paused'){autonomousShowcase.value=true;m3Replay.value?.pause();}
+ else {autonomousShowcase.value=false;m3Replay.value?.pause();}
+});
 const DIURNAL_SECONDS_PER_DAY = 240;
 /** 昼夜时钟累积的模拟小时数（非响应式，避免每帧触发重渲染） */
-let diurnalHours = 6;
+let diurnalHours = 12;
 const DISEASE_COLORS: Record<string, string> = {
 	BOTRYTIS: '#a7b4a4',
 	LATE_BLIGHT: '#7f9149',
@@ -502,12 +602,31 @@ const autoRotate = ref(false);
 const navigationMode = ref<'orbit' | 'fly'>('orbit');
 const shellMode = ref<'solid' | 'translucent' | 'cutaway'>('translucent');
 const qualityPreference = ref<'auto' | TwinStats['quality']>('high');
-const showHud = ref(false);
+const showHud = ref(m3Mode.value);
 const showDemoDetails = ref(false);
 const showEquipmentList = ref(false);
+const showSceneTools = ref(true);
+const sceneToolsTab = ref<'explore' | 'playback'>('explore');
+const isFullscreen = ref(false);
+const showFlows = ref(true);
+const manualLightClock = ref(true);
+const hoverLabel = ref<HoverLabel | null>(null);
+const tourState = ref<TourState>({ status: 'idle', title: '全棚概览', index: 1, total: 5 });
 const equipmentOptions = ref<Array<{ code: string; name: string; zone: string; kind: 'sensor' | 'actuator' }>>([]);
+const equipmentQuery = ref('');
+const filteredEquipment = computed(() => {
+	const query = equipmentQuery.value.trim().toLowerCase();
+	return query ? equipmentOptions.value.filter(item => `${item.name} ${item.zone} ${item.code}`.toLowerCase().includes(query)) : equipmentOptions.value;
+});
 const inspected = ref<InspectionInfo | null>(null);
 const demoActuators = reactive({ circulationFan: true, exhaustFan: false, coolingPad: false, roofVent: false });
+const demoOverrides = reactive<Partial<Record<string, boolean>>>({});
+const inspectionValue = computed(() => {
+	const entry = inspected.value;
+	if (!entry || entry.kind !== 'sensor') return undefined;
+	if (twinDataMode.value === 'agent') return agentFrame.value?.recorded ? agentFrame.value.sensorReadings?.[entry.code] : undefined;
+	return entry.value;
+});
 const clockHour = ref(12);
 
 const outcomes = ref<EvalRunsResponse | null>(null);
@@ -582,7 +701,7 @@ const envMetrics = computed(() => {
 		{ k: '空气湿度', v: fmt(d?.airHumidityPct, 1), u: '%' },
 		{ k: 'CO₂', v: fmt(d?.co2Ppm, 0), u: 'ppm' },
 		{ k: '光照 PPFD', v: fmt(d?.lightPpfd, 0), u: 'μmol' },
-		{ k: '土壤水分', v: fmt(d?.soilMoisturePct, 1), u: '%' },
+		{ k: '基质水分', v: fmt(d?.soilMoisturePct, 1), u: '%' },
 	];
 });
 
@@ -664,6 +783,7 @@ const flatHours = computed(() => isFlatDailyTimestamp(points.value));
  *  时间戳是「日快照」时（本数据集就是这种情况），用一条按真实时间推进的昼夜时钟做演示，
  *  起点锚定在 simulatedAt 的时刻——这样即使暂停在某一天，太阳也仍在移动，不会永远停在清晨。 */
 const sceneHourAt = (dayValue: number): number => {
+	if (manualLightClock.value) return diurnalHours;
 	const pts = points.value;
 	if (!pts.length) return 6;
 	const idx = Math.min(pts.length, Math.max(1, Math.round(dayValue)));
@@ -675,7 +795,7 @@ const sceneHourAt = (dayValue: number): number => {
 const clockText = computed(() => {
 	if (twinDataMode.value === 'agent') {
 		const stamp = agentFrame.value?.environment.simulatedAt;
-		return stamp ? `${stamp.slice(11, 16)} · 15分钟快照` : '等待仿真运行';
+		return stamp ? `${stamp.slice(11, 16)} · ${agentRun.value?.tickMinutes || 30}分钟快照` : '等待仿真运行';
 	}
 	const h = clockHour.value;
 	const hh = Math.floor(h) % 24;
@@ -694,6 +814,23 @@ let statsTick = 0;
 
 const pushScene = () => {
 	if (!twin) return;
+	if (m3Mode.value) {
+		const state = m3State.value;
+		if (!state) return;
+		const frame=state.frame as M3LiveFrame,scenario=frame.scenario,env=scenario?.environment??frame.environment,devices=scenario?.devices||{};
+		twin.applyState({
+			lai: state.lai ?? 1.3, plantHeightCm: state.heightCm, fruitCount: 0, singleFruitWeightG: 0,
+			fruitSetRate: 0, mature: false, ripeness: 0,
+			lightPpfd: scenario?.environment.ppfd??env.lightRaw * 1000 * 0.0185,
+            irrigation:!!devices.IRRIGATION,ventilation:!!devices.VENTILATION,supplementalLight:!!devices.SUPPLEMENTAL_LIGHT,shade:!!devices.SHADE,
+            co2:!!devices.CO2_SUPPLY,circulationFan:!!devices.CIRCULATION_FAN,exhaustFan:!!devices.EXHAUST_FAN,coolingPad:!!devices.COOLING_PAD,roofVent:!!devices.ROOF_VENT,heating:!!devices.HEATING,
+			temperatureC: env.temperatureC, airHumidityPct: env.airHumidityPct, co2Ppm: env.co2Ppm,
+			soilMoisturePct: env.soilMoistureVwcPct, severity: {}, hour:hourFromSimulatedAt(frame.at,12),
+            weather:{rainMmH:scenario?.environment.rainMmH??0,windMps:scenario?.environment.windMps??0,cloud:scenario?.weather?0.65:0},
+			dayOfYear: dayOfYearFromSimulatedAt(frame.at, 109),
+		});
+		return;
+	}
 	if (twinDataMode.value === 'agent') {
 		const recorded = agentFrame.value?.recorded ? agentFrame.value : null;
 		const environment = agentFrame.value?.environment;
@@ -707,11 +844,11 @@ const pushScene = () => {
 			supplementalLight: enabled('SUPPLEMENTAL_LIGHT'), shade: enabled('SHADE'),
 			co2: enabled('CO2_SUPPLY'), circulationFan: enabled('CIRCULATION_FAN'),
 			exhaustFan: enabled('EXHAUST_FAN'), coolingPad: enabled('COOLING_PAD'),
-			roofVent: enabled('ROOF_VENT'),
+			roofVent: enabled('ROOF_VENT'), heating: enabled('HEATING'),
 			temperatureC: environment?.temperatureC ?? 24, airHumidityPct: environment?.airHumidityPct ?? 70,
 			co2Ppm: environment?.co2Ppm ?? 720, soilMoisturePct: environment?.soilMoisturePct ?? 55,
 			sensorReadings: recorded?.sensorReadings,
-			severity: {}, hour: hourFromSimulatedAt(at, 12), dayOfYear: dayOfYearFromSimulatedAt(at, 264),
+			severity: {}, hour: hourFromSimulatedAt(at, 12), dayOfYear: dayOfYearFromSimulatedAt(at, 109),
 		});
 		return;
 	}
@@ -721,6 +858,7 @@ const pushScene = () => {
 	if (!snap) return;
 	const peak = peakFruitWeight.value || 1;
 	const idx = Math.min(pts.length, Math.max(1, Math.round(dayAnim)));
+	const deviceOn = (code: string) => source.value === 'demo' ? (demoOverrides[code] ?? snap.devices[code]) : snap.devices[code];
 	twin.applyState({
 		lai: snap.lai,
 		plantHeightCm: snap.plantHeightCm,
@@ -730,27 +868,29 @@ const pushScene = () => {
 		mature: snap.mature,
 		ripeness: Math.max(0, Math.min(1, snap.singleFruitWeightG / peak)),
 		lightPpfd: snap.lightPpfd,
-		irrigation: snap.devices.IRRIGATION,
-		ventilation: snap.devices.VENTILATION,
-		supplementalLight: snap.devices.SUPPLEMENTAL_LIGHT,
-		shade: snap.devices.SHADE,
-		co2: snap.devices.CO2_SUPPLY,
-		circulationFan: demoActuators.circulationFan,
-		exhaustFan: demoActuators.exhaustFan,
-		coolingPad: demoActuators.coolingPad,
-		roofVent: demoActuators.roofVent,
+		irrigation: deviceOn('IRRIGATION'),
+		ventilation: deviceOn('VENTILATION'),
+		supplementalLight: deviceOn('SUPPLEMENTAL_LIGHT'),
+		shade: deviceOn('SHADE'),
+		co2: deviceOn('CO2_SUPPLY'),
+		circulationFan: source.value === 'api' ? snap.devices.CIRCULATION_FAN : demoActuators.circulationFan,
+		exhaustFan: source.value === 'api' ? snap.devices.EXHAUST_FAN : demoActuators.exhaustFan,
+		coolingPad: source.value === 'api' ? snap.devices.COOLING_PAD : demoActuators.coolingPad,
+		roofVent: source.value === 'api' ? snap.devices.ROOF_VENT : demoActuators.roofVent,
+		heating: deviceOn('HEATING'),
 		temperatureC: snap.temperatureC,
 		airHumidityPct: snap.airHumidityPct,
 		co2Ppm: snap.co2Ppm,
 		soilMoisturePct: snap.soilMoisturePct,
 		severity: { ...snap.severity },
 		hour: sceneHourAt(dayAnim),
-		dayOfYear: dayOfYearFromSimulatedAt(pts[idx - 1]?.simulatedAt || '', 264),
+		dayOfYear: dayOfYearFromSimulatedAt(pts[idx - 1]?.simulatedAt || '', 109),
 	});
 };
 
 const refreshMarkers = () => {
 	if (!twin) return;
+	if (m3Mode.value) { diseaseMarkers.value = []; return; }
 	if (twinDataMode.value === 'agent') {
 		diseaseMarkers.value = [];
 		return;
@@ -773,7 +913,7 @@ const frame = (now: number) => {
 	lastT = now;
 
 	// 昼夜演示时钟：与播放状态无关地持续走时
-	if (twinDataMode.value === 'daily' && diurnal.value && flatHours.value) diurnalHours = (diurnalHours + dt * (24 / DIURNAL_SECONDS_PER_DAY)) % 24;
+	if (!document.hidden && twinDataMode.value === 'daily' && diurnal.value) diurnalHours = (diurnalHours + dt * (24 / DIURNAL_SECONDS_PER_DAY)) % 24;
 
 	if (twinDataMode.value === 'agent' && agentPlaying.value && agentFrames.value.length > 1) {
 		agentPlaybackTime += dt;
@@ -804,6 +944,7 @@ const frame = (now: number) => {
 	if (markerTick >= 0.1) {
 		markerTick = 0;
 		refreshMarkers();
+		if (twin) { hoverLabel.value = twin.getHoverLabel(); tourState.value = twin.getTourState(); }
 		sliderPos.value = dayAnim;
 		clockHour.value = twinDataMode.value === 'agent'
 			? hourFromSimulatedAt(agentFrame.value?.environment.simulatedAt || '', 12) : sceneHourAt(dayAnim);
@@ -922,6 +1063,8 @@ const updateChart = () => {
 
 const toggleHud = async () => {
 	showHud.value = !showHud.value;
+	if (showHud.value) showSceneTools.value = false;
+	if (m3Mode.value) { if (!showHud.value) m3Replay.value?.pause(); return; }
 	if (!showHud.value) return;
 	await nextTick();
 	if (twinDataMode.value === 'daily') {
@@ -1076,10 +1219,13 @@ const operateTwinRun = async (action: 'start' | 'pause' | 'reset') => {
 
 const selectTwinMode = async (mode: 'agent' | 'daily') => {
 	if (mode === twinDataMode.value) return;
+	stopSceneTour();
+	clearInspection();
 	twinDataMode.value = mode;
 	playing.value = false;
 	agentPlaying.value = false;
 	showHud.value = true;
+	showSceneTools.value = false;
 	await nextTick();
 	if (mode === 'daily') {
 		if (chartRef.value && !chart) chart = echarts.init(chartRef.value, undefined, { renderer: 'canvas' });
@@ -1141,6 +1287,63 @@ const inspectEquipment = (code: string) => {
 	inspected.value = twin?.focusEquipment(code) || null;
 	showEquipmentList.value = false;
 };
+const toggleSceneTools = () => {
+	showSceneTools.value = !showSceneTools.value;
+	if (showSceneTools.value) showHud.value = false;
+};
+const clearInspection = () => { twin?.selectEquipment(null); inspected.value = null; };
+const toggleInspectedDemo = () => {
+	const entry = inspected.value;
+	if (!entry || entry.kind !== 'actuator' || twinDataMode.value !== 'daily' || source.value !== 'demo') return;
+	const next = !entry.active;
+	if (entry.code.startsWith('HAF_')) demoActuators.circulationFan = next;
+	else if (entry.code.startsWith('EXHAUST_')) { demoActuators.exhaustFan = next; onExhaustToggle(next); }
+	else if (entry.code.startsWith('WET_PAD_')) { demoActuators.coolingPad = next; onCoolingToggle(next); }
+	else if (entry.code.startsWith('ROOF_VENT_')) demoActuators.roofVent = next;
+	else demoOverrides[entry.code === 'SIDE_VENT' ? 'VENTILATION' : entry.code] = next;
+	// CO₂ supply cannot visually run alongside any exchange path.
+	if (entry.code === 'CO2_SUPPLY' && next) {
+		demoOverrides.VENTILATION = false;
+		demoActuators.exhaustFan = false;
+		demoActuators.coolingPad = false;
+		demoActuators.roofVent = false;
+	}
+	pushScene();
+};
+const resetDeviceDemo = () => {
+	for (const code of Object.keys(demoOverrides)) delete demoOverrides[code];
+	Object.assign(demoActuators, { circulationFan: true, exhaustFan: false, coolingPad: false, roofVent: false });
+};
+const startSceneTour = () => {
+	autoRotate.value = false;
+	navigationMode.value = 'orbit';
+	clearInspection();
+	twin?.startTour();
+	if (twin) tourState.value = twin.getTourState();
+};
+const stopSceneTour = () => { twin?.stopTour(); if (twin) tourState.value = twin.getTourState(); };
+const toggleTourPause = () => {
+	if (tourState.value.status === 'playing') twin?.pauseTour(); else twin?.resumeTour();
+	if (twin) tourState.value = twin.getTourState();
+};
+const setLightClock = (value: number | number[]) => {
+	diurnal.value = false;
+	manualLightClock.value = true;
+	diurnalHours = Array.isArray(value) ? value[0] : value;
+	clockHour.value = diurnalHours;
+};
+const toggleDaylight = () => {
+	if (twinDataMode.value !== 'daily') return;
+	if (!manualLightClock.value) diurnalHours = clockHour.value;
+	manualLightClock.value = true;
+	diurnal.value = !diurnal.value;
+};
+const restoreLightClock = () => {
+	diurnal.value = false;
+	manualLightClock.value = false;
+	diurnalHours = 6;
+	clockHour.value = sceneHourAt(dayAnim);
+};
 const onCoolingToggle = (on: string | number | boolean) => {
 	if (on) demoActuators.exhaustFan = true;
 };
@@ -1158,7 +1361,7 @@ const measureHeight = () => {
 	const el = shellRef.value;
 	if (!el) return;
 	const rect = el.getBoundingClientRect();
-	const avail = Math.max(window.innerHeight - Math.max(0, rect.top), el.parentElement?.clientHeight || 0) - 14;
+	const avail = document.fullscreenElement === el ? window.innerHeight : window.innerHeight - Math.max(0, rect.top) - 14;
 	shellHeight.value = Math.max(560, Math.floor(avail));
 };
 
@@ -1166,6 +1369,13 @@ const onResize = () => {
 	measureHeight();
 	twin?.resize();
 	chart?.resize();
+};
+const syncFullscreen = () => { isFullscreen.value = document.fullscreenElement === shellRef.value; onResize(); };
+const toggleFullscreen = async () => {
+	try {
+		if (document.fullscreenElement) await document.exitFullscreen();
+		else await shellRef.value?.requestFullscreen();
+	} catch { /* Keep the embedded scene usable if fullscreen is unsupported. */ }
 };
 
 /** 路由参数可覆盖 batchId：/digitalTwin/:batchId */
@@ -1192,11 +1402,12 @@ onMounted(async () => {
 	if (route.query.mode === 'agent') {
 		twinDataMode.value = 'agent';
 		showHud.value = true;
+		showSceneTools.value = false;
 	}
 	measureHeight();
 	await nextTick();
 
-	if (chartRef.value && showHud.value && twinDataMode.value === 'daily') {
+	if (!m3Mode.value && chartRef.value?.clientWidth && showHud.value && twinDataMode.value === 'daily') {
 		chart = echarts.init(chartRef.value, undefined, { renderer: 'canvas' });
 		updateChart();
 	}
@@ -1206,6 +1417,7 @@ onMounted(async () => {
 			twin = new GreenhouseTwin(canvasRef.value, shellRef.value);
 			twin.setQuality(qualityPreference.value);
 			twin.setShellMode(shellMode.value);
+			twin.setFlowVisible(showFlows.value);
 			twin.onInspect((entry) => { inspected.value = entry; });
 			equipmentOptions.value = twin.getEquipmentList();
 			twin.setCameraPreset('overview');
@@ -1215,6 +1427,7 @@ onMounted(async () => {
 	}
 
 	window.addEventListener('resize', onResize);
+	document.addEventListener('fullscreenchange', syncFullscreen);
 	agentSyncTimer = setInterval(() => {
 		if (twinDataMode.value === 'agent' && agentRun.value?.status === 'RUNNING' && !agentLoading.value) {
 			void loadAgentRun();
@@ -1226,7 +1439,8 @@ onMounted(async () => {
 	}
 	raf = requestAnimationFrame(frame);
 
-	if (twinDataMode.value === 'agent') await loadAgentRun();
+	if (m3Mode.value) { playing.value = false; diurnal.value = false;if(route.query.autonomous==='1')await startAutonomous(); }
+	else if (twinDataMode.value === 'agent') await loadAgentRun();
 	else await loadData();
 });
 
@@ -1236,6 +1450,7 @@ onUnmounted(() => {
 	shellResizeObserver?.disconnect();
 	shellResizeObserver = null;
 	window.removeEventListener('resize', onResize);
+	document.removeEventListener('fullscreenchange', syncFullscreen);
 	if (raf) cancelAnimationFrame(raf);
 	raf = 0;
 	if (chart) {
@@ -2425,4 +2640,241 @@ onUnmounted(() => {
 	.cam-bar.is-immersive { bottom: 12px; }
 	.playbar { gap: 10px; padding: 10px 12px 14px; }
 }
+
+/* 田间档案视觉：保留场景沉浸感，把密集 HUD 收敛为易读的纸色信息层。 */
+.twin-shell {
+	background: radial-gradient(120% 90% at 50% 0%, #e8dfce 0%, #d5cbb7 58%, #c5baa4 100%);
+	color: #302e28;
+	font-family: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+}
+
+.topbar {
+	padding: 14px 20px 18px;
+	background: linear-gradient(180deg, rgba(248, 245, 237, .98) 0%, rgba(248, 245, 237, .88) 76%, rgba(248, 245, 237, 0) 100%);
+}
+
+.brand .mark {
+	border-radius: 3px;
+	background: #493a2c;
+	border: 1px solid #79634a;
+	box-shadow: none;
+	color: #f1e4c9;
+}
+
+.brand .brand-txt h1 { color: #342d25; text-shadow: none; letter-spacing: .02em; }
+.brand .brand-txt p { color: #8a7963; letter-spacing: .12em; }
+
+.sim-badge {
+	border-radius: 3px;
+	background: #f4e9d5;
+	border: 1px solid #ddc5a0;
+	box-shadow: none;
+	color: #795230;
+	letter-spacing: .02em;
+}
+
+.sim-badge .pulse { background: #b66c38; box-shadow: none; }
+
+.chip {
+	border-radius: 3px;
+	background: rgba(255, 253, 248, .92);
+	border-color: #d9d0c2;
+	color: #645b4e;
+	letter-spacing: 0;
+}
+
+.chip.ok { color: #4f6949; border-color: #c5d0b7; background: #edf1e6; }
+.chip.warn { color: #87572e; border-color: #dec39c; background: #f7eddd; }
+
+.demo-alert {
+	border-radius: 3px;
+	background: rgba(250, 242, 226, .97);
+	border-color: #d9bb8e;
+	color: #73532e;
+	box-shadow: 0 4px 18px rgba(60, 45, 26, .08);
+}
+.demo-alert button { color: #55704f; }
+
+.hud {
+	top: 72px;
+	bottom: 122px;
+	width: 278px;
+	gap: 9px;
+	scrollbar-color: rgba(111, 94, 69, .28) transparent;
+}
+.hud-right { width: 288px; }
+.hud::-webkit-scrollbar-thumb { background: rgba(111, 94, 69, .25); }
+
+.panel {
+	border: 1px solid rgba(213, 202, 184, .95);
+	border-radius: 3px;
+	background: rgba(250, 247, 239, .94);
+	box-shadow: 0 5px 18px rgba(59, 48, 31, .08);
+	backdrop-filter: blur(10px);
+}
+
+.panel-hd { border-bottom-color: #e3d9c9; }
+.panel-hd .ttl { color: #39352d; }
+.panel-hd .sub, .panel-hd .cur { color: #8b7e6a; }
+.metric .lb, .agent-row { color: #6a6256; }
+.metric .vl, .agent-row b { color: #35332d; }
+.agent-row { border-bottom-color: #e8dfd2; }
+.eco-note, .runs-hint p { color: #766d5e; }
+.dev { border-color: #e0d6c7; background: #f4efe5; color: #544b3f; }
+.dev.on { background: #ebf0e4; border-color: #c7d3bb; }
+.dev .st { color: #766b5b; }
+.dev.on .st, .agent-row b.agent-on { color: #56744b; }
+.track { background: #e7dfd2; }
+.agent-error { color: #8f4638; }
+.agent-error button { margin-left: 6px; border: 0; background: transparent; color: #805333; text-decoration: underline; cursor: pointer; }
+
+.cam-bar {
+	bottom: 126px;
+	gap: 7px;
+	padding: 8px 10px;
+	border: 1px solid #d4c9b8;
+	border-radius: 3px;
+	background: rgba(248, 245, 237, .96);
+	box-shadow: 0 6px 22px rgba(56, 46, 32, .12);
+	backdrop-filter: blur(12px);
+}
+.cam-bar.is-immersive { bottom: 18px; }
+.cam-bar .clock { color: #72553a; }
+.flight-guide { color: #526448 !important; }
+
+.playbar {
+	background: linear-gradient(0deg, rgba(247, 243, 234, .98) 0%, rgba(247, 243, 234, .94) 76%, rgba(247, 243, 234, 0) 100%);
+	border-top-color: #d9d0c2;
+}
+.playbar .scrub-top .day { color: #685239; }
+.playbar .scrub-top .date { color: #756e62; }
+.playbar .scrub-top .stage-chip { color: #5d6d51; background: #eef0e6; border-color: #d2d8c5; }
+.twin-shell :deep(.el-button) {
+	background: #fffdf8;
+	border-color: #d8cdbd;
+	color: #51483c;
+	box-shadow: none;
+}
+.twin-shell :deep(.el-button:hover:not(.is-disabled)) { background: #f4ecde; border-color: #bc8a5d; color: #6e492f; }
+.twin-shell :deep(.el-button.el-button--primary) { background: #a9523c; border-color: #984732; color: #fff8ee; box-shadow: none; }
+.twin-shell :deep(.el-button.el-button--warning) { background: #a46b35; border-color: #925c2b; color: #fff8ee; }
+.twin-shell :deep(.el-select .el-input__wrapper), .twin-shell :deep(.el-select .el-select__wrapper) { background: #fffdf8; box-shadow: 0 0 0 1px #d8cdbd inset; border-radius: 3px; }
+.twin-shell :deep(.el-select .el-input__inner), .twin-shell :deep(.el-select .el-select__placeholder), .twin-shell :deep(.el-select .el-select__selected-item) { color: #51483c; }
+.twin-shell :deep(.el-slider) { --el-slider-main-bg-color: #a9523c; }
+.twin-shell :deep(.el-slider .el-slider__runway) { background: #e0d7c9; }
+.twin-shell :deep(.el-slider .el-slider__bar) { background: #a9523c; box-shadow: none; }
+.twin-shell :deep(.el-slider .el-slider__button) { border-color: #a9523c; background: #fffdf8; box-shadow: none; }
+
+@media (min-width: 1281px) {
+	.hud-left { left: 18px; }
+	.hud-right { right: 18px; }
+	.cam-bar { right: 18px; max-width: min(860px, calc(100% - 620px)); }
+}
+
+@media (max-width: 1560px) {
+	.hud { width: 258px; }
+	.hud-right { width: 268px; }
+}
+
+@media (max-width: 640px) {
+	.topbar { background: rgba(248, 245, 237, .96); }
+	.hud { top: 102px; }
+	.cam-bar { bottom: 94px; background: rgba(248, 245, 237, .98); }
+}
+
+.m3-profile-note { position:absolute; top:82px; left:24px; z-index:15; max-width:480px; padding:9px 13px; border:1px solid rgba(231,239,221,.3); border-radius:8px; background:rgba(22,44,36,.88); color:#ecf0e1; font-size:12px; line-height:1.7; }
+.m3-profile-note summary { cursor:pointer; font-weight:600; }
+.m3-profile-note p { margin:8px 0; }
+.m3-profile-note a { color:#bdd4a6; }
+
+/* Desktop exploration workspace: paper surfaces, olive controls, open scene. */
+.twin-shell { --scene-paper: #faf7ef; --scene-ink: #373b30; --scene-muted: #797a69; --scene-line: #d9d7c9; --scene-accent: #536b4f; font-family: 'HarmonyOS Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif; }
+.topbar { padding: 15px 20px; gap: 18px; min-height: 88px; background: rgba(250,247,239,.97); border-bottom: 1px solid var(--scene-line); align-items: center; }
+.takeover-button { font-weight:500; letter-spacing:.3px; }
+.is-autonomous .cam-bar { bottom:99px; left:266px; right:356px; padding:7px 9px; gap:5px; flex-wrap:wrap; }
+.is-autonomous .cam-bar .camera-label { display:none; }
+@media(max-width:1150px){.is-autonomous .cam-bar{left:238px;right:325px;}.is-autonomous .cam-bar :deep(.el-button){font-size:11px;padding:7px;}}
+.brand { flex: 1; min-width: 230px; }
+.brand .mark { width: 42px; height: 46px; border-radius: 4px; background: #536b4f; border-color: #536b4f; font-size: 17px; letter-spacing: -.06em; color: #f8f4e8; }
+.brand .brand-txt h1 { font-size: 21px; font-weight: 600; color: var(--scene-ink); line-height: 1.35; }
+.brand .brand-txt p { margin-top: 4px; font-size: 11px; letter-spacing: 0; color: var(--scene-muted); }
+.sim-badge { display: none; }
+.top-right { justify-content: flex-end; flex-wrap: wrap; gap: 7px; max-width: 650px; }
+.top-right > .chip { font-size: 10px; }
+.top-right > .chip.ok { display: none; }
+.m3-profile-note { top: 99px; left: 18px; max-width: min(460px, calc(100% - 36px)); padding: 6px 11px; border-radius: 4px; border-color: #d3d9c7; color: #596c4d; background: rgba(246,248,237,.97); line-height: 1.7; box-shadow: none; }
+.m3-profile-note a { color: #536b4f; text-decoration: underline; }
+.demo-alert { top: 99px; right: 18px; left: auto; max-width: 420px; font-size: 11px; }
+.hud { top: 141px; bottom: 158px; }
+.panel-hd .sub { letter-spacing: .03em; font-size: 9px; }
+.cam-bar { bottom: 108px; right: 18px; left: 18px; max-width: none; justify-content: center; border-radius: 5px; gap: 7px; padding: 10px 12px; background: rgba(250,247,239,.97); }
+.cam-bar.is-immersive { bottom: 18px; }
+.cam-bar.has-tools { left: 310px; }
+.camera-label { margin-right: 6px; color: #818271; font-size: 11px; }
+.cam-bar .el-button + .el-button { margin-left: 0; }
+.cam-bar .flight-guide { flex-basis: 100%; text-align: center; line-height: 1.6; }
+.cam-bar .shell-select { width: 106px; }
+.twin-shell :deep(.el-button.el-button--primary) { background: var(--scene-accent); border-color: var(--scene-accent); color: #fffdf4; }
+.twin-shell :deep(.el-button:hover:not(.is-disabled)) { background: #edf0e4; color: #3c5636; border-color: #849676; }
+.twin-shell :deep(.el-button.el-button--primary:hover) { background: #425b3e; color: #fffdf4; }
+.twin-shell :deep(.el-slider) { --el-slider-main-bg-color: #647b58; }
+.twin-shell :deep(.el-slider .el-slider__bar) { background: #647b58; }
+.twin-shell :deep(.el-slider .el-slider__button) { border-color: #647b58; }
+.twin-shell :deep(.el-switch) { --el-switch-on-color: #647b58; }
+.twin-shell button { transition: background-color .18s, border-color .18s, transform .18s; }
+.twin-shell button:active:not(:disabled) { transform: translateY(1px); }
+.twin-shell button:focus-visible { outline: 2px solid #647b58; outline-offset: 3px; }
+.scene-tools { position: absolute; left: 18px; top: 142px; bottom: 18px; width: 272px; overflow: auto; z-index: 6; padding: 16px 18px; border: 1px solid var(--scene-line); border-radius: 5px; background: rgba(250,247,239,.96); color: var(--scene-ink); box-shadow: 0 8px 26px rgba(58,57,38,.09); scrollbar-width: thin; scrollbar-color: #c7c9b9 transparent; }
+.tools-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-top: 14px; padding: 3px; gap: 3px; background: #edeedf; border-radius: 4px; }
+.tools-tabs button { border: 0; border-radius: 3px; padding: 7px 3px; background: transparent; color: #828473; font-size: 11px; cursor: pointer; }
+.tools-tabs button[aria-selected='true'] { background: #faf9f1; color: #4c6643; box-shadow: 0 1px 4px rgba(65,73,47,.06); }
+.tools-heading { display: flex; align-items: center; justify-content: space-between; }
+.tools-heading small { color: #8b8e7a; font-size: 9px; letter-spacing: .1em; }
+.tools-heading h2 { margin: 3px 0 0; font-size: 20px; font-weight: 600; color: var(--scene-ink); }
+.tools-heading button { border: 0; padding: 4px; background: transparent; font-size: 22px; color: #838575; cursor: pointer; }
+.tools-hint { margin: 12px 0 0; line-height: 1.7; font-size: 11px; color: var(--scene-muted); text-wrap: pretty; }
+.tools-section { padding-top: 12px; margin-top: 12px; border-top: 1px solid #e2e1d4; }
+.tools-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tools-row strong, .tools-row label { font-size: 12px; font-weight: 600; }
+.tools-row > span { font-size: 10px; color: #777a66; font-variant-numeric: tabular-nums; }
+.tools-section > small { display: block; margin-top: 9px; font-size: 10px; line-height: 1.7; color: #858575; }
+.tools-buttons { display: flex; gap: 5px; margin-top: 10px; }
+.tools-buttons .el-button + .el-button { margin-left: 0; }
+.reset-demo { padding: 0; border: 0; background: transparent; font-size: 11px; color: #667c55; cursor: pointer; }
+.scene-tools .model-switch { margin-top: 7px; color: #69705c; }
+.demo-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 8px; }
+.demo-controls .model-switch { display: flex; justify-content: space-between; gap: 5px; font-size: 10px; }
+.tour-caption { margin-top: 9px; color: #596e4c; font-size: 11px; }
+.flow-legend { display: flex; gap: 16px; margin-top: 11px; font-size: 10px; color: #737665; }
+.flow-legend span::before { content: ''; display: inline-block; vertical-align: middle; width: 14px; height: 3px; margin-right: 5px; background: #79a68c; }
+.flow-legend .water::before { background: #629dc9; }
+.flow-legend .heat::before { background: #d2924e; }
+.equipment-hover { position: absolute; z-index: 5; transform: translate(-50%, -100%); pointer-events: none; padding: 8px 12px; border: 1px solid #becbb0; background: rgba(250,248,239,.96); color: var(--scene-ink); border-radius: 4px; box-shadow: 0 3px 14px rgba(40,50,30,.12); }
+.equipment-hover strong, .equipment-hover span { display: block; }
+.equipment-hover strong { font-size: 12px; font-weight: 600; }
+.equipment-hover span { margin-top: 3px; font-size: 10px; color: #78836a; }
+.inspection-panel { top: 142px; left: auto; right: 18px; width: 282px; border-radius: 5px; border-color: #c9d2bd; background: rgba(250,247,239,.97); color: var(--scene-ink); box-shadow: 0 8px 26px rgba(58,57,38,.12); }
+.inspection-panel.with-hud { right: 308px; }
+.inspection-panel .inspection-top { color: #657956; letter-spacing: .02em; }
+.inspection-panel .inspection-top button { color: #858575; }
+.inspection-panel strong { color: #3c4532; font-size: 16px; font-weight: 600; }
+.inspection-panel .inspection-zone, .inspection-panel small { color: #838575; }
+.inspection-panel p { color: #67705c; font-size: 12px; line-height: 1.8; }
+.inspection-panel b { color: #7a7d6d; }
+.inspection-panel b.active { color: #53784c; }
+.inspection-panel .focus-button { margin-top: 14px; }
+.equipment-directory { top: 142px; right: 18px; left: auto; bottom: auto; max-height: calc(100% - 260px); width: 284px; background: rgba(250,247,239,.98); border-color: var(--scene-line); border-radius: 5px; box-shadow: 0 8px 26px rgba(58,57,38,.12); }
+.equipment-directory .directory-heading { color: #3d4834; }
+.equipment-directory .directory-heading span, .equipment-directory button small { color: #898b78; }
+.equipment-directory button { color: #565f4c; border-top-color: #e4e4d6; padding: 10px 7px; font-size: 12px; }
+.equipment-directory button:hover { background: #eaf0df; }
+.equipment-directory :deep(.el-input) { margin-bottom: 10px; }
+.directory-empty { padding: 18px 8px; color: #888c77; font-size: 12px; line-height: 1.8; }
+.playbar { padding-left: 20px; padding-right: 20px; }
+.scene-fade-enter-active, .scene-fade-leave-active { transition: opacity .18s, transform .18s; }
+.scene-fade-enter-from, .scene-fade-leave-to { opacity: 0; }
+@media (min-width: 1281px) { .cam-bar { max-width: none; } }
+@media (max-width: 1280px) { .brand .brand-txt p { max-width: 260px; font-size: 10px; } .top-right { max-width: 630px; } .render-chip { display: none; } .hud { width: 235px; } .inspection-panel.with-hud { right: 260px; } }
+@media (max-width: 1000px) { .topbar { min-height: 98px; padding: 12px 16px; } .top-right { max-width: 410px; } .top-right > .chip { display: none; } .m3-profile-note, .demo-alert { top: 110px; } .scene-tools, .inspection-panel, .equipment-directory { top: 153px; } .hud { top: 153px; width: 218px; } .scene-tools { width: 250px; } .cam-bar.has-tools { left: 286px; } .camera-label { display: none; } }
+@media (prefers-reduced-motion: reduce) { .scene-fade-enter-active, .scene-fade-leave-active, .twin-shell button { transition: none; } }
 </style>

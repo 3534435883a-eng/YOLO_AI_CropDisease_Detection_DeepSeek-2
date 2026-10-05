@@ -122,12 +122,14 @@ public class PrescriptionDraftTool implements AgentTool {
             return unavailable("运行 " + runId + " 没有可用状态（既无快照也无基线），无法拟制处方。");
         }
         int stepNo = currentStep(runId);
-        DecisionPlan plan = decisionPolicy.decide(state);
+        AgentRunResponse sourceRun = runService.getSummary(runId).getRun();
+        int tickMinutes = sourceRun.getTickMinutes() == null ? AgentRunService.DEFAULT_TICK_MINUTES : sourceRun.getTickMinutes();
+        DecisionPlan plan = decisionPolicy.decide(state, tickMinutes);
         RetrievalResult retrieval = retrieveEvidence(input);
         List<ScoredChunk> kbEvidence = retrieval == null
                 ? new ArrayList<ScoredChunk>() : retrieval.getItems();
         Prescription prescription = prescriptionService.draft(state, plan, kbEvidence);
-        WaterFertilizerPrescription waterFertilizer = waterFertilizerService.draft(state);
+        WaterFertilizerPrescription waterFertilizer = waterFertilizerService.draft(state, tickMinutes);
 
         // 引用依据：① 规则层基于该快照的推演；② 水肥处方里有出处的参数。
         // 两者都**不是**把草案当事实引用——① 引的是"规则层此刻会这么做"这一可核对事实，
@@ -148,6 +150,8 @@ public class PrescriptionDraftTool implements AgentTool {
         Map<String, Object> output = new LinkedHashMap<String, Object>();
         output.put("available", Boolean.TRUE);
         output.put("runId", runId);
+        output.put("tickMinutes", tickMinutes);
+        output.put("profile", sourceRun.getProfile());
         output.put("conclusion", prescription.getConclusion());
         output.put("actions", prescription.getActions());
         output.put("cautions", prescription.getCautions());
@@ -166,6 +170,7 @@ public class PrescriptionDraftTool implements AgentTool {
         output.put("note", "本处方是**待人工确认的草案**，智能体不会执行任何设备操作，"
                 + "也不会改变任何运行状态。处方由规则层对当前状态独立重算得出，"
                 + "与该运行实际已执行的决策可能不同（人工接管、设备故障、资源不足都会改变实际动作）；"
+                + "单步耗量按 " + tickMinutes + " 分钟折算，为未校准模拟定额；M3 原始农事数据尚未导入。"
                 + "涉及药剂时须遵循当地登记与用药规范并人工确认。"
                 // 草案要点必须走 note：证据块里每条来源只截前 160 字，动作清单放不进引用正文。
                 // note 是本编排层唯一完整传给模型的工具输出通道（见 AgentOrchestrator 的 history.add 分支）。

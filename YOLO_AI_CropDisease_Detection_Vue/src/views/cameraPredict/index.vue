@@ -2,7 +2,9 @@
 	<div class="system-predict-container layout-padding">
 		<div class="system-predict-padding layout-padding-auto layout-padding-view">
 			<DetectionNav mode="camera" view="detect" />
+			<div class="page-intro"><div><p class="eyebrow">OBSERVE / CAMERA</p><h1>实时画面观察</h1><p>连接摄像画面并运行现有检测服务；检测类别仍需人工结合知识依据核对。</p></div><div class="source-note"><span class="source-dot" :class="{ 'is-live': state.cameraisShow }"></span>{{ state.cameraisShow ? '摄像画面处理中' : '摄像画面未启动' }}</div></div>
 			<div class="header">
+				<div class="control-caption"><span>01</span><b>检测设置</b></div>
 				<div class="kind">
 					<el-select v-model="kind" placeholder="请选择作物种类" size="large" style="width: 180px" @change="getData">
 						<el-option v-for="item in state.kind_items" :key="item.value" :label="item.label"
@@ -34,6 +36,7 @@
 				</div>
 			</div>
 			<div class="cards" ref="cardsContainer">
+				<div v-if="!state.cameraisShow" class="camera-empty"><span class="camera-mark">◉</span><b>摄像画面未连接</b><small>设置作物与检测模型后，可在此启动现有摄像检测服务</small></div>
 				<img v-if="state.cameraisShow" class="video" :src="state.video_path">
 			</div>
 		</div>
@@ -197,21 +200,42 @@ onMounted(() => {
 	}
 }
 
+.page-intro { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:4px 2px 17px; }
+.page-intro .eyebrow { margin:0 0 5px; color:#887564; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.page-intro h1 { margin:0; color:#382b25; font:600 25px/1.3 Georgia,'Songti SC',serif; }
+.page-intro p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.65; }
+.source-note { display:flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid #eadbc8; color:#755740; background:#f7efe4; font-size:12px; white-space:nowrap; }
+.source-dot { width:7px; height:7px; border-radius:50%; background:#a99b8d; }
+.source-dot.is-live { background:#7b8d4b; }
+
 .header {
 	width: 100%;
-	height: 5%;
+	height: auto;
+	min-height: 72px;
 	display: flex;
 	justify-content: start;
 	align-items: center;
 	font-size: 20px;
+	align-content: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	padding: 12px;
+	background: #fdfbf7;
+	border: 1px solid #e9e0d5;
+	border-radius: 3px;
 }
+.control-caption { display:flex; align-items:center; gap:8px; padding:0 12px 0 2px; border-right:1px solid #e5dbcf; color:#514137; font-size:13px; white-space:nowrap; }
+.control-caption span { color:#a46a4d; font:600 12px Georgia,serif; }
 
 .cards {
 	width: 100%;
-	height: 95%;
-	border-radius: 5px;
-	margin-top: 15px;
-	padding: 0px;
+	height: calc(100vh - 330px);
+	min-height: 360px;
+	border: 1px solid #e4dbcf;
+	border-radius: 3px;
+	margin-top: 14px;
+	padding: 20px;
+	background: #f7f3eb;
 	overflow: hidden;
 	display: flex;
 	justify-content: center;
@@ -226,6 +250,11 @@ onMounted(() => {
 	height: auto;
 	object-fit: contain;
 }
+.camera-empty { display:flex; flex-direction:column; align-items:center; gap:9px; color:#55473c; text-align:center; }
+.camera-empty small { color:#8d8176; font-size:12px; }
+.camera-mark { display:grid; width:48px; height:48px; place-items:center; border:1px solid #dfd2c3; border-radius:50%; color:#9b5d41; background:#fffdf9; font-size:21px; }
+.predict-button { background:#98553d; border-color:#98553d; box-shadow:none; }
+.predict-button:hover { background:#7c432f; border-color:#7c432f; }
 
 .button-section {
 	display: flex;
@@ -241,4 +270,5 @@ onMounted(() => {
 	margin-left: 20px;
 	width: 600px;
 }
+@media(max-width:900px) { .page-intro { align-items:flex-start; flex-direction:column; }.control-caption { width:100%; padding-bottom:10px; border-right:0; border-bottom:1px solid #e5dbcf; }.cards { height:auto; min-height:340px; } }
 </style>

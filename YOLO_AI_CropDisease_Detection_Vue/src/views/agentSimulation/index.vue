@@ -1,11 +1,21 @@
 <template>
 	<div class="plan-page">
+		<header class="plan-header">
+			<div class="plan-title"><p class="eyebrow">INDEPENDENT MODEL CHANNEL / FARM PLAN</p><h1>农事规划推演</h1><p>依据人工录入、文本解析或 CSV 农情生成方案，并与 Horti-M3 2025 / CK / 广辉201 场景基线对照（默认 56 天；模型未校准）。</p></div>
+			<div class="flow-rail" aria-label="规划流程">
+				<div class="flow-step" :class="{ 'is-current': !draft && !running && !final, 'is-ready': !!draft || !!final }"><span>01</span><b>输入农情</b></div><i></i>
+				<div class="flow-step" :class="{ 'is-current': !!draft && !running && !final, 'is-ready': running || !!final }"><span>02</span><b>核对内容</b></div><i></i>
+				<div class="flow-step" :class="{ 'is-current': running, 'is-ready': !!final }"><span>03</span><b>模型推演</b></div><i></i>
+				<div class="flow-step" :class="{ 'is-current': !!final }"><span>04</span><b>查看方案</b></div>
+			</div>
+		</header>
 		<!-- ============ 左：农情录入（三通道） ============ -->
 		<section class="panel entry-panel">
 			<header class="panel-head">
-				<h3>农情录入</h3>
+				<div><p class="section-kicker">01 / INPUT</p><h3>农情录入</h3></div>
 				<el-button link type="primary" @click="loadHistory">刷新历史</el-button>
 			</header>
+			<p class="input-source-note">输入来源：人工填写、文本解析或 CSV 文件。解析与导入内容均为待核对农情，不是传感器实测。</p>
 
 			<el-tabs v-model="entryTab" stretch>
 				<el-tab-pane label="表单填写" name="form">
@@ -75,6 +85,7 @@
 
 			<!-- 回显确认：抽取/上传的结果逐字段展示依据 -->
 			<div v-if="draft" class="draft">
+				<p class="draft-step">02 / 核对解析草稿</p>
 				<p class="draft-title">
 					{{ draft.fields.length }} 个字段已填好，请核对后确认
 				</p>
@@ -146,6 +157,7 @@
 
 		<!-- ============ 右：推演与结果 ============ -->
 		<section class="panel main-panel">
+			<header class="result-heading"><div><p class="section-kicker">03–04 / DEDUCTION & REVIEW</p><h3>方案推演与结果</h3></div><span class="channel-chip">独立模型推演</span></header>
 			<div v-if="fatal" class="fatal">{{ fatal }}</div>
 
 			<div class="stage-bar">
@@ -306,6 +318,7 @@
 </template>
 
 <script setup lang="ts" name="agentSimulation">
+import { HORTI_M3_PROFILE } from '/@/views/digitalTwin/hortiM3Profile';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
@@ -404,7 +417,7 @@ const downloadTemplate = () => {
 /* ------------------------------ 推演 ------------------------------ */
 
 const question = ref('');
-const days = ref(120);
+const days = ref<number>(HORTI_M3_PROFILE.days);
 const running = ref(false);
 const fatal = ref('');
 const stageMessage = ref('');
@@ -644,20 +657,39 @@ onMounted(async () => {
 <style scoped>
 .plan-page {
 	display: grid;
-	grid-template-columns: 400px 1fr;
-	gap: 12px;
-	padding: 12px;
+	grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: 14px;
+	padding: 20px 24px 24px;
 	height: calc(100vh - 90px);
 	box-sizing: border-box;
 }
+.plan-header { grid-column:1 / -1; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:2px 0 15px; border-bottom:1px solid #e3d8c9; }
+.plan-title .eyebrow,.section-kicker { margin:0 0 5px; color:#8a7665; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.plan-title h1 { margin:0; color:#382b25; font:600 27px/1.25 Georgia,'Songti SC',serif; }
+.plan-title p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.6; }
+.flow-rail { display:flex; align-items:center; gap:10px; color:#887b70; white-space:nowrap; }
+.flow-rail > i { width:24px; border-top:1px solid #dfd2c3; }
+.flow-step { display:flex; align-items:center; gap:6px; font-size:11px; }
+.flow-step span { display:grid; width:22px; height:22px; place-items:center; border:1px solid #dfd2c3; border-radius:50%; color:#897869; font-size:10px; }
+.flow-step.is-current span { border-color:#98553d; background:#98553d; color:#fffaf4; }
+.flow-step.is-ready span { border-color:#818a53; background:#818a53; color:white; }
+.flow-step.is-current b { color:#754530; }
 
 .panel {
-	background: #fff;
-	border-radius: 6px;
-	padding: 12px 14px;
+	background: #fffdf9;
+	border:1px solid #e5dbcf;
+	border-radius: 3px;
+	padding: 16px;
 	overflow-y: auto;
-	box-shadow: 0 1px 4px rgb(0 0 0 / 6%);
+	box-shadow: none;
 }
+.panel-head h3,.result-heading h3 { margin:0; color:#49372c; font-size:16px; }
+.panel-head,.result-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; padding-bottom:13px; margin-bottom:8px; border-bottom:1px solid #eee5da; }
+.section-kicker { margin-bottom:4px; }
+.channel-chip { padding:5px 8px; border:1px solid #ead9c9; background:#f8efe5; color:#84533a; font-size:11px; }
+.input-source-note { margin:0 0 12px; padding:9px 10px; border-left:2px solid #a56b4d; background:#f8f4ed; color:#75675b; font-size:11px; line-height:1.55; }
+.draft-step { margin:0 0 7px; color:#8a674e; font-size:10px; font-weight:700; letter-spacing:.1em; }
 
 .panel-head {
 	display: flex;
@@ -686,7 +718,7 @@ onMounted(async () => {
 
 .group-title {
 	font-weight: 600;
-	color: #2f5d33;
+	color: #76523a;
 }
 
 .group-count {
@@ -727,8 +759,9 @@ onMounted(async () => {
 .draft {
 	margin-top: 10px;
 	padding: 10px;
-	background: #f7faf7;
-	border-radius: 4px;
+	background: #f8f4ed;
+	border:1px solid #ebe1d5;
+	border-radius: 3px;
 }
 
 .draft-title {
@@ -761,7 +794,7 @@ onMounted(async () => {
 
 .draft-evidence {
 	margin-left: 8px;
-	color: #3a7d44;
+	color: #6e7b4b;
 }
 
 .draft-evidence.muted {
@@ -782,8 +815,8 @@ onMounted(async () => {
 	z-index: 2;
 	margin-top: 12px;
 	padding: 10px 0 12px;
-	border-top: 1px solid #eee;
-	background: #fff;
+	border-top: 1px solid #e9dfd4;
+	background: #fffdf9;
 }
 
 .demand-row {
@@ -963,7 +996,7 @@ onMounted(async () => {
 }
 
 .empty {
-	color: #aaa;
+	color: #8b8075;
 	font-size: 13px;
 	padding: 40px 0;
 	text-align: center;
@@ -980,8 +1013,9 @@ onMounted(async () => {
 
 .baseline-card,
 .plan-card {
-	background: #fafcfa;
-	border-radius: 6px;
+	background: #f8f4ed;
+	border:1px solid #ebe1d5;
+	border-radius: 3px;
 	padding: 12px;
 }
 
@@ -1004,8 +1038,9 @@ onMounted(async () => {
 }
 
 .metric {
-	background: #fff;
-	border-radius: 4px;
+	background: #fffdf9;
+	border:1px solid #eee5da;
+	border-radius: 2px;
 	padding: 8px;
 }
 
@@ -1018,7 +1053,7 @@ onMounted(async () => {
 .metric .v {
 	font-size: 15px;
 	font-weight: 600;
-	color: #2f5d33;
+	color: #687448;
 }
 
 .metric.negative .v {
@@ -1037,7 +1072,7 @@ onMounted(async () => {
 
 .conclusion {
 	font-weight: 600;
-	color: #2f5d33;
+	color: #687448;
 	margin: 0 0 8px;
 }
 
@@ -1103,4 +1138,20 @@ onMounted(async () => {
 	color: #b8860b;
 	margin: 8px 0 0;
 }
+.stage-bar { margin:10px 0 12px; }
+.answer-banner { border-left-color:#a56b4d; background:#f8efe5; color:#76533e; line-height:1.6; }
+.reasoning { border-color:#e6dccf; border-radius:3px; background:#fbf8f1; }
+.reasoning-head { color:#8a674e; }
+.md-h { color:#584333; border-left-color:#a15d40; }
+.md-li .dot { color:#8b925e; }
+.md-code { border:1px solid #e8dfd3; border-radius:2px; background:#f7f3eb; }
+.md-table th,.md-table td { border-color:#e6dccf; }
+.md-table th { background:#f4eee4; color:#604a39; }
+.results { border-color:#e9dfd4; }
+.scope { color:#8a674e; }
+.metric .k,.recompute { color:#8b8075; }
+.metric .v { color:#687448; }
+.schedule .day { color:#747f4d; }
+@media(max-width:1120px) { .plan-page { grid-template-columns:minmax(280px, 340px) minmax(0,1fr); padding:16px; }.flow-rail { gap:6px; }.flow-rail > i { width:12px; } }
+@media(max-width:850px) { .plan-page { display:flex; flex-direction:column; height:auto; min-height:calc(100vh - 90px); }.plan-header { align-items:flex-start; flex-direction:column; }.flow-rail { width:100%; justify-content:space-between; white-space:normal; }.flow-rail > i { flex:1; }.panel { max-height:none; }.results { grid-template-columns:1fr; } }
 </style>

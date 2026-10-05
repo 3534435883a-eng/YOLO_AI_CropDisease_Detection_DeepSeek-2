@@ -1,6 +1,13 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<header class="manage-heading">
+				<div class="manage-heading__copy">
+					<span class="manage-kicker">SUPPLY · INVENTORY</span>
+					<h1>农资库存</h1>
+					<p>维护仓储台账与负责人信息；温室运行资源单独记录，不回写本台账。</p>
+				</div>
+			</header>
 			<div class="agent-resource-strip mb15">
 				<div>
 					<el-tag size="small" effect="plain" type="info">运行内虚拟资源</el-tag>
@@ -10,23 +17,27 @@
 				<el-button link type="primary" @click="router.push('/agentCenter')">查看指挥中心</el-button>
 			</div>
 			<div class="system-user-search mb15">
-				<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入产品名称" style="max-width: 180px"> </el-input>
-				<el-input v-model="state.tableData.param.warehouse" size="default" placeholder="请输入仓库" class="ml10" style="max-width: 180px"> </el-input>
-				<el-input v-model="state.tableData.param.storageArea" size="default" placeholder="请输入存储区" class="ml10" style="max-width: 180px"> </el-input>
-				<el-input v-model="state.tableData.param.manager" size="default" placeholder="请输入仓库管理员" class="ml10" style="max-width: 180px"> </el-input>
+				<div class="filter-fields">
+					<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入产品名称" clearable />
+					<el-input v-model="state.tableData.param.warehouse" size="default" placeholder="请输入用途 / 仓库" clearable />
+					<el-input v-model="state.tableData.param.storageArea" size="default" placeholder="请输入存储区" clearable />
+					<el-input v-model="state.tableData.param.manager" size="default" placeholder="请输入仓库管理员" clearable />
 				<!-- <el-input v-model="state.tableData.param.phone" size="default" placeholder="请输入手机号" class="ml10" style="max-width: 180px"> </el-input> -->
-				<el-button size="default" type="primary" class="ml10" @click="getTableData()">
+				</div>
+				<div class="filter-actions">
+				<el-button size="default" @click="getTableData()">
 					<el-icon>
 						<ele-Search />
 					</el-icon>
 					查询
 				</el-button>
-				<el-button size="default" type="success" class="ml10" @click="onOpenAddStorage('add')">
+				<el-button size="default" type="primary" @click="onOpenAddStorage('add')">
 					<el-icon>
 						<ele-FolderAdd />
 					</el-icon>
 					添加
 				</el-button>
+				</div>
 			</div>
 			<el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%">
 				<el-table-column prop="id" label="ID" width="80" align="center" />
@@ -193,17 +204,24 @@ onMounted(() => {
 <style scoped lang="scss">
 .system-role-container {
 	.system-role-padding {
-		padding: 15px;
+		padding: 22px 24px;
+		overflow: auto;
+		.manage-heading {
+			margin-bottom: 18px;
+			.manage-kicker { color: var(--agri-olive); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+			h1 { margin: 5px 0 4px; color: var(--agri-wood); font: 600 26px/1.2 Georgia, 'Songti SC', 'SimSun', serif; }
+			p { margin: 0; color: var(--agri-muted); font-size: 13px; }
+		}
 		.agent-resource-strip {
 			display: flex;
 			align-items: center;
 			justify-content: space-between;
 			gap: 12px;
 			padding: 9px 12px;
-			border: 1px solid #d9e6db;
-			border-radius: 4px;
-			background: #f8fbf8;
-			color: #536257;
+			border: 1px solid var(--agri-line);
+			border-radius: 6px;
+			background: #f2f1e8;
+			color: var(--agri-ink);
 			font-size: 13px;
 
 			.el-tag {
@@ -212,36 +230,43 @@ onMounted(() => {
 
 			small {
 				margin-left: 8px;
-				color: #84918a;
+				color: var(--agri-muted);
 				font-size: 11px;
 			}
 		}
+		.system-user-search {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 12px;
+			border: 1px solid var(--agri-line);
+			border-radius: 6px;
+			background: #f7f2e8;
+			.filter-fields, .filter-actions { display: flex; align-items: center; gap: 8px; }
+			.filter-fields { flex: 1; flex-wrap: wrap; }
+			.filter-fields :deep(.el-input) { width: 175px; }
+			.filter-actions { flex-shrink: 0; }
+		}
 		.el-table {
 			flex: 1;
-			:deep(.el-table__row) {
-				height: 45px;  // 设置行高
-			}
-			:deep(.el-table__header) {
-				th {
-					padding: 8px 0;  // 减小表头padding
-				}
-			}
-			:deep(.el-table__cell) {
-				padding: 4px 0;  // 减小单元格padding
-			}
+			border-radius: 6px;
+			:deep(th.el-table__cell) { color: var(--agri-wood); font-weight: 600; }
+			:deep(.el-table__row) { height: 44px; }
+			:deep(.el-table__cell) { padding: 5px 0; }
 		}
+		.el-pagination { justify-content: flex-end; }
 	}
 }
 
+@media (max-width: 1100px) {
+	.system-role-container .system-role-padding { padding: 18px; }
+	.system-role-container .system-user-search { align-items: stretch; flex-direction: column; }
+	.system-role-container .system-user-search .filter-actions { justify-content: flex-end; }
+}
 @media (max-width: 700px) {
-	.system-role-padding .agent-resource-strip {
-		align-items: flex-start;
-		flex-direction: column;
-
-		small {
-			display: block;
-			margin: 4px 0 0;
-		}
-	}
+	.system-role-container .system-role-padding .agent-resource-strip { align-items: flex-start; flex-direction: column; }
+	.system-role-container .system-role-padding .agent-resource-strip small { display: block; margin: 4px 0 0; }
+	.system-role-container .system-user-search .filter-fields :deep(.el-input) { width: 100%; }
 }
 </style>

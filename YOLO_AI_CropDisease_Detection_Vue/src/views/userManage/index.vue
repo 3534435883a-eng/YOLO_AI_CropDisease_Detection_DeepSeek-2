@@ -1,20 +1,31 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<header class="manage-heading">
+				<div>
+					<span class="manage-kicker">WORKSPACE · ACCESS</span>
+					<h1>用户管理</h1>
+					<p>维护平台账号、联系信息与角色权限。</p>
+				</div>
+			</header>
 			<div class="system-user-search mb15">
-				<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入用户名" style="max-width: 180px"> </el-input>
-				<el-button size="default" type="primary" class="ml10" @click="getTableData()">
+				<div class="filter-fields">
+					<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入用户名" clearable />
+				</div>
+				<div class="filter-actions">
+				<el-button size="default" @click="getTableData()">
 					<el-icon>
 						<ele-Search />
 					</el-icon>
 					查询
 				</el-button>
-				<el-button size="default" type="success" class="ml10" @click="onOpenAddRole('add')">
+				<el-button size="default" type="primary" @click="onOpenAddRole('add')">
 					<el-icon>
 						<ele-FolderAdd />
 					</el-icon>
 					添加
 				</el-button>
+				</div>
 			</div>
 			<el-table :data="state.tableData.data" v-loading="state.tableData.loading" style="width: 100%">
 				<el-table-column prop="num" label="序号" width="80" align="center" />
@@ -25,9 +36,9 @@
 				<el-table-column prop="email" label="邮箱" align="center" />
 				<el-table-column prop="tel" label="手机号码" show-overflow-tooltip align="center"></el-table-column>
 				<el-table-column prop="role" label="角色" show-overflow-tooltip align="center"></el-table-column>
-				<el-table-column prop="avatar" label="头像" align="center">
-					<template #default="scope">
-						<img :src="scope.row.avatar" width="70" height="70" />
+			<el-table-column prop="avatar" label="头像" align="center">
+				<template #default="scope">
+					<img :src="scope.row.avatar" width="36" height="36" class="user-avatar" />
 					</template>
 				</el-table-column>
 				<el-table-column label="操作" width="150" align="center">
@@ -169,18 +180,40 @@ onMounted(() => {
 <style scoped lang="scss">
 .system-role-container {
 	.system-role-padding {
-		padding: 15px;
+		padding: 22px 24px;
+		overflow: auto;
+		.manage-heading {
+			margin-bottom: 18px;
+			.manage-kicker { color: var(--agri-olive); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+			h1 { margin: 5px 0 4px; color: var(--agri-wood); font: 600 26px/1.2 Georgia, 'Songti SC', 'SimSun', serif; }
+			p { margin: 0; color: var(--agri-muted); font-size: 13px; }
+		}
+		.system-user-search {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 12px;
+			border: 1px solid var(--agri-line);
+			border-radius: 6px;
+			background: #f7f2e8;
+			.filter-fields, .filter-actions { display: flex; align-items: center; gap: 8px; }
+			.filter-fields { flex: 1; }
+			.filter-fields :deep(.el-input) { width: 240px; max-width: 100%; }
+		}
 		.el-table {
 			flex: 1;
-			:deep(.el-table__row) {
-				height: 45px;  // 设置行高
-			}
-			:deep(.cell img) {
-				width: 35px;  // 调整图片大小
-				height: 35px;
-				object-fit: cover;
-			}
+			border-radius: 6px;
+			:deep(th.el-table__cell) { color: var(--agri-wood); font-weight: 600; }
+			:deep(.el-table__row) { height: 48px; }
+			:deep(.user-avatar) { display: block; object-fit: cover; margin: 0 auto; border-radius: 50%; border: 1px solid var(--agri-line); }
 		}
+		.el-pagination { justify-content: flex-end; }
 	}
+}
+
+@media (max-width: 900px) {
+	.system-role-container .system-role-padding { padding: 18px; }
+	.system-role-container .system-user-search .filter-fields :deep(.el-input) { width: 100%; }
 }
 </style>

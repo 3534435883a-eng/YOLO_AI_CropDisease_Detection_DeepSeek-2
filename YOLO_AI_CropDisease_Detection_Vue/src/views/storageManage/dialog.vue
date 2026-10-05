@@ -180,26 +180,32 @@ defineExpose({
 
 <style scoped lang="scss">
 :deep(.el-dialog) {
-	margin-top: 8vh !important;
+	width: min(700px, calc(100vw - 40px));
+	margin: 0 auto !important;
+	border: 1px solid var(--agri-line);
+	border-radius: 8px;
+	box-shadow: 0 18px 50px rgba(52, 39, 33, .16);
 	.el-dialog__body {
-		padding: 15px 20px;
+		padding: 16px 24px 8px !important;
 	}
 	.el-dialog__header {
-		padding: 12px 20px;
+		padding: 20px 24px 14px;
 		margin-right: 0;
-		border-bottom: 1px solid #eee;
+		border-bottom: 1px solid var(--agri-line);
 	}
+	.el-dialog__title { color: var(--agri-wood); font: 600 21px/1.3 Georgia, 'Songti SC', 'SimSun', serif; }
 	.el-dialog__footer {
-		padding: 12px 20px;
-		border-top: 1px solid #eee;
+		padding: 12px 24px 20px;
+		border-top: 1px solid var(--agri-line);
 	}
 }
 
 .el-form {
 	width: 100%;
 	margin: 0;
+	padding-top: 8px;
 	.el-form-item {
-		margin-bottom: 15px;
+		margin-bottom: 12px;
 		&:last-child {
 			margin-bottom: 0;
 		}
@@ -212,6 +218,7 @@ defineExpose({
 
 :deep(.el-form-item__label) {
 	font-weight: 400;
+	color: var(--agri-ink);
 }
 
 :deep(.el-input-number) {
@@ -220,5 +227,14 @@ defineExpose({
 
 .dialog-footer {
 	text-align: right;
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
-</style> 
+
+@media (max-width: 600px) {
+	:deep(.el-dialog .el-dialog__body) { padding: 12px 16px 4px !important; }
+	:deep(.el-dialog .el-dialog__header), :deep(.el-dialog .el-dialog__footer) { padding-left: 16px; padding-right: 16px; }
+	.el-form :deep(.el-col) { flex: 0 0 100%; max-width: 100%; }
+}
+</style>

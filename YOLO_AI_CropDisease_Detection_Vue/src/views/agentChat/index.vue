@@ -2,11 +2,15 @@
 	<div class="agent-chat">
 		<header class="chat-header">
 			<div>
-				<p class="eyebrow">TOMATO GREENHOUSE / LLM AGENT</p>
+				<p class="eyebrow">AGRICULTURE / LLM AGENT</p>
 				<h2>AI 决策对话</h2>
 				<p class="header-copy">
-					大模型按步选择工具、检索病害知识库，回答带出处引用；依据不足时明确拒答，不会编造结论。
+					{{ chatScope === 'general' ? '讨论病害、栽培与农事问题。需要时查资料，也能直接解释原理并给出建议。' : '围绕当前大棚交流。读取本轮环境与处置反馈，讨论并执行仿真方案。' }}
 				</p>
+				<div class="chat-scopes" role="group" aria-label="问答范围">
+					<button :class="{active:chatScope==='general'}" :aria-pressed="chatScope==='general'" :disabled="isRunning" @click="switchChat('general')">普通问答</button>
+					<button :class="{active:chatScope==='greenhouse'}" :aria-pressed="chatScope==='greenhouse'" :disabled="isRunning" @click="switchChat('greenhouse')">关联大棚</button>
+				</div>
 			</div>
 			<div class="header-side">
 				<div class="badge-stack">
@@ -25,9 +29,9 @@
 						<div class="empty-icon"><i class="iconfontjs icon-znwd"></i></div>
 						<div>
 							<p class="eyebrow">准备就绪</p>
-							<h3>问一个田间问题，看智能体怎么一步步找依据</h3>
+							<h3>{{ chatScope === 'general' ? '从一个农业问题开始' : '从一个问题开始，和你的大棚一起判断' }}</h3>
 							<p class="empty-copy">
-								每个工具调用、命中条数、耗时与降级情况都会实时出现在对话里；点右侧示例可快速开始。
+								{{ chatScope === 'general' ? '描述作物、症状或你想了解的内容。普通问答使用独立会话，不带入模拟大棚的数据。' : '可以问为什么报警、该如何处理，也可以讨论生长与栽培。助手会读取关联大棚的本轮环境和处置反馈。' }}
 							</p>
 						</div>
 					</div>
@@ -43,60 +47,38 @@
 							</span>
 						</div>
 
-						<div v-if="turn.steps.length || turn.status === 'running'" class="steps">
-							<div
-								v-for="step in turn.steps"
-								:key="step.stepNo"
-								class="step"
-								:class="{ 'is-failed': step.failed, 'is-degraded': step.degraded }"
-							>
-								<span class="step-index">{{ pad(step.stepNo) }}</span>
-								<div class="step-body">
-									<strong>{{ step.toolName }}</strong>
-									<span>{{ step.summary }}</span>
-								</div>
-								<span class="step-time">{{ step.durationMs === undefined ? '' : `${step.durationMs} ms` }}</span>
-								<el-tag :type="step.badgeType" size="small" effect="plain">{{ step.badge }}</el-tag>
-							</div>
-							<div v-if="turn.status === 'running'" class="step is-running">
-								<span class="step-index">··</span>
-								<div class="step-body"><strong>{{ turn.stage }}</strong><span>{{ runningHint }}</span></div>
-								<span class="step-time">{{ elapsedLabel(turn) }}</span>
-							</div>
-						</div>
-
+                        <div v-if="turn.status==='running'" class="reply-progress"><span class="progress-dot"></span>{{ turn.stage }}<small>{{ elapsedLabel(turn) }}</small></div>
+                        <details v-if="turn.steps.length" class="tool-details">
+                            <summary>查看 {{ turn.steps.length }} 条工具记录</summary>
+                            <div v-for="step in turn.steps" :key="step.stepNo" class="step" :class="{'is-failed':step.failed}">
+                                <span class="step-index">{{ pad(step.stepNo) }}</span>
+                                <div class="step-body"><strong>{{ toolLabel(step.toolName) }}</strong><span>{{ step.summary }}</span></div>
+                                <small>{{ step.durationMs }} ms</small>
+                            </div>
+                        </details>
 						<div v-if="turn.answer" class="answer" :class="`answer-${turn.status}`">
 							<div class="answer-head">
 								<span class="answer-kind">{{ answerKind(turn.status, turn.reason) }}</span>
 								<span v-if="turn.status === 'done'" class="answer-meta">
-									依据 {{ turn.citations.length }} 条 · {{ turn.stepCount }} 步 · {{ (turn.elapsedMs / 1000).toFixed(1) }}s
+									{{ turn.citations.length ? turn.citations.length+" 条引用" : "模型解释" }} · {{ (turn.elapsedMs / 1000).toFixed(1) }}s
 								</span>
 								<span v-else class="answer-meta">{{ reasonLabel(turn.reason) }}</span>
 							</div>
-							<p class="answer-text">
-								<template v-for="(segment, index) in turn.segments" :key="index">
-									<span v-if="segment.type === 'text'">{{ segment.text }}</span>
-									<button
-										v-else
-										class="cite"
-										:class="{ 'is-active': activeCitation === segment.index }"
-										@click="focusCitation(segment.index)"
-									>
-										[{{ segment.index }}]
-									</button>
-								</template>
-							</p>
+                            <AnswerBody :text="turn.answer" :citations="turn.citations" @cite="focusReplyCitation(turn,$event)" />
+                            <div class="reply-actions"><button @click="copyReply(turn)">复制</button><button :disabled="isRunning" @click="retryReply(turn)">重新回答</button><span v-if="turn.context">大棚时间 {{ turn.context.at }}</span></div>
+                            <details v-if="turn.citations.length" class="reply-sources">
+                                <summary>{{ turn.citations.length }} 条引用来源</summary>
+                                <button v-for="item in turn.citations" :key="item.index" @click="focusReplyCitation(turn,item.index)">[{{ item.index }}] {{ item.sourceName }} · {{ item.diseaseName }}</button>
+                            </details>
 							<p v-if="turn.degraded" class="answer-flag">
 								本次检索已降级为纯关键词模式（向量服务不可达），结果可能漏召语义相近的条目。
 							</p>
-							<p class="answer-note">
-								依据来自病害知识库片段，需结合田间实际人工确认；药剂使用须遵循当地登记与用药规范。
-							</p>
+
 						</div>
 					</article>
 				</div>
 
-				<div class="vision-bar">
+				<details class="vision-details"><summary>附带图像识别结果</summary><div class="vision-bar">
 					<span class="vision-icon">📷</span>
 					<template v-if="latestVision">
 						<span class="vision-text">
@@ -110,7 +92,7 @@
 					<el-button link type="primary" :loading="visionLoading" @click="loadVision">刷新</el-button>
 					<el-button link type="primary" :disabled="!latestVision || isRunning" @click="askVision">解释这次识别结果</el-button>
 				</div>
-
+</details>
 				<footer class="composer">
 					<el-select v-model="crop" class="crop-select" size="large">
 						<el-option v-for="item in crops" :key="item" :label="item" :value="item" />
@@ -121,9 +103,9 @@
 						type="textarea"
 						:rows="2"
 						resize="none"
-						maxlength="300"
+						maxlength="1200"
 						show-word-limit
-						placeholder="描述症状或想问的问题，例如：番茄叶片出现褐色轮纹斑，湿度大时扩展迅速（Enter 发送，Shift+Enter 换行）"
+						:placeholder="chatScope === 'general' ? '描述症状或想问的问题…（Enter 发送，Shift+Enter 换行）' : '问问当前大棚，或描述你遇到的问题…（Enter 发送，Shift+Enter 换行）'"
 						@keydown.enter.exact.prevent="send"
 					/>
 					<div class="composer-actions">
@@ -134,17 +116,22 @@
 			</main>
 
 			<aside class="chat-aside">
-				<section class="panel aside-panel">
-					<div class="panel-heading">
-						<div><p class="eyebrow">SESSION</p><h3>会话状态</h3></div>
-						<el-tag :type="connectionTone" size="small" effect="plain">{{ connectionLabel }}</el-tag>
-					</div>
-					<div class="stat-list">
-						<div class="stat-row"><span>会话编号</span><strong>{{ sessionShort }}</strong></div>
-						<div class="stat-row"><span>已完成轮次</span><strong>{{ completedTurns }}</strong></div>
-						<div class="stat-row"><span>工具调用</span><strong>{{ totalSteps }}</strong></div>
-						<div class="stat-row"><span>引用证据</span><strong>{{ activeCitations.length }}</strong></div>
-					</div>
+                <section v-if="chatScope==='greenhouse'" class="panel aside-panel greenhouse-context">
+                    <p class="eyebrow">关联大棚</p><h3>{{ simulation ? '当前模拟运行' : '尚未关联运行' }}</h3>
+                    <p class="muted">{{ simulation ? simulation.current.at+' · '+simulation.year+'年 M3参考' : '先开启大棚推演，助手即可读取环境与设备。' }}</p>
+                    <template v-if="simulation?.current.scenario">
+                        <div class="context-readings"><div><span>温度</span><strong>{{ simulation.current.scenario.environment.temperatureC.toFixed(1) }}<small>°C</small></strong></div><div><span>湿度</span><strong>{{ simulation.current.scenario.environment.airHumidityPct.toFixed(0) }}<small>%</small></strong></div></div>
+                        <p class="context-event">{{ simulation.current.scenario.weather?.title || '暂无天气事件' }} · {{ decisionStatus(simulation.current.scenario.decision.status) }}</p>
+                        <p v-if="simulation.current.scenario.decision.plan" class="muted">{{ simulation.current.scenario.decision.plan.summary }}</p>
+                    </template>
+                    <p v-if="simulationError" class="context-error">{{ simulationError }}</p>
+                    <div class="context-links"><button v-if="simulationId" @click="openSimulation">打开大棚 ↗</button><button @click="autoAssociate=true;refreshSimulation()">刷新关联</button><button v-if="simulationId" @click="unlinkSimulation">解除关联</button></div>
+                    <small class="context-note">M3为历史观测回放；天气和设备响应为模拟。</small>
+                </section>
+				<section v-else class="panel aside-panel">
+					<p class="eyebrow">CONVERSATION</p><h3>独立会话</h3>
+					<p class="muted">病害解释、知识查询和普通交流照常使用。切换到关联大棚后，可继续另一侧的对话。</p>
+					<div class="conversation-stats"><span>已完成问答<strong>{{ completedTurns }}</strong></span><span>工具调用<strong>{{ totalSteps }}</strong></span></div>
 				</section>
 
 				<section class="panel aside-panel">
@@ -191,10 +178,12 @@
 	</div>
 </template>
 
-<script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+<script setup lang="ts" name="agentChat">
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import AnswerBody from '/@/components/agent/AnswerBody.vue';
+import {getM3Live,type M3LiveRun,type M3LiveFrame} from '/@/api/m3/live';
 import { AgentVisionEvent, getActiveAgentRun, getAgentVisionEvents } from '/@/api/agent';
 import {
 	AgentCitation,
@@ -225,6 +214,7 @@ interface StepView {
 type TurnStatus = 'running' | 'done' | 'refused' | 'error';
 
 interface Turn {
+    context?:M3LiveFrame;
 	/** 本轮附带进对话的识别结果（若有），用于在提问气泡里显示来源。 */
 	detection?: AgentVisionEvent | null;
 	id: string;
@@ -245,36 +235,65 @@ interface Turn {
 
 const router = useRouter();
 const route = useRoute();
-const crops = ['番茄', '玉米', '水稻', '小麦', '马铃薯', '棉花', '苹果', '葡萄', '草莓'];
-const presetGroups = [
-	{
-		label: '番茄 · 病害诊断',
-		items: [
-			'番茄叶片出现褐色轮纹斑，湿度大时扩展迅速，该如何处置？',
-			'番茄叶背出现灰褐色绒状霉层，正面有淡黄色褪绿斑，是什么病？',
-		],
-	},
-	{
-		label: '跨作物验证',
-		items: ['玉米叶片上出现梭形大斑，边缘褐色中间灰色，怎么防治？'],
-	},
-	{
-		label: '边界演示（应拒答）',
-		items: ['量子计算机的原理是什么？', '帮我写一首关于春天的诗'],
-	},
-];
+type ChatScope = 'general' | 'greenhouse';
+interface ChatState { sessionId:string; crop:string; draft:string; attachVision:boolean; turns:Turn[]; }
+function createChatState():ChatState { return {sessionId:createSessionId(),crop:'番茄',draft:'',attachVision:false,turns:[]}; }
+const chatScope=ref<ChatScope>(typeof route.query.liveRun==='string'?'greenhouse':'general');
+const chatStates=reactive<Record<ChatScope,ChatState>>({general:createChatState(),greenhouse:createChatState()});
+const simulationId=ref(typeof route.query.liveRun==='string'?route.query.liveRun:(sessionStorage.getItem('m3ActiveRun')||''));
+const simulation=ref<M3LiveRun|null>(null),simulationError=ref(''),selectedTurn=ref('');
+let simulationTimer:ReturnType<typeof setTimeout>|undefined,chatDisposed=false,autoAssociate=true;
+async function refreshSimulation(){
+ if(chatScope.value!=='greenhouse')return;
+ if(!simulationId.value&&autoAssociate)simulationId.value=sessionStorage.getItem('m3ActiveRun')||'';
+ if(!simulationId.value)return;
+ try{const run=await getM3Live(simulationId.value,true);if(chatDisposed)return;simulation.value=run;simulationError.value='';}
+ catch(e){simulationError.value=e instanceof Error?e.message:String(e);}
+}
+function scheduleSimulation(){simulationTimer=setTimeout(async()=>{if(chatDisposed)return;if(simulationId.value)await refreshSimulation();if(!chatDisposed)scheduleSimulation();},3000);}
+function unlinkSimulation(){autoAssociate=false;simulationId.value='';simulation.value=null;simulationError.value='';}
+watch(()=>[route.path,route.query.liveRun] as const,([path,value])=>{
+ if(path!=='/agentChat')return;
+ if(typeof value==='string'&&value){if(value!==simulationId.value){autoAssociate=true;simulationId.value=value;simulation.value=null;}switchChat('greenhouse');}
+ else switchChat('general');
+});
+function switchChat(scope:ChatScope){
+ if(isRunning.value)return;
+ chatScope.value=scope;activeCitation.value=undefined;selectedTurn.value='';
+ if(scope==='greenhouse')void refreshSimulation();
+ scrollToBottom();
+}
+function openSimulation(){router.push({path:'/digitalTwin',query:{mode:'m3',liveRun:simulationId.value}});}
+function decisionStatus(s:string){return ({IDLE:'等待事件',NEEDS_DECISION:'待分析',ANALYZING:'AI分析中',OBSERVING:'动作已应用，观察中',PROPOSED:'方案未执行',MITIGATED:'环境风险已缓解',UNRESOLVED:'风险仍存在',BLOCKED:'动作被约束拦截',FAILED:'AI请求失败',STALE:'方案已过期'} as Record<string,string>)[s]||s;}
+function toolLabel(s:string){return ({'knowledge.search':'查询资料','simulation.snapshot':'读取当前大棚','simulation.decide':'制定仿真方案','platform.greenhouseState':'读取温室','vision.explain':'核对识别依据'} as Record<string,string>)[s]||s.replace('knowledge.','资料 · ').replace('platform.','平台 · ');}
+function focusReplyCitation(turn:Turn,index?:number){selectedTurn.value=turn.id;focusCitation(index);}
+async function copyReply(turn:Turn){try{await navigator.clipboard.writeText(turn.answer);ElMessage.success('已复制回答');}catch{ElMessage.info('复制不可用，请选中正文复制');}}
+function retryReply(turn:Turn){draft.value=turn.question;if(crops.includes(turn.crop))crop.value=turn.crop;void send(false);}
 
-const crop = ref('番茄');
+const crops = ['番茄', '玉米', '水稻', '小麦', '马铃薯', '棉花', '苹果', '葡萄', '草莓'];
+const greenhousePresets = [
+ {label:'理解当前大棚',items:['现在大棚最需要关注什么？','为什么高湿时不宜一直开湿帘？']},
+ {label:'形成处置方案',items:['结合当前事件，给一个能执行的仿真方案。','请执行当前大棚的仿真处置，并观察反馈。']},
+ {label:'研究与栽培',items:['株高修正能说明产量也准确吗？','阴雨天气的补光和水分管理该怎么配合？']},
+];
+const generalPresets=[
+ {label:'病害与识别',items:['番茄叶片出现褐色轮纹斑，可能是什么原因？','请解释这次图像识别结果。']},
+ {label:'种植与管理',items:['连续阴雨时，番茄的水肥和补光怎么配合？','玉米叶片发黄，应该先检查哪些原因？']},
+ {label:'原理与资料',items:['空气湿度与土壤湿度有什么区别？','怎样判断一篇论文的结论适不适合我的作物？']},
+];
+const presetGroups=computed(()=>chatScope.value==='general'?generalPresets:greenhousePresets);
+
+const crop = computed({get:()=>chatStates[chatScope.value].crop,set:(value:string)=>{chatStates[chatScope.value].crop=value;}});
 /** 当前运行最近一条识别结果；null 表示还没导入。 */
 const latestVision = ref<AgentVisionEvent | null>(null);
 const visionLoading = ref(false);
 /** 是否把识别结果附带进对话。默认关闭——否则用户问别的问题也会被识别结果带偏。 */
-const attachVision = ref(false);
-const draft = ref('');
-const turns = ref<Turn[]>([]);
+const attachVision = computed({get:()=>chatStates[chatScope.value].attachVision,set:(value:boolean)=>{chatStates[chatScope.value].attachVision=value;}});
+const draft = computed({get:()=>chatStates[chatScope.value].draft,set:(value:string)=>{chatStates[chatScope.value].draft=value;}});
+const turns = computed(()=>chatStates[chatScope.value].turns);
 const streamRef = ref<HTMLElement | null>(null);
 const activeCitation = ref<number | undefined>(undefined);
-const sessionId = ref(createSessionId());
+const sessionId = computed(()=>chatStates[chatScope.value].sessionId);
 const controller = ref<AbortController | null>(null);
 const ticker = ref<number | undefined>(undefined);
 
@@ -285,11 +304,13 @@ const modelLabel = computed(() => 'deepseek-flash');
 const sessionShort = computed(() => sessionId.value.slice(0, 8));
 const completedTurns = computed(() => turns.value.filter((turn) => turn.status !== 'running').length);
 const totalSteps = computed(() => turns.value.reduce((sum, turn) => sum + turn.steps.length, 0));
-const runningHint = computed(() => '等待模型返回下一步动作…');
+const runningHint = computed(() => '正在结合上下文准备回答…');
 
 /** 右侧证据面板跟随最近一轮：正在跑用当前轮，跑完保留该轮结果。 */
 const focusTurn = computed<Turn | undefined>(() => {
-	const running = turns.value.find((turn) => turn.status === 'running');
+	const selected=turns.value.find(turn=>turn.id===selectedTurn.value);
+    if(selected)return selected;
+    const running = turns.value.find((turn) => turn.status === 'running');
 	if (running) return running;
 	return turns.value[turns.value.length - 1];
 });
@@ -329,8 +350,8 @@ function answerKind(status: TurnStatus, reason?: string): string {
 	if (status === 'running') return '生成中';
 	// 库缺依据时改用模型自身通用知识作答（2026-09-27 起）：仍是 DONE，但必须与
 	// "有知识库依据的结论"区分开，否则用户会把模型经验读成有出处的结论。
-	if (reason === 'GENERAL_KNOWLEDGE') return '通用经验（未引用知识库）';
-	return '结论';
+	if (reason === 'GENERAL_KNOWLEDGE') return '回答';
+	return '回答';
 }
 
 /** 把后端的原因码翻成可读说明，避免界面直接暴露英文枚举。 */
@@ -382,9 +403,7 @@ function describeStep(event: AgentStepEvent): StepView {
 	const lowScore = Boolean(data.lowScore);
 	const citationCount = readStepCitations(event).length;
 	const errorText = data.error ? String(data.error) : '';
-	const summary = failed
-		? `执行失败：${errorText}`
-		: `命中 ${citationCount} 条证据${lowScore ? '（相关性不足）' : ''}`;
+	const summary = failed ? String(data.error) : String(event.message||'工具已完成');
 	let badge = citationCount > 0 && !lowScore ? '有依据' : '无依据';
 	let badgeType: StepView['badgeType'] = citationCount > 0 && !lowScore ? 'success' : 'info';
 	if (degraded) {
@@ -514,11 +533,11 @@ function askVision(): void {
 	void send();
 }
 
-async function send(): Promise<void> {
+async function send(allowSimulationActions = true): Promise<void> {
 	const question = draft.value.trim();
 	if (!question || isRunning.value) return;
 	draft.value = '';
-	activeCitation.value = undefined;
+	activeCitation.value = undefined;selectedTurn.value='';
 
 	const detection = attachVision.value ? latestVision.value : null;
 	// 附带识别结果时：作物用检测结果的作物（避免歧义），提问里写明检测类别与知识库映射结论。
@@ -559,9 +578,10 @@ async function send(): Promise<void> {
 
 	try {
 		await streamAgentChat(
-			{ question: requestQuestion, crop: active.crop, sessionId: sessionId.value },
+			{ question: requestQuestion, crop: active.crop, sessionId: sessionId.value,simulationRunId:chatScope.value==='greenhouse'?(simulationId.value||undefined):undefined,allowSimulationActions:chatScope.value==='greenhouse'&&allowSimulationActions!==false },
 			{
 				onEvent: (event) => {
+                    if(event.type==='context'){active.context=event.data?.snapshot as M3LiveFrame;active.stage='已读取当前大棚，准备回答…';return;}
 					if (event.type === 'step') {
 						active.steps.push(describeStep(event));
 						active.stepCount = active.steps.length;
@@ -581,7 +601,9 @@ async function send(): Promise<void> {
 						active.segments = buildSegments(active.answer);
 						active.reason = String(data.reason || '');
 						const finalCitations = readFinalCitations(event);
-						if (finalCitations.length) active.citations = finalCitations;
+						active.citations = finalCitations;
+                        if(data.simulationContext)active.context=data.simulationContext as M3LiveFrame;
+                        void refreshSimulation();
 						const reportedCount = Number(data.citationCount);
 						active.stepCount = Number.isFinite(Number(data.steps)) ? Number(data.steps) : active.stepCount;
 						if (!active.citations.length && Number.isFinite(reportedCount) && reportedCount === 0) {
@@ -626,502 +648,49 @@ async function send(): Promise<void> {
 }
 
 function stop(): void {
+	const active=turns.value.find(turn=>turn.status==='running');
+	if(active){active.status='error';active.reason='CANCELLED';active.stage='';active.answer=chatScope.value==='greenhouse'?'回答已停止。已提交的仿真方案请查看右侧大棚状态。':'回答已停止，可以继续提问。';active.elapsedMs=Date.now()-active.startedAt;}
 	if (controller.value) controller.value.abort();
 	controller.value = null;
 }
 
-onMounted(() => {
+let lastIncomingQuestion='';
+function applyIncomingQuestion(){
+	if(route.path!=='/agentChat'||isRunning.value)return;
 	const incomingCrop = typeof route.query.crop === 'string' ? route.query.crop : '';
 	const incomingDetection = typeof route.query.detection === 'string' ? route.query.detection.trim().slice(0, 120) : '';
 	const incomingScore = typeof route.query.score === 'string' ? route.query.score.trim().slice(0, 60) : '';
+	if(!incomingCrop&&!incomingDetection)return;
+	const signature=JSON.stringify([incomingCrop,incomingDetection,incomingScore]);
+	if(signature===lastIncomingQuestion)return;
+	lastIncomingQuestion=signature;
 	if (crops.includes(incomingCrop)) crop.value = incomingCrop;
 	if (incomingDetection) {
 		draft.value = `图像模型检出的候选类别为“${incomingDetection}”${incomingScore ? `，未校准模型分数为 ${incomingScore}` : ''}。请先核对知识库是否有该作物的对应依据，再解释可能含义；依据不足时请明确说明。`;
 	}
-	void loadVision();
+}
+watch(()=>[route.path,route.query.crop,route.query.detection,route.query.score],applyIncomingQuestion);
+onMounted(() => {
+	applyIncomingQuestion();
+	void loadVision();void refreshSimulation();scheduleSimulation();
 });
 
 onUnmounted(() => {
+    chatDisposed=true;if(simulationTimer)clearTimeout(simulationTimer);
 	if (ticker.value !== undefined) window.clearInterval(ticker.value);
 	if (controller.value) controller.value.abort();
 });
 </script>
 
 <style scoped lang="scss">
-.agent-chat {
-	min-height: calc(100vh - 60px);
-	padding: 24px;
-	background: #f3f7f2;
-	color: #1c2b22;
-}
-.chat-header {
-	display: flex;
-	justify-content: space-between;
-	align-items: flex-start;
-	gap: 24px;
-	padding: 4px 0 20px;
-	border-bottom: 1px solid #d7e3d9;
-}
-.eyebrow {
-	margin: 0 0 6px;
-	color: #708277;
-	font-size: 11px;
-	font-weight: 650;
-}
-h2,
-h3 {
-	margin: 0;
-}
-h2 {
-	font-size: 27px;
-}
-h3 {
-	font-size: 17px;
-}
-.header-copy {
-	max-width: 720px;
-	margin: 7px 0 0;
-	color: #617168;
-	font-size: 13px;
-	line-height: 1.65;
-}
-.header-side {
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-	gap: 10px;
-}
-.badge-stack {
-	display: flex;
-	gap: 8px;
-}
-.badge {
-	padding: 5px 10px;
-	border-radius: 6px;
-	font-size: 12px;
-	font-weight: 600;
-	border: 1px solid transparent;
-}
-.badge-success {
-	background: #e6f3ea;
-	color: #2d8a54;
-	border-color: #cbe4d4;
-}
-.badge-warning {
-	background: #fbf2e0;
-	color: #a9741d;
-	border-color: #edd9ad;
-}
-.badge-info {
-	background: #eef2ef;
-	color: #56675c;
-	border-color: #dbe4dd;
-}
-.badge-quiet {
-	background: #fff;
-	color: #617168;
-	border-color: #dce8df;
-}
-.chat-layout {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) 340px;
-	gap: 14px;
-	margin-top: 18px;
-	align-items: start;
-}
-.panel {
-	border: 1px solid #dce8df;
-	border-radius: 8px;
-	background: #fff;
-}
-.chat-main {
-	display: flex;
-	flex-direction: column;
-	height: calc(100vh - 210px);
-	min-height: 520px;
-	overflow: hidden;
-}
-.stream {
-	flex: 1;
-	padding: 18px;
-	overflow-y: auto;
-}
-.empty-state {
-	display: grid;
-	grid-template-columns: auto 1fr;
-	gap: 16px;
-	max-width: 720px;
-	margin: 34px auto;
-	padding: 22px;
-	border: 1px dashed #cfe2d6;
-	border-radius: 8px;
-	background: #fbfdfb;
-}
-.empty-icon {
-	display: grid;
-	width: 50px;
-	height: 50px;
-	place-items: center;
-	border-radius: 8px;
-	background: #e4f1e7;
-	color: #2d8a54;
-	font-size: 24px;
-}
-.empty-copy {
-	margin: 8px 0 0;
-	color: #63756a;
-	font-size: 13px;
-	line-height: 1.7;
-}
-.turn + .turn {
-	margin-top: 22px;
-	padding-top: 20px;
-	border-top: 1px solid #eef3ef;
-}
-.question {
-	display: flex;
-	align-items: baseline;
-	gap: 10px;
-	padding: 11px 14px;
-	border-radius: 8px;
-	background: #f2f7f3;
-}
-.question-label {
-	flex: none;
-	color: #2d8a54;
-	font-size: 11px;
-	font-weight: 700;
-	letter-spacing: 0.4px;
-}
-.question p {
-	flex: 1;
-	margin: 0;
-	font-size: 14px;
-	line-height: 1.6;
-}
-.question-crop {
-	flex: none;
-	padding: 3px 8px;
-	border: 1px solid #d7e6da;
-	border-radius: 5px;
-	color: #617168;
-	font-size: 11px;
-}
-.steps {
-	display: grid;
-	gap: 8px;
-	margin: 14px 0 0 4px;
-	padding-left: 14px;
-	border-left: 2px solid #e5efe8;
-}
-.step {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 9px 11px;
-	border: 1px solid #e3ece6;
-	border-radius: 7px;
-	background: #fcfdfc;
-}
-.step.is-failed {
-	border-color: #f0d5d5;
-	background: #fdf7f7;
-}
-.step.is-degraded {
-	border-color: #efe0bd;
-	background: #fffcf5;
-}
-.step.is-running {
-	border-style: dashed;
-	border-color: #cfdfd5;
-	background: #fafdfb;
-}
-.step-index {
-	flex: none;
-	width: 26px;
-	color: #8aa094;
-	font-size: 12px;
-	font-weight: 700;
-}
-.step-body {
-	flex: 1;
-	min-width: 0;
-}
-.step-body strong {
-	display: block;
-	font-size: 13px;
-}
-.step-body span {
-	display: block;
-	margin-top: 3px;
-	color: #7a8a80;
-	font-size: 12px;
-	overflow-wrap: anywhere;
-}
-.step-time {
-	flex: none;
-	color: #93a29a;
-	font-size: 11px;
-}
-.answer {
-	margin-top: 14px;
-	padding: 15px 16px;
-	border: 1px solid #dbe9e0;
-	border-radius: 8px;
-	background: #fff;
-}
-.answer-done {
-	border-left: 3px solid #2d8a54;
-}
-.answer-refused {
-	border-left: 3px solid #c68a25;
-	background: #fffdf8;
-}
-.answer-error {
-	border-left: 3px solid #b84242;
-	background: #fdf8f8;
-}
-.answer-head {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 10px;
-}
-.answer-kind {
-	font-size: 13px;
-	font-weight: 700;
-}
-.answer-meta {
-	color: #7c8c82;
-	font-size: 11px;
-}
-.answer-text {
-	margin: 0;
-	font-size: 14px;
-	line-height: 1.85;
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-}
-.cite {
-	margin: 0 1px;
-	padding: 1px 5px;
-	border: 1px solid #cfe2d6;
-	border-radius: 4px;
-	background: #f1f8f3;
-	color: #2d8a54;
-	font-size: 11px;
-	font-weight: 700;
-	cursor: pointer;
-}
-.cite.is-active {
-	background: #2d8a54;
-	border-color: #2d8a54;
-	color: #fff;
-}
-.answer-flag {
-	margin: 12px 0 0;
-	padding: 8px 10px;
-	border-radius: 6px;
-	background: #fdf6e7;
-	color: #9a6a16;
-	font-size: 12px;
-	line-height: 1.6;
-}
-.answer-note {
-	margin: 12px 0 0;
-	color: #84928a;
-	font-size: 12px;
-	line-height: 1.65;
-}
-.composer {
-	display: flex;
-	align-items: flex-end;
-	gap: 10px;
-	padding: 12px 14px;
-	border-top: 1px solid #e6efe9;
-	background: #fbfdfb;
-}
-.crop-select {
-	flex: none;
-	width: 108px;
-}
-.composer-input {
-	flex: 1;
-}
-.composer-actions {
-	display: flex;
-	flex: none;
-	gap: 8px;
-	padding-bottom: 2px;
-}
-.vision-bar {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 9px 14px;
-	border-top: 1px solid #e6efe9;
-	background: #f7fbf8;
-	font-size: 12px;
-}
-.vision-icon { font-size: 14px; }
-.vision-text { flex: 1; color: #4c5f54; line-height: 1.6; }
-.vision-text.vision-empty { color: #93a29a; }
-.vision-gap { color: #b07316; }
-.question-vision {
-	display: block;
-	margin-top: 6px;
-	padding: 5px 8px;
-	border-radius: 6px;
-	background: #f0f7f2;
-	color: #3f6b52;
-	font-size: 12px;
-	line-height: 1.55;
-}
-.chat-aside {
-	display: grid;
-	gap: 14px;
-	// 给右下角既有全局浮窗（"番茄智能体"状态卡）让出空间，否则会压住示例问题列表底部条目。
-	padding-bottom: 104px;
-}
-.aside-panel {
-	padding: 16px;
-}
-.panel-heading {
-	display: flex;
-	justify-content: space-between;
-	align-items: center;
-	gap: 12px;
-	margin-bottom: 13px;
-}
-.stat-list {
-	display: grid;
-	gap: 9px;
-}
-.stat-row {
-	display: flex;
-	justify-content: space-between;
-	padding-bottom: 8px;
-	border-bottom: 1px solid #eef3ef;
-	color: #617168;
-	font-size: 13px;
-}
-.stat-row strong {
-	color: #223428;
-}
-.evidence-list {
-	display: grid;
-	gap: 10px;
-	max-height: 320px;
-	overflow-y: auto;
-}
-.evidence {
-	padding: 10px 11px;
-	border: 1px solid #e3ece6;
-	border-radius: 7px;
-	background: #fcfdfc;
-}
-.evidence.is-active {
-	border-color: #2d8a54;
-	background: #f4faf6;
-	box-shadow: 0 0 0 3px rgba(45, 138, 84, 0.1);
-}
-.evidence-head {
-	display: flex;
-	align-items: center;
-	gap: 7px;
-}
-.evidence-index {
-	color: #2d8a54;
-	font-size: 11px;
-	font-weight: 700;
-}
-.evidence-head strong {
-	flex: 1;
-	font-size: 13px;
-}
-.evidence-snippet {
-	margin: 7px 0 0;
-	color: #5c6d63;
-	font-size: 12px;
-	line-height: 1.65;
-}
-.evidence-source {
-	margin: 7px 0 0;
-	color: #93a29a;
-	font-size: 11px;
-}
-.evidence-source a {
-	margin-left: 8px;
-	color: #287c4c;
-	text-decoration: underline;
-}
-.preset-group + .preset-group {
-	margin-top: 12px;
-}
-.preset-label {
-	margin: 0 0 7px;
-	color: #7c8c82;
-	font-size: 11px;
-	font-weight: 650;
-}
-.preset {
-	display: block;
-	width: 100%;
-	margin-bottom: 7px;
-	padding: 9px 10px;
-	border: 1px solid #e0eae3;
-	border-radius: 7px;
-	background: #fcfdfc;
-	color: #3d4f44;
-	font-size: 12px;
-	line-height: 1.6;
-	text-align: left;
-	cursor: pointer;
-	transition: border-color 0.15s ease, background 0.15s ease;
-}
-.preset:hover:not(:disabled) {
-	border-color: #bcd9c6;
-	background: #f4faf6;
-}
-.preset:disabled {
-	cursor: not-allowed;
-	opacity: 0.55;
-}
-.muted {
-	margin: 8px 0 0;
-	color: #84928a;
-	font-size: 13px;
-	line-height: 1.65;
-}
-@media (max-width: 1180px) {
-	.chat-layout {
-		grid-template-columns: 1fr;
-	}
-	.chat-main {
-		height: auto;
-		min-height: 460px;
-		max-height: 640px;
-	}
-	.evidence-list {
-		max-height: none;
-	}
-}
-@media (max-width: 680px) {
-	.agent-chat {
-		padding: 14px;
-	}
-	.chat-header {
-		flex-direction: column;
-	}
-	.header-side {
-		align-items: flex-start;
-	}
-	.composer {
-		flex-wrap: wrap;
-	}
-	.crop-select {
-		width: 100%;
-	}
-}
+.agent-chat{min-height:calc(100vh - 60px);padding:28px 34px;background:#f6f4ed;color:#38463c;font-family:"Microsoft YaHei","PingFang SC",sans-serif}
+.chat-scopes{display:inline-flex;gap:4px;margin-top:15px;padding:3px;background:#eaece1;border:1px solid #dce0d0}.chat-scopes button{border:0;background:transparent;color:#87907a;font:inherit;font-size:12px;padding:7px 16px;cursor:pointer}.chat-scopes button.active{background:#fffdf7;color:#49603e;box-shadow:0 1px 3px #43503812}.conversation-stats{display:flex;gap:28px;margin-top:18px;font-size:12px;color:#89947d}.conversation-stats strong{display:block;font-size:24px;font-weight:400;color:#526647;margin-top:8px}
+.chat-header{display:flex;justify-content:space-between;gap:24px;align-items:flex-start;max-width:1440px;margin:0 auto;padding:5px 0 23px;border-bottom:1px solid #dedfd1}
+.eyebrow{font-size:12px;letter-spacing:1.7px;color:#8b917f;margin:0 0 9px}h2,h3{margin:0}h2{font-size:27px;letter-spacing:-.6px;font-weight:500}h3{font-size:16px;font-weight:500}.header-copy{font-size:12px;line-height:1.8;color:#87907d;margin:9px 0 0;max-width:640px}.header-side{display:grid;justify-items:end;gap:7px}.badge-stack{display:flex;gap:8px}.badge{padding:5px 9px;font-size:12px;background:#e8eddf;color:#56724d}.badge-quiet{background:transparent;color:#9b9b88}.badge-warning{background:#f1e9d4;color:#9b7d3c}
+.chat-layout{max-width:1440px;display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:32px;margin:22px auto 0;align-items:start}.chat-main{background:#fffdf7;display:flex;flex-direction:column;min-width:0;border:1px solid #e0e0d3}.stream{height:calc(100vh - 410px);min-height:260px;max-height:780px;overflow:auto;padding:26px 32px;scrollbar-width:thin}.empty-state{display:flex;align-items:center;gap:20px;min-height:300px;max-width:590px;margin:auto}.empty-icon{height:48px;width:48px;display:grid;place-items:center;font-size:27px;color:#657d52;background:#e9eddf;flex-shrink:0}.empty-state h3{font-size:22px;line-height:1.6}.empty-copy{font-size:13px;line-height:1.9;color:#8a917e;margin-top:12px}
+.turn{margin:0 0 30px}.question{display:flex;align-items:flex-start;gap:12px;border-bottom:1px solid #ecebe1;padding:0 0 18px;margin-bottom:17px}.question p{font-size:14px;line-height:1.75;margin:0;flex:1;color:#384b3b}.question-label{font-size:11px;letter-spacing:1px;color:#97a08b;padding-top:5px}.question-crop{font-size:12px;color:#8c9580;padding-top:5px}.question-vision{font-size:12px;color:#929b83}.answer{padding:4px 0}.answer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.answer-kind{font-size:12px;color:#71855d;letter-spacing:1px}.answer-meta{font-size:12px;color:#9da08c}.answer-error,.answer-refused{color:#9a7557}.answer-flag{font-size:12px;line-height:1.7;color:#aa8857}
+.reply-progress{display:flex;align-items:center;gap:9px;color:#809166;font-size:12px;margin:16px 0}.reply-progress small{margin-left:auto;color:#a6aa97}.progress-dot{height:5px;width:5px;border-radius:50%;background:#7e9968;animation:pulse 1.4s infinite}.tool-details,.reply-sources{color:#929b85;font-size:12px;margin:12px 0}.tool-details summary,.reply-sources summary{cursor:pointer;padding:6px 0}.step{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid #eeeee5;font-size:12px}.step-body{display:grid;gap:5px;flex:1;line-height:1.6}.step-body strong{font-weight:500;color:#687c56}.step-index,.step small{color:#adb19f}.step.is-failed{color:#a66f55}.reply-actions{display:flex;gap:14px;margin:17px 0 7px;align-items:center}.reply-actions button,.context-links button{font:inherit;font-size:12px;border:0;background:transparent;color:#89967c;padding:4px 0;cursor:pointer}.reply-actions button:hover,.context-links button:hover{color:#4f7448}.reply-actions span{font-size:11px;color:#a9ac9b;margin-left:auto}.reply-sources button{display:block;text-align:left;width:100%;font:inherit;background:none;border:0;border-bottom:1px solid #e9ebdf;padding:9px 0;color:#71835f;cursor:pointer}
+.composer{display:grid;grid-template-columns:88px minmax(0,1fr) auto;gap:12px;align-items:center;border-top:1px solid #dfdfd2;padding:18px 20px;background:#faf9f1}.composer-input :deep(textarea){background:#fffef8;border-color:#dedfd1;font-size:12px;line-height:1.8}.composer-input :deep(.el-input__count){background:transparent;font-size:11px}.composer-actions{display:grid;gap:6px}.composer-actions :deep(.el-button){margin:0}.composer :deep(.el-button--primary){background:#60764f;border-color:#60764f}.vision-details{font-size:12px;color:#a0a58f;padding:9px 22px;border-top:1px solid #eeeee5}.vision-details summary{cursor:pointer}.vision-bar{display:flex;align-items:center;gap:10px;padding-top:10px;flex-wrap:wrap;font-size:12px}.vision-text{flex:1}.vision-icon{display:none}.vision-gap{color:#a18457}
+.chat-aside{display:flex;flex-direction:column;gap:24px;min-width:0;max-height:calc(100vh - 310px);overflow:auto;padding-right:7px;scrollbar-width:thin}.aside-panel{padding:0 0 23px;border-bottom:1px solid #dedfd0}.panel-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}.muted{font-size:12px;line-height:1.8;color:#929981}.context-readings{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:16px 0}.context-readings span{display:block;font-size:12px;color:#8d967e}.context-readings strong{display:block;font-size:27px;font-weight:400;margin-top:6px;font-variant-numeric:tabular-nums}.context-readings small{font-size:12px;margin-left:6px}.context-event{font-size:12px;border-left:2px solid #9bad82;padding:8px 11px;background:#ecefe3}.context-links{display:flex;gap:13px;margin:12px 0}.context-note{font-size:11px;line-height:1.7;color:#a1a591;display:block}.context-error{font-size:12px;color:#a66f51}.evidence-list{max-height:370px;overflow:auto}.evidence{padding:13px 0;border-bottom:1px solid #e5e5d8}.evidence.is-active{border-left:2px solid #779061;padding-left:12px;background:#edf0e4}.evidence-head{display:flex;gap:7px;align-items:center;font-size:12px}.evidence-head strong{flex:1;font-weight:500;line-height:1.6}.evidence-index{color:#778c62}.evidence-snippet{font-size:12px;line-height:1.85;color:#838d74;margin:10px 0}.evidence-source{font-size:11px;color:#a0a78f;line-height:1.8;overflow-wrap:anywhere}.evidence-source a{color:#607c4f;margin-left:7px}.preset-group{margin-bottom:12px}.preset-label{font-size:12px;color:#a2a68f}.preset{display:block;text-align:left;width:100%;background:none;border:0;border-bottom:1px solid #e6e6d9;color:#728264;line-height:1.8;font-size:12px;padding:9px 0;cursor:pointer}.preset:hover{color:#355838}.preset:disabled{opacity:.4}button:focus-visible,summary:focus-visible{outline:2px solid #839771;outline-offset:3px}button:disabled{cursor:default;opacity:.5}
+@keyframes pulse{50%{opacity:.3}}@media(prefers-reduced-motion:reduce){.progress-dot{animation:none}}@media(max-width:1100px){.chat-layout{grid-template-columns:minmax(0,1fr) 265px;gap:20px}.agent-chat{padding:22px}.stream{padding:22px}.composer{grid-template-columns:100px minmax(0,1fr) auto}}@media(max-width:850px){.chat-layout{grid-template-columns:1fr}.chat-aside{display:none}.header-side{display:none}.agent-chat{padding:16px}.stream{height:calc(100vh - 320px)}.chat-header{padding-bottom:18px}}
 </style>

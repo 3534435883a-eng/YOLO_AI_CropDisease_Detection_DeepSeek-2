@@ -1,6 +1,7 @@
 <template>
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<div class="knowledge-heading"><div><p class="eyebrow">FIELD REFERENCE / DISEASE</p><h1>病害知识库</h1><p>按作物与病害名称查阅症状、发生因素和防治资料，作为田间研判的可核对参考。</p></div><span>知识条目 · 分页检索</span></div>
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.name" size="default" placeholder="请输入病害名称" clearable style="width: 180px"> </el-input>
 				<el-select v-model="state.tableData.param.cropType" size="default" class="ml10" placeholder="请选择作物类型" clearable style="width: 180px">
@@ -186,11 +187,21 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
+.knowledge-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding:4px 2px 18px; }
+.knowledge-heading .eyebrow { margin:0 0 5px; color:#887564; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.knowledge-heading h1 { margin:0; color:#382b25; font:600 25px/1.3 Georgia,'Songti SC',serif; }
+.knowledge-heading p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.65; }
+.knowledge-heading > span { padding:7px 10px; border:1px solid #e5d7c8; color:#765a49; background:#f7efe4; font-size:12px; white-space:nowrap; }
 .system-role-container {
 	.system-role-padding {
 		padding: 15px;
 		.el-table {
 			flex: 1;
+			--el-table-header-bg-color: #f5efe6;
+			--el-table-row-hover-bg-color: #faf6ef;
+			--el-table-border-color: #ebe3d9;
+			--el-table-text-color: #493d34;
+			--el-table-header-text-color: #756457;
 			:deep(.el-table__row) {
 				height: 40px;  // 设置行高
 			}
@@ -206,6 +217,7 @@ onMounted(() => {
 				line-height: 1.3;  // 减小文字行高
 			}
 		}
+		.system-user-search { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:12px; border:1px solid #e9e0d5; background:#fdfbf7; }
 		:deep(.el-input) {
 			height: 32px;
 			line-height: 32px;
@@ -220,4 +232,5 @@ onMounted(() => {
 		}
 	}
 }
-</style> 
+@media(max-width:700px) { .knowledge-heading { align-items:flex-start; flex-direction:column; } }
+</style>

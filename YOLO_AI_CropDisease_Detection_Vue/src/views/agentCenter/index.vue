@@ -4,7 +4,7 @@
 			<div>
 				<p class="eyebrow">TOMATO GREENHOUSE / SIMULATION</p>
 				<h2>智能体指挥中心</h2>
-				<p class="header-copy">以规则推演驱动虚拟设备，所有数值均为来源明确的模拟结果。</p>
+				<p class="header-copy">{{ agentStore.activeRun?.greenhouseName || 'Horti-M3 番茄场景' }} · {{ agentStore.activeRun?.tickMinutes || 30 }} 分钟规则仿真</p>
 			</div>
 			<div class="header-side">
 				<el-button link type="primary" @click="goChat">决策助手 →</el-button>
@@ -19,30 +19,37 @@
 			</div>
 		</header>
 
-		<section v-if="!agentStore.hasActiveRun" class="empty-run">
+		<el-alert v-if="!agentStore.serviceAvailable" title="仿真服务暂不可用" :description="agentStore.errorMessage || '当前无法读取运行状态；连接恢复后可重新加载。页面不会用默认值代替运行数据。'" type="error" :closable="false" show-icon class="service-alert">
+			<template #default><el-button size="small" @click="agentStore.loadActiveRun()">重新连接</el-button></template>
+		</el-alert>
+
+		<section v-if="!agentStore.hasActiveRun && agentStore.serviceAvailable && !agentStore.loading" class="empty-run">
 			<div class="empty-icon"><i class="iconfontjs icon-znws"></i></div>
 			<div>
 				<p class="eyebrow">准备就绪</p>
-				<h3>创建 8号温室番茄推演</h3>
-				<p>系统会从历史温室基线建立独立运行、虚拟耗材和五类设备；不会修改旧温室或库存记录。</p>
+				<h3>创建 Horti-M3 番茄推演</h3>
+				<p>2025 / CK / 广辉201 参数参考；40×40 m 棚体、14 小区、全试验区 840 株。初值、设备容量和作物参数未校准，运行数据为模拟快照。</p>
 			</div>
 			<el-button type="primary" :loading="agentStore.isActionPending" @click="createRun">创建模拟</el-button>
 		</section>
+		<p v-else-if="agentStore.loading && !agentStore.hasActiveRun" class="muted loading-state">正在读取运行状态…</p>
 
-		<template v-else>
+		<template v-else-if="agentStore.hasActiveRun">
 			<section class="control-band">
 				<div class="control-meta">
-					<span>8号温室</span>
+					<span>{{ agentStore.activeRun?.greenhouseName || 'Horti-M3 场景' }}</span>
 					<el-divider direction="vertical" />
-					<span>番茄 · 开花坐果期</span>
+					<span>番茄 · 模型初始物候未校准</span>
 					<el-divider direction="vertical" />
-					<span>第 {{ currentStep }} / 96 步</span>
+					<span>第 {{ currentStep }} / {{ agentStore.activeRun?.totalSteps || 48 }} 步</span>
+					<el-tag size="small" effect="plain" type="info">规则仿真快照</el-tag>
 				</div>
 				<div class="command-actions">
-					<el-button v-if="runStatus !== 'RUNNING'" type="primary" :loading="isAction('start')" @click="perform('start')">启动自动运行</el-button>
+                    <el-button :loading="agentStore.isActionPending" @click="createRun">新建 M3 运行</el-button>
+					<el-button v-if="runStatus !== 'RUNNING'" type="primary" :disabled="runStatus === 'COMPLETED'" :loading="isAction('start')" @click="perform('start')">启动自动运行</el-button>
 					<el-button v-else type="warning" plain :loading="isAction('pause')" @click="perform('pause')">暂停</el-button>
 					<el-button :loading="isAction('step')" @click="perform('step')">单步推演</el-button>
-					<el-tooltip content="重新从本次运行的历史基线开始，不修改旧业务数据" placement="top">
+					<el-tooltip content="重新从本次运行的模拟初值开始" placement="top">
 						<el-button :loading="isAction('reset')" @click="perform('reset')">重置</el-button>
 					</el-tooltip>
 					<el-button :loading="isAction('replay')" @click="perform('replay')">回放</el-button>
@@ -69,12 +76,12 @@
 					<p class="decision-copy">{{ strategySummary }}</p>
 					<div class="risk-lines">
 						<div>
-							<div class="line-label"><span>环境风险</span><strong>{{ environmentRisk }}%</strong></div>
-							<el-progress :percentage="environmentRisk" :stroke-width="9" :show-text="false" :color="riskColor" />
+							<div class="line-label"><span>环境风险</span><strong>{{ readNumber(['environmentRisk', 'environment_risk']) === null ? '—' : `${environmentRisk}%` }}</strong></div>
+							<el-progress v-if="readNumber(['environmentRisk', 'environment_risk']) !== null" :percentage="environmentRisk" :stroke-width="9" :show-text="false" :color="riskColor" />
 						</div>
 						<div>
-							<div class="line-label"><span>病害环境压力</span><strong>{{ diseasePressure }}%</strong></div>
-							<el-progress :percentage="diseasePressure" :stroke-width="9" :show-text="false" :color="riskColor" />
+							<div class="line-label"><span>病害环境压力</span><strong>{{ readNumber(['diseasePressure', 'disease_pressure']) === null ? '—' : `${diseasePressure}%` }}</strong></div>
+							<el-progress v-if="readNumber(['diseasePressure', 'disease_pressure']) !== null" :percentage="diseasePressure" :stroke-width="9" :show-text="false" :color="riskColor" />
 						</div>
 					</div>
 					<div class="rule-note">策略按风险、资源消耗和动作频率排序。AI 只能解释已保存的规则结论，不能直接下达执行指令。</div>
@@ -113,6 +120,7 @@
 							<el-button v-if="device.controlMode === 'MANUAL'" link type="primary" @click="release(device)">自动</el-button>
 						</div>
 					</div>
+					<p v-if="!devices.length" class="muted">当前没有可用的设备快照。</p>
 				</div>
 
 				<div class="panel resource-panel">
@@ -125,6 +133,7 @@
 							<span>{{ resource.name }}</span><strong>{{ resource.value }} {{ resource.unit }}</strong>
 						</div>
 					</div>
+					<p v-if="!resources.length" class="muted">当前没有可用的资源快照。</p>
 					<p class="resource-note">水、CO2 与能源仅属于本次运行；动作与扣减流水在同一事务中保存。</p>
 				</div>
 			</section>
@@ -132,7 +141,7 @@
 			<section class="alerts-panel panel">
 				<div class="panel-heading"><div><p class="eyebrow">ALERTS</p><h3>当前告警</h3></div><span class="alert-count">{{ alerts.length }}</span></div>
 				<div v-if="alerts.length" class="alert-list"><div v-for="alert in alerts" :key="alert.id || alert.message" class="alert-row"><el-tag :type="alertType(alert.severity)">{{ alert.severity || 'INFO' }}</el-tag><span>{{ alert.message || alert.description || alert.title }}</span></div></div>
-				<p v-else class="muted">当前没有需要确认的风险、库存或设备告警。</p>
+				<p v-else class="muted">{{ hasEnvironmentState ? '当前没有需要确认的风险、库存或设备告警。' : '告警快照尚不可用。' }}</p>
 			</section>
 		</template>
 	</div>
@@ -140,7 +149,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useRouter } from 'vue-router';
 import { useUserInfo } from '/@/stores/userInfo';
 import { AgentDevice } from '/@/api/agent';
@@ -155,34 +164,39 @@ let refreshTimer: number | undefined;
 const asRecord = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
 const asArray = <T>(value: unknown): T[] => Array.isArray(value) ? value as T[] : [];
 const currentState = computed(() => asRecord(agentStore.summary?.currentState || agentStore.summary?.state));
-const readNumber = (keys: string[], fallback = 0) => {
+const readNumber = (keys: string[]) => {
 	for (const key of keys) {
 		const value = currentState.value[key];
 		const numberValue = typeof value === 'number' ? value : Number(value);
-		if (Number.isFinite(numberValue)) return numberValue;
+		if (value !== null && value !== undefined && value !== '' && Number.isFinite(numberValue)) return numberValue;
 	}
-	return fallback;
+	return null;
 };
 const runStatus = computed(() => String(agentStore.activeRun?.status || agentStore.summary?.status || 'READY').toUpperCase());
-const runStatusLabel = computed(() => ({ RUNNING: '自动模拟运行中', PAUSED: '模拟已暂停', COMPLETED: '模拟完成', READY: '等待创建' }[runStatus.value] || '模拟待命'));
+const runStatusLabel = computed(() => !agentStore.serviceAvailable ? '仿真服务不可用' : ({ RUNNING: '规则仿真运行中', PAUSED: '规则仿真已暂停', COMPLETED: '规则仿真已完成', READY: '等待创建' }[runStatus.value] || '仿真待命'));
 const currentStep = computed(() => Number(agentStore.activeRun?.currentStep || agentStore.activeRun?.progress || 0));
 const simulationTime = computed(() => String(agentStore.activeRun?.simulatedAt || agentStore.activeRun?.updatedAt || '尚未启动'));
 const environmentRisk = computed(() => {
-	return Math.max(0, Math.min(100, Math.round(readNumber(['environmentRisk', 'environment_risk'], 0))));
+	return Math.max(0, Math.min(100, Math.round(readNumber(['environmentRisk', 'environment_risk']) ?? 0)));
 });
 const diseasePressure = computed(() => {
-	return Math.max(0, Math.min(100, Math.round(readNumber(['diseasePressure', 'disease_pressure'], 0))));
+	return Math.max(0, Math.min(100, Math.round(readNumber(['diseasePressure', 'disease_pressure']) ?? 0)));
 });
-const riskLabel = computed(() => String(currentState.value.riskLevel || currentState.value.risk_level || 'LOW'));
-const riskTagType = computed(() => riskLabel.value === 'HIGH' ? 'danger' : riskLabel.value === 'MEDIUM' ? 'warning' : 'success');
+const riskLabel = computed(() => String(currentState.value.riskLevel || currentState.value.risk_level || '暂无风险结论'));
+const riskTagType = computed(() => riskLabel.value === 'HIGH' ? 'danger' : riskLabel.value === 'MEDIUM' ? 'warning' : riskLabel.value === 'LOW' ? 'success' : 'info');
 const riskColor = computed(() => riskLabel.value === 'HIGH' ? '#b84242' : riskLabel.value === 'MEDIUM' ? '#c68a25' : '#2d8a54');
 const strategySummary = computed(() => String(agentStore.summary?.strategySummary || agentStore.summary?.strategy || '等待第一步规则推演。'));
+const hasEnvironmentState = computed(() => Object.keys(currentState.value).length > 0);
 
+const metricValue = (keys: string[], digits: number, unit: string) => {
+	const value = readNumber(keys);
+	return value === null ? '—' : `${value.toFixed(digits)}${unit}`;
+};
 const keyMetrics = computed(() => [
-	{ code: 'temperature', label: '室内温度', value: `${readNumber(['temperatureC', 'temperature_c', 'temperature'], 24).toFixed(1)} C`, source: '模拟', description: '由环境模型推演' },
-	{ code: 'humidity', label: '空气湿度', value: `${readNumber(['airHumidityPct', 'air_humidity_pct', 'airHumidity'], 75).toFixed(1)}%`, source: '模拟', description: '由环境模型推演' },
-	{ code: 'vpd', label: 'VPD', value: `${readNumber(['vpdKpa', 'vpd_kpa'], .72).toFixed(2)} kPa`, source: '计算', description: '温湿度派生指标' },
-	{ code: 'co2', label: 'CO2', value: `${readNumber(['co2Ppm', 'co2_ppm', 'co2Concentration'], 720).toFixed(0)} ppm`, source: '模拟', description: '受通风与补给约束' },
+	{ code: 'temperature', label: '室内温度', value: metricValue(['temperatureC', 'temperature_c', 'temperature'], 1, ' ℃'), source: '规则仿真', description: '环境状态快照' },
+	{ code: 'humidity', label: '空气湿度', value: metricValue(['airHumidityPct', 'air_humidity_pct', 'airHumidity'], 1, '%'), source: '规则仿真', description: '环境状态快照' },
+	{ code: 'vpd', label: 'VPD', value: metricValue(['vpdKpa', 'vpd_kpa'], 2, ' kPa'), source: '规则计算', description: '温湿度派生指标' },
+	{ code: 'co2', label: 'CO₂', value: metricValue(['co2Ppm', 'co2_ppm', 'co2Concentration'], 0, ' ppm'), source: '规则仿真', description: '环境状态快照' },
 ]);
 
 const comparisonItems = computed(() => {
@@ -206,11 +220,16 @@ const alertType = (severity: unknown) => String(severity).toUpperCase() === 'HIG
 
 const createRun = async () => {
 	try {
-		await agentStore.createRun({ greenhouseId: 77, cropName: '番茄', cropCode: 'TOMATO', operatorUsername: userStore.userInfos.userName || 'operator' });
+		await agentStore.createRun({ cropName: '番茄', cropCode: 'TOMATO', operatorUsername: userStore.userInfos.userName || 'operator' });
 		ElMessage.success('番茄温室模拟已创建');
 	} catch (error) { ElMessage.error(error instanceof Error ? error.message : '创建模拟失败'); }
 };
 const perform = async (action: 'start' | 'pause' | 'step' | 'reset' | 'replay') => {
+	if (action === 'reset') {
+		try {
+			await ElMessageBox.confirm('重置会清空本次仿真的快照、设备动作和资源流水。确定继续？', '重置虚拟运行', { type: 'warning', confirmButtonText: '确认重置', cancelButtonText: '取消' });
+		} catch { return; }
+	}
 	try {
 		await agentStore[action]();
 		ElMessage.success(action === 'start' ? '已启动自动运行' : action === 'pause' ? '模拟已暂停' : action === 'step' ? '已完成一个虚拟步' : action === 'replay' ? '已从基线开始回放' : '已恢复初始基线');

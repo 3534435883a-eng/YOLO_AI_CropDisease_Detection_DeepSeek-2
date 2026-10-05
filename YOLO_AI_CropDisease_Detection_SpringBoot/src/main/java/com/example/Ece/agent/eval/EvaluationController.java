@@ -1,5 +1,7 @@
 package com.example.Ece.agent.eval;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.common.Result;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,10 +32,13 @@ public class EvaluationController {
         this.service = service;
     }
 
+    @GetMapping("/profile")
+    public Result<?> profile() { return Result.success(HortiM3Profile.metadata()); }
+
     @PostMapping("/runs")
     public Result<?> run(@RequestBody(required = false) EvaluationRunRequest request) {
         EvaluationRunRequest actual = request == null ? new EvaluationRunRequest() : request;
-        long seed = actual.getSeed() == null ? 20260921L : actual.getSeed().longValue();
+        long seed = actual.getSeed() == null ? 20250419L : actual.getSeed().longValue();
         int days = actual.getDays() == null ? PerformanceEvaluationService.DEFAULT_DAYS : actual.getDays().intValue();
         EvaluationBatch batch = service.runBatch(actual.getBatchId(), seed, days);
         remember(batch);
@@ -48,6 +53,7 @@ public class EvaluationController {
         }
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("batchId", batch.getBatchId());
+        payload.put("profile", batch.getProfile());
         payload.put("seed", Long.valueOf(batch.getSeed()));
         payload.put("days", Integer.valueOf(batch.getDays()));
         payload.put("elapsedMillis", Long.valueOf(batch.getElapsedMillis()));
@@ -89,6 +95,7 @@ public class EvaluationController {
         }
         Map<String, Object> payload = new LinkedHashMap<String, Object>();
         payload.put("batchId", batch.getBatchId());
+        payload.put("profile", batch.getProfile());
         payload.put("days", Integer.valueOf(batch.getDays()));
         Map<String, Object> series = new LinkedHashMap<String, Object>();
         for (Map.Entry<EvaluationStrategy, EvaluationOutcome> entry : batch.getOutcomes().entrySet()) {

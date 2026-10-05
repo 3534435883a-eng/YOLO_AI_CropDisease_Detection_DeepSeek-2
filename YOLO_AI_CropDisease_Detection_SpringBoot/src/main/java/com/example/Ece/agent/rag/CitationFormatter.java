@@ -172,6 +172,13 @@ public class CitationFormatter {
         if ("CONTROL".equals(fieldType)) {
             return "防治";
         }
+        if("ENVIRONMENT".equals(fieldType))return "环境调控";
+        if("CULTIVATION".equals(fieldType))return "栽培管理";
+        if("WATER_FERT".equals(fieldType))return "水肥管理";
+        if("CTRL_AGRI".equals(fieldType))return "农业防治";
+        if("CTRL_PHYS".equals(fieldType))return "物理防治";
+        if("CTRL_BIO".equals(fieldType))return "生物防治";
+        if("CTRL_CHEM".equals(fieldType))return "化学防治";
         return "其他";
     }
 

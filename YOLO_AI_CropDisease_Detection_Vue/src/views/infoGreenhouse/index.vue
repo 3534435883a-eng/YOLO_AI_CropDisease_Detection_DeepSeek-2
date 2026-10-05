@@ -1,6 +1,14 @@
 <template>
-	<div class="system-role-container layout-padding">
+	<div class="system-role-container layout-padding greenhouse-page">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
+			<header class="greenhouse-heading">
+				<div>
+					<p class="greenhouse-eyebrow">温室推演 / 档案管理</p>
+					<h2>温室档案</h2>
+					<p>此处为登记档案记录，温湿度与光照等字段不代表实时传感器读数。</p>
+				</div>
+				<el-tag type="info" effect="plain">档案记录 · 非实时监测</el-tag>
+			</header>
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.search" size="default" placeholder="请输入温室名称" style="max-width: 180px"> </el-input>
 				<el-input v-model="state.tableData.param.cropType" size="default" placeholder="请输入作物类型" class="ml10" style="max-width: 180px"> </el-input>
@@ -81,7 +89,7 @@ import { useAgentRunStore } from '/@/stores/agentRun';
 const router = useRouter();
 const agentStore = useAgentRunStore();
 const agentStatus = computed(() => String(agentStore.activeRun?.status || agentStore.summary?.status || 'READY').toUpperCase());
-const agentStatusLabel = computed(() => ({ RUNNING: '推演中', PAUSED: '已暂停', COMPLETED: '已完成', READY: '待创建' }[agentStatus.value] || '待命'));
+const agentStatusLabel = computed(() => !agentStore.serviceAvailable ? '服务不可用' : ({ RUNNING: '推演中', PAUSED: '已暂停', COMPLETED: '已完成', READY: '待创建' }[agentStatus.value] || '待命'));
 const agentStatusType = computed(() => agentStatus.value === 'RUNNING' ? 'success' : agentStatus.value === 'PAUSED' ? 'warning' : 'info');
 
 // 引入组件
@@ -197,21 +205,79 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.system-role-container {
+.greenhouse-page {
+	min-height: calc(100vh - 60px);
+	padding: 22px clamp(16px, 2vw, 30px);
+	background: #f7f3ea;
+	color: #2c3028;
+
 	.system-role-padding {
-		padding: 15px;
-		.el-table {
-			flex: 1;
-		}
-		.agent-simulation-label {
-			display: block;
-			margin-top: 3px;
-			color: #84918a;
-			font-size: 11px;
-		}
-		.agent-simulation-empty {
-			color: #a8b0aa;
-		}
+		padding: 20px;
+		border: 1px solid #ded5c7;
+		border-radius: 3px;
+		background: #fffdf8;
 	}
+	.greenhouse-heading {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		gap: 20px;
+		margin: 0 0 20px;
+		padding: 0 0 18px;
+		border-bottom: 1px solid #e5ddd1;
+	}
+	.greenhouse-eyebrow {
+		margin: 0 0 5px;
+		color: #817969;
+		font-size: 11px;
+		letter-spacing: 0.08em;
+	}
+	.greenhouse-heading h2 {
+		margin: 0;
+		color: #352f27;
+		font-family: Georgia, 'Noto Serif SC', serif;
+		font-size: 27px;
+		font-weight: 600;
+	}
+	.greenhouse-heading p:last-child {
+		margin: 7px 0 0;
+		color: #746f64;
+		font-size: 13px;
+	}
+	.system-user-search {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 8px;
+		padding: 13px;
+		border: 1px solid #e5ddd1;
+		background: #faf7f0;
+	}
+	.system-user-search .el-input { margin-left: 0; }
+	.system-user-search .el-button { margin-left: 0; }
+	:deep(.el-table) {
+		--el-table-border-color: #e5ddd1;
+		--el-table-header-bg-color: #f4efe5;
+		--el-table-row-hover-bg-color: #faf6ed;
+		color: #3f423b;
+	}
+	:deep(.el-table th.el-table__cell) { color: #625d52; font-weight: 600; }
+	:deep(.el-pagination) { justify-content: flex-end; }
+	@media (max-width: 700px) {
+		.greenhouse-heading { align-items: flex-start; flex-direction: column; }
+		.system-role-padding { padding: 14px; }
+	}
+
+	.agent-simulation-label {
+		display: block;
+		margin-top: 3px;
+		color: #84918a;
+		font-size: 11px;
+	}
+	.agent-simulation-empty {
+		color: #a8b0aa;
+	}
+	/* Keep the archive data table scrollable inside its own viewport on compact desktop widths. */
+	:deep(.el-table__inner-wrapper) { min-width: 100%; }
 }
 </style>

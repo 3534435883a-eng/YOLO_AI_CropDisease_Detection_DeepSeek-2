@@ -1,6 +1,11 @@
 <template>
-	<div class="personal-container">
+	<div class="personal-container layout-padding">
 		<div class="personal-wrapper">
+			<header class="manage-heading">
+				<span class="manage-kicker">WORKSPACE · PROFILE</span>
+				<h1>个人设置</h1>
+				<p>更新账号资料与头像，修改完成后会同步到当前账户。</p>
+			</header>
 			<div class="content-wrapper">
 				<div class="left-section">
 					<div class="avatar-card">
@@ -22,14 +27,21 @@
 								</div>
 							</el-upload>
 						</div>
-						<h3 class="welcome-text">欢迎回来</h3>
+						<div class="profile-caption">当前账户</div>
+						<h3 class="welcome-text">{{ state.form.name || state.form.username || '平台用户' }}</h3>
 						<div class="user-role">{{ state.form.role }}</div>
 					</div>
 				</div>
 
 				<div class="right-section">
 					<div class="info-card">
-						<h2 class="section-title">个人信息</h2>
+						<div class="section-heading">
+							<div>
+								<span class="section-index">ACCOUNT DETAILS</span>
+								<h2 class="section-title">个人信息</h2>
+							</div>
+							<span class="section-note">带 * 的项目请填写完整</span>
+						</div>
 						<el-form 
 							ref="formRef"
 							:model="state.form" 
@@ -216,209 +228,75 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .personal-container {
-	height: calc(100vh - 60px);
-	padding-top: 32px;
-	background-color: #f5f7fa;
-	overflow: hidden;
-
 	.personal-wrapper {
-		height: 100%;
-		max-width: 1200px;
+		width: min(1120px, 100%);
+		min-height: 100%;
 		margin: 0 auto;
-		
+		padding: 22px 24px;
+		display: flex;
+		flex-direction: column;
+		.manage-heading {
+			margin-bottom: 18px;
+			.manage-kicker { color: var(--agri-olive); font-size: 10px; font-weight: 700; letter-spacing: .16em; }
+			h1 { margin: 5px 0 4px; color: var(--agri-wood); font: 600 26px/1.2 Georgia, 'Songti SC', 'SimSun', serif; }
+			p { margin: 0; color: var(--agri-muted); font-size: 13px; }
+		}
 		.content-wrapper {
-			height: calc(100% - 32px);
+			flex: 1;
+			min-height: 0;
 			display: grid;
-			grid-template-columns: 320px 1fr;
-			gap: 32px;
-
-			.left-section {
-				.avatar-card {
-					background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-					border-radius: 16px;
-					padding: 40px 32px;
-					text-align: center;
-					height: fit-content;
-					box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-
-					.avatar-wrapper {
-						margin-bottom: 24px;
-
-						.avatar-uploader {
-							.avatar-content {
-								width: 180px;
-								height: 180px;
-								margin: 0 auto;
-								border-radius: 50%;
-								overflow: hidden;
-								cursor: pointer;
-								transition: all 0.3s ease;
-								background: #f5f7fa;
-								border: 3px solid #fff;
-								box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-
-								&:hover {
-									transform: translateY(-2px);
-									box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-								}
-
-								.avatar-image {
-									width: 100%;
-									height: 100%;
-									object-fit: cover;
-								}
-
-								.avatar-placeholder {
-									height: 100%;
-									display: flex;
-									flex-direction: column;
-									justify-content: center;
-									align-items: center;
-									color: #909399;
-
-									.upload-icon {
-										font-size: 36px;
-										margin-bottom: 12px;
-									}
-
-									span {
-										font-size: 14px;
-									}
-								}
-							}
-						}
-					}
-
-					.welcome-text {
-						font-size: 20px;
-						color: #2c3e50;
-						margin: 0 0 16px;
-						font-weight: 600;
-					}
-
-					.user-role {
-						font-size: 15px;
-						color: #409eff;
-						font-weight: 500;
-						padding: 8px 20px;
-						background: rgba(64, 158, 255, 0.1);
-						border-radius: 20px;
-						display: inline-block;
-					}
-				}
+			grid-template-columns: 250px minmax(0, 1fr);
+			gap: 18px;
+			.left-section, .right-section { min-width: 0; }
+			.avatar-card, .info-card {
+				background: var(--agri-surface);
+				border: 1px solid var(--agri-line);
+				border-radius: 7px;
 			}
-
-			.right-section {
-				.info-card {
-					background: #ffffff;
-					border-radius: 16px;
-					padding: 40px;
-					box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-
-					.section-title {
-						font-size: 24px;
-						color: #2c3e50;
-						margin: 0 0 32px;
-						font-weight: 600;
-					}
-
-					.info-form {
-						.form-grid {
-							display: grid;
-							grid-template-columns: repeat(2, 1fr);
-							gap: 32px;
-
-							:deep(.el-form-item) {
-								margin-bottom: 0;
-
-								.el-form-item__label {
-									font-weight: 500;
-									color: #2c3e50;
-								}
-
-								.el-input__wrapper {
-									box-shadow: 0 0 0 1px #e4e7ed inset;
-									border-radius: 8px;
-									padding: 0 12px;
-									height: 42px;
-									transition: all 0.3s;
-
-									&:hover,
-									&.is-focus {
-										box-shadow: 0 0 0 1px #409eff inset;
-									}
-
-									.el-input__prefix {
-										margin-right: 8px;
-										color: #909399;
-									}
-								}
-
-								.el-select {
-									width: 100%;
-									:deep(.el-input) {
-										.el-input__wrapper {
-											box-shadow: 0 0 0 1px #e4e7ed inset !important;
-											
-											&:hover {
-												box-shadow: 0 0 0 1px #409eff inset !important;
-											}
-											
-											&.is-focus {
-												box-shadow: 0 0 0 1px #409eff inset !important;
-											}
-										}
-									}
-								}
-							}
-						}
-
-						.form-footer {
-							margin-top: 40px;
-							text-align: right;
-
-							.submit-button {
-								padding: 12px 36px;
-								font-size: 15px;
-								border-radius: 8px;
-								background: linear-gradient(135deg, #409eff, #36a2f1);
-								border: none;
-								transition: all 0.3s ease;
-
-								&:hover {
-									transform: translateY(-2px);
-									box-shadow: 0 6px 16px rgba(64, 158, 255, 0.4);
-								}
-							}
-						}
-					}
-				}
+			.avatar-card { padding: 30px 20px; text-align: center; }
+			.avatar-wrapper { margin-bottom: 18px; }
+			.avatar-uploader .avatar-content {
+				width: 132px; height: 132px; margin: 0 auto; overflow: hidden; cursor: pointer;
+				border-radius: 50%; border: 4px solid #fffdf7; background: #f1eadc;
+				box-shadow: 0 0 0 1px var(--agri-line);
+				.avatar-image { width: 100%; height: 100%; object-fit: cover; }
+				.avatar-placeholder { height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--agri-muted); }
+				.upload-icon { font-size: 27px; margin-bottom: 8px; color: var(--agri-olive); }
+				span { font-size: 12px; }
+			}
+			.profile-caption { color: var(--agri-muted); font-size: 12px; }
+			.welcome-text { margin: 5px 0 14px; color: var(--agri-wood); font: 600 20px/1.35 Georgia, 'Songti SC', 'SimSun', serif; word-break: break-word; }
+			.user-role { display: inline-flex; padding: 5px 12px; border: 1px solid #c9d1bd; border-radius: 20px; background: #eef0e7; color: #58684e; font-size: 12px; }
+			.info-card { min-height: 100%; padding: 25px 28px; }
+			.section-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 22px; padding-bottom: 14px; border-bottom: 1px solid var(--agri-line); }
+			.section-index { color: var(--agri-olive); font-size: 10px; font-weight: 700; letter-spacing: .13em; }
+			.section-title { margin: 4px 0 0; color: var(--agri-wood); font: 600 21px/1.25 Georgia, 'Songti SC', 'SimSun', serif; }
+			.section-note { color: var(--agri-muted); font-size: 12px; }
+			.info-form {
+				.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; row-gap: 8px; }
+				:deep(.el-form-item) { margin-bottom: 10px; }
+				:deep(.el-form-item__label) { color: var(--agri-ink); font-weight: 500; }
+				:deep(.el-input__wrapper), :deep(.el-select__wrapper) { min-height: 38px; border-radius: 4px; }
+				:deep(.el-input__prefix) { color: var(--agri-muted); }
+				.el-select { width: 100%; }
+				.form-footer { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--agri-line); text-align: right; }
+				.submit-button { min-width: 124px; }
 			}
 		}
 	}
 }
 
-@media screen and (max-width: 768px) {
-	.personal-container {
-		padding: 16px;
+@media (max-width: 900px) {
+	.personal-container .personal-wrapper { padding: 18px; }
+	.personal-container .content-wrapper { grid-template-columns: 210px minmax(0, 1fr); gap: 12px; }
+	.personal-container .info-card { padding: 20px; }
+}
 
-		.personal-wrapper {
-			.content-wrapper {
-				grid-template-columns: 1fr;
-				gap: 24px;
-
-				.info-card {
-					padding: 24px;
-
-					.info-form {
-						.form-grid {
-							grid-template-columns: 1fr;
-							gap: 24px;
-						}
-					}
-				}
-			}
-		}
-	}
+@media (max-width: 700px) {
+	.personal-container { overflow: auto; }
+	.personal-container .content-wrapper { grid-template-columns: 1fr; }
+	.personal-container .avatar-card { padding: 20px; }
+	.personal-container .info-form .form-grid { grid-template-columns: 1fr; row-gap: 0; }
+	.personal-container .section-heading { align-items: flex-start; flex-direction: column; }
 }
 </style>

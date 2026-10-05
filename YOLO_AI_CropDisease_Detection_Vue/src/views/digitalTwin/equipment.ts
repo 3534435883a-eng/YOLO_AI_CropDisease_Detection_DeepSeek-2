@@ -11,6 +11,7 @@ export type EquipmentFrame = {
 	exhaustFan: boolean;
 	coolingPad: boolean;
 	roofVent: boolean;
+	heating: boolean;
 	temperatureC: number;
 	airHumidityPct: number;
 	co2Ppm: number;
@@ -113,7 +114,9 @@ export const buildEquipment = (scene: THREE.Scene) => {
 		signalMaterials.set(code, material);
 	};
 
-	const service = register('IRRIGATION', '过滤泵阀与滴灌主管', '西端设备区', 'actuator', '水源经过过滤、加压与分区阀进入四条种植床的滴灌带。', [-11.7, 0, 5.25]);
+	const serviceX = GREENHOUSE_LAYOUT.serviceEndX;
+	const plotHalf = GREENHOUSE_LAYOUT.bedLength / 2;
+	const service = register('IRRIGATION', '过滤泵阀与滴灌主管', '西端设备区', 'actuator', '水源经过过滤、加压与分区阀进入14 个试验小区（示意布局）的滴灌带。', [serviceX, 0, 5.25]);
 	box(service, [1.65, 0.12, 1.05], [0, 0.11, 0], darkSteel);
 	cylinder(service, 0.31, 1.15, [-0.47, 0.76, 0], steel);
 	cylinder(service, 0.15, 0.75, [0.18, 0.54, -0.17], pipeBlue);
@@ -126,24 +129,24 @@ export const buildEquipment = (scene: THREE.Scene) => {
 	}
 	signal(service, 'IRRIGATION', [0.44, 0.72, 0.42]);
 	for (const bedZ of GREENHOUSE_LAYOUT.bedCenters) {
-		pipe(roots, new THREE.Vector3(-11.55, 0.42, 5.25), new THREE.Vector3(-11.55, 0.42, bedZ), 0.035, pipeBlue);
-		pipe(roots, new THREE.Vector3(-11.55, 0.42, bedZ), new THREE.Vector3(-10.5, 0.31, bedZ), 0.023, pipeBlue);
+		pipe(roots, new THREE.Vector3(serviceX + 0.15, 0.42, 5.25), new THREE.Vector3(serviceX + 0.15, 0.42, bedZ), 0.035, pipeBlue);
+		pipe(roots, new THREE.Vector3(serviceX + 0.15, 0.42, bedZ), new THREE.Vector3(-plotHalf, 0.31, bedZ), 0.023, pipeBlue);
 	}
 
-	const tank = register('CO2_SUPPLY', 'CO₂ 气源与减压阀', '西端供气区', 'actuator', '气瓶经减压阀接入棚内分配管；强排风期间禁止补气。', [-11.75, 0, -5.55]);
+	const tank = register('CO2_SUPPLY', 'CO₂ 气源与减压阀', '西端供气区', 'actuator', '气瓶经减压阀接入棚内分配管；强排风期间禁止补气。', [serviceX, 0, -5.55]);
 	cylinder(tank, 0.3, 1.48, [0, 0.79, 0], new THREE.MeshStandardMaterial({ color: 0x476456, metalness: 0.47, roughness: 0.42 }));
 	cylinder(tank, 0.13, 0.22, [0, 1.62, 0], steel);
 	box(tank, [0.31, 0.18, 0.24], [0.35, 1.53, 0], darkSteel);
 	pipe(tank, new THREE.Vector3(0.35, 1.53, 0), new THREE.Vector3(1.2, 2.0, 0), 0.024, pipeGreen);
 	signal(tank, 'CO2_SUPPLY', [0.36, 1.56, 0.14]);
-	pipe(roots, new THREE.Vector3(-10.55, 2, -5.55), new THREE.Vector3(-10.55, 2, 5.4), 0.024, pipeGreen);
+	pipe(roots, new THREE.Vector3(-plotHalf - 1.55, 2, -5.55), new THREE.Vector3(-plotHalf - 1.55, 2, 5.4), 0.024, pipeGreen);
 	for (const bedZ of GREENHOUSE_LAYOUT.bedCenters) {
-		pipe(roots, new THREE.Vector3(-10.55, 2, bedZ), new THREE.Vector3(10.55, 2, bedZ), 0.019, pipeGreen);
+		pipe(roots, new THREE.Vector3(-plotHalf - 1.55, 2, bedZ), new THREE.Vector3(plotHalf + 1.55, 2, bedZ), 0.019, pipeGreen);
 	}
 
-	for (const bayCenter of GREENHOUSE_LAYOUT.bayCenters) {
-		const code = `WET_PAD_${bayCenter < 0 ? 'N' : 'S'}`;
-		const pad = register(code, '蒸发湿帘进风墙', bayCenter < 0 ? '北跨西端' : '南跨西端', 'actuator', '循环水润湿蜂窝湿帘，需与对端排风配合产生穿堂气流。', [-12.94, 2.2, bayCenter]);
+	for (const [spanIndex, bayCenter] of GREENHOUSE_LAYOUT.bayCenters.entries()) {
+		const code = `WET_PAD_SPAN_${spanIndex + 1}`;
+		const pad = register(code, '蒸发湿帘进风墙', `第${spanIndex + 1}跨 · 西端`, 'actuator', '循环水润湿蜂窝湿帘，需与对端排风配合产生穿堂气流。', [GREENHOUSE_LAYOUT.wetPadEndX + 0.06, 2.2, bayCenter]);
 		box(pad, [0.18, 2.6, 2.25], [0, 0, 0], darkSteel);
 		const wetMaterial = padBrown.clone();
 		wetSurfaces.push(wetMaterial);
@@ -156,8 +159,8 @@ export const buildEquipment = (scene: THREE.Scene) => {
 		box(pad, [0.44, 0.27, 2.3], [-0.15, -1.43, 0], pipeBlue);
 		signal(pad, code, [-0.24, 1.45, 1.03]);
 
-		const exhaustCode = `EXHAUST_${bayCenter < 0 ? 'N' : 'S'}`;
-		const exhaust = register(exhaustCode, '强制排风机', bayCenter < 0 ? '北跨东端' : '南跨东端', 'actuator', '从湿帘对端抽排空气，与屋顶通风窗和 CO₂ 补气分开控制。', [12.93, 2.45, bayCenter]);
+		const exhaustCode = `EXHAUST_SPAN_${spanIndex + 1}`;
+		const exhaust = register(exhaustCode, '强制排风机', `第${spanIndex + 1}跨 · 东端`, 'actuator', '从湿帘对端抽排空气，与屋顶通风窗和 CO₂ 补气分开控制。', [GREENHOUSE_LAYOUT.exhaustEndX - 0.07, 2.45, bayCenter]);
 		for (const side of [-1, 1]) {
 			box(exhaust, [0.38, 0.09, 1.78], [0, side * 0.85, 0], darkSteel);
 			box(exhaust, [0.38, 1.7, 0.09], [0, 0, side * 0.85], darkSteel);
@@ -169,37 +172,42 @@ export const buildEquipment = (scene: THREE.Scene) => {
 		signal(exhaust, exhaustCode, [-0.26, 0.7, 0.72]);
 	}
 
-	const shade = register('SHADE', '内遮阳幕卷轴与驱动', '双跨中央天沟下方', 'actuator', '中央驱动沿两跨导轨同步展开遮阳幕，减少冠层直射。', [0, GREENHOUSE_LAYOUT.eaveHeight - 0.24, 0]);
+    const heater = register('HEATING', '加热系统（示意）', '西端热源区', 'actuator', '论文记录加热能力；热源位置、功率与温升响应均为未校准假设。', [serviceX + 1.5, 0, -8]);
+    box(heater, [1.2, 1.1, 0.7], [0, 0.6, 0], steel);
+    for (let fin = 0; fin < 7; fin++) box(heater, [0.06, 0.85, 0.8], [-0.45 + fin * 0.15, 0.6, 0], darkSteel);
+    signal(heater, 'HEATING', [0.45, 1.05, 0.45]);
+
+	const shade = register('SHADE', '内遮阳幕卷轴与驱动', '多跨示意屋架下方', 'actuator', '模拟驱动展开遮阳幕；容量未校准，减少冠层直射。', [0, GREENHOUSE_LAYOUT.eaveHeight - 0.24, 0]);
 	box(shade, [0.58, 0.36, 0.42], [0, 0, 0], darkSteel);
 	cylinder(shade, 0.12, 0.9, [0.45, 0, 0], steel).rotation.z = Math.PI / 2;
 	signal(shade, 'SHADE', [0.02, 0.1, 0.23]);
 
-	const lamps = register('SUPPLEMENTAL_LIGHT', '冠层补光灯及配电', '四条种植床上方', 'actuator', '沿种植床冠层悬挂灯列；模拟开关改变灯体发光与照度。', [0, 3.25, -4.4]);
+	const lamps = register('SUPPLEMENTAL_LIGHT', '冠层补光灯及配电', '14 个试验小区（示意布局）上方', 'actuator', '沿种植床冠层悬挂灯列；模拟开关改变灯体发光与照度。', [0, 3.25, -4.4]);
 	box(lamps, [0.84, 0.16, 0.34], [0, 0, 0], steel);
 	box(lamps, [0.74, 0.045, 0.25], [0, -0.11, 0], glass);
 	pipe(lamps, new THREE.Vector3(0, 0.1, 0), new THREE.Vector3(0, 0.62, 0), 0.013, darkSteel);
 	signal(lamps, 'SUPPLEMENTAL_LIGHT', [0.35, 0.04, 0.18]);
 
-	const sideVent = register('SIDE_VENT', '侧窗卷膜驱动', '双侧檐口', 'actuator', '侧部卷膜调节自然进风；与屋面窗及强排风独立。', [0, 3.66, -6.48]);
+	const sideVent = register('SIDE_VENT', '侧窗卷膜驱动', '双侧檐口', 'actuator', '侧部卷膜调节自然进风；与屋面窗及强排风独立。', [0, GREENHOUSE_LAYOUT.eaveHeight - 0.34, -GREENHOUSE_LAYOUT.width / 2 + 0.02]);
 	box(sideVent, [0.54, 0.32, 0.3], [0, 0, 0], darkSteel);
 	cylinder(sideVent, 0.08, 1.1, [0.72, 0, 0], steel).rotation.z = Math.PI / 2;
 	signal(sideVent, 'SIDE_VENT', [0, 0.1, 0.17]);
 
-	for (const bayCenter of GREENHOUSE_LAYOUT.bayCenters) {
+	for (const [spanIndex, bayCenter] of GREENHOUSE_LAYOUT.bayCenters.entries()) {
 		for (let index = 0; index < 3; index++) {
-			const code = `HAF_${bayCenter < 0 ? 'N' : 'S'}_${index + 1}`;
+			const code = `HAF_SPAN_${spanIndex + 1}_${index + 1}`;
 			const x = -7 + index * 7;
 			const side = bayCenter < 0 ? 1 : -1;
-			const fan = register(code, 'HAF 环流风机', `${bayCenter < 0 ? '北' : '南'}跨 ${index + 1} 区`, 'actuator', '棚内循环混合空气，不等同于对外强制排风。', [x, 3.15, bayCenter + side * 1.35]);
+			const fan = register(code, 'HAF 环流风机', `第${spanIndex + 1}跨 · ${index + 1}区`, 'actuator', '棚内循环混合空气，不等同于对外强制排风。', [x, 3.15, bayCenter + side * 1.35]);
 			cylinder(fan, 0.08, 0.6, [0, 0.28, 0], steel);
 			rotors.push({ rotor: createRotor(fan, [-0.12, 0, 0], 0.32), code });
 			signal(fan, code, [0.02, 0.42, 0]);
 		}
 	}
 
-	for (const bayCenter of GREENHOUSE_LAYOUT.bayCenters) {
-		const code = `ROOF_VENT_${bayCenter < 0 ? 'N' : 'S'}`;
-		const vent = register(code, '屋面通风窗', bayCenter < 0 ? '北跨拱顶' : '南跨拱顶', 'actuator', '独立于端墙强排风的自然通风执行器。', [0, roofHeightAt(bayCenter) + 0.04, bayCenter]);
+	for (const [spanIndex, bayCenter] of GREENHOUSE_LAYOUT.bayCenters.entries()) {
+		const code = `ROOF_VENT_SPAN_${spanIndex + 1}`;
+		const vent = register(code, '屋面通风窗', `第${spanIndex + 1}跨 · 拱顶`, 'actuator', '独立于端墙强排风的自然通风执行器。', [0, roofHeightAt(bayCenter) + 0.04, bayCenter]);
 		box(vent, [5.4, 0.12, 1.08], [0, 0, 0], darkSteel);
 		const panel = new THREE.Group();
 		panel.position.z = -0.48;
@@ -219,20 +227,21 @@ export const buildEquipment = (scene: THREE.Scene) => {
 		signal(sensor, code, [0.055, -0.075, 0.078]);
 		entries[entries.length - 1].unit = unit;
 	};
-	makeSensor('SENSOR_OUTDOOR', '室外气象探头', '西端室外', '棚外参考温度，独立于棚内冠层测点。', [-16, 2.6, 6], '℃');
+	makeSensor('SENSOR_OUTDOOR', '室外气象探头', '西端室外', '棚外参考温度，独立于棚内冠层测点。', [serviceX - 2.4, 2.6, 6], '℃');
 	makeSensor('SENSOR_AIR_N', '北跨冠层温湿度', '北跨冠层', '避开补光灯与进风口的冠层代表测点。', [-3, 2.2, -3.25], '℃');
 	makeSensor('SENSOR_AIR_S', '南跨冠层温湿度', '南跨冠层', '与北跨分区布置的温湿度测点。', [4, 2.2, 3.25], '%');
 	makeSensor('SENSOR_CO2', '冠层 CO₂ 探头', '中央冠层', '位于作物高度附近，远离气源出口。', [0, 2.1, -2.2], 'ppm');
-	makeSensor('SENSOR_LIGHT', 'PPFD 光量子传感器', '南跨冠层', '测量冠层上的光合有效光子通量密度。', [-3, 2.55, 3.35], 'μmol/m²/s');
+	makeSensor('SENSOR_LIGHT', '模型 PPFD 代理量', '南跨冠层', '来自模型内部代理量；M3 原始光照单位为 lux，未做实测转换。', [-3, 2.55, 3.35], 'μmol/m²/s');
 	for (const [index, bedZ] of GREENHOUSE_LAYOUT.bedCenters.entries()) {
-		makeSensor(`SENSOR_ROOT_${index + 1}`, '根区含水率探头', `种植床 ${index + 1}`, '探头插入根区，代表该床的模拟土壤含水率。', [5.8, 0.47, bedZ], '%');
+		makeSensor(`SENSOR_ROOT_${index + 1}`, '根区含水率探头', `种植床 ${index + 1}`, '探头插入根区，代表该小区的模拟基质水分；布点不是论文原坐标。', [5.8, 0.47, bedZ], '%');
 	}
-	makeSensor('SENSOR_FLOW', '灌溉流量计', '西端滴灌主管', '过滤泵阀之后的主管流量模拟测点。', [-10.75, 0.95, 5.25], 'L/min');
+	makeSensor('SENSOR_FLOW', '灌溉流量计', '西端滴灌主管', '过滤泵阀之后的主管流量模拟测点。', [serviceX + 0.95, 0.95, 5.25], 'L/min');
 
 	const update = (frame: EquipmentFrame, deltaSeconds: number) => {
 		for (const entry of entries) {
 			let active = false;
 			if (entry.code === 'IRRIGATION') active = frame.irrigation;
+			else if (entry.code === 'HEATING') active = frame.heating;
 			else if (entry.code === 'SHADE') active = frame.shade;
 			else if (entry.code === 'SUPPLEMENTAL_LIGHT') active = frame.supplementalLight;
 			else if (entry.code === 'SIDE_VENT') active = frame.ventilation;

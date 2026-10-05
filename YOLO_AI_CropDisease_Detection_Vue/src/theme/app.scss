@@ -16,10 +16,19 @@
 }
 
 :root {
+	--agri-paper: #f3eddf;
+	--agri-surface: #fcf8ef;
+	--agri-wood: #4f654d;
+	--agri-sidebar: #e7dccb;
+	--agri-terracotta: #96462f;
+	--agri-olive: #718560;
+	--agri-ink: #352d27;
+	--agri-muted: #76695c;
+	--agri-line: #ded2be;
 	--next-color-white: #ffffff;
-	--next-bg-main-color: #f8f8f8;
-	--next-bg-color: #f5f5ff;
-	--next-border-color-light: #f1f2f3;
+	--next-bg-main-color: var(--agri-paper);
+	--next-bg-color: var(--agri-surface);
+	--next-border-color-light: var(--agri-line);
 	--next-color-primary-lighter: #ecf5ff;
 	--next-color-success-lighter: #f0f9eb;
 	--next-color-warning-lighter: #fdf6ec;
@@ -27,9 +36,9 @@
 	--next-color-dark-hover: #0000001a;
 	--next-color-menu-hover: rgba(0, 0, 0, 0.2);
 	--next-color-user-hover: rgba(0, 0, 0, 0.04);
-	--next-color-seting-main: #e9eef3;
-	--next-color-seting-aside: #d3dce6;
-	--next-color-seting-header: #b3c0d1;
+	--next-color-seting-main: var(--agri-paper);
+	--next-color-seting-aside: var(--agri-line);
+	--next-color-seting-header: var(--agri-wood);
 }
 
 html,
@@ -39,7 +48,7 @@ body,
 	padding: 0;
 	width: 100%;
 	height: 100%;
-	font-family: Helvetica Neue, Helvetica, PingFang SC, Hiragino Sans GB, Microsoft YaHei, SimSun, sans-serif;
+	font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
 	font-weight: 400;
 	-webkit-font-smoothing: antialiased;
 	-webkit-tap-highlight-color: transparent;
@@ -67,7 +76,8 @@ body,
 
 	.layout-aside {
 		background: var(--next-bg-menuBar);
-		box-shadow: 2px 0 6px rgb(0 21 41 / 1%);
+		background: var(--agri-wood);
+		box-shadow: 1px 0 0 rgb(255 255 255 / 8%);
 		height: inherit;
 		position: relative;
 		z-index: 1;
@@ -80,6 +90,50 @@ body,
 		}
 	}
 
+	.layout-aside.workspace-sidebar {
+		background: var(--agri-sidebar) !important;
+		border-right: 1px solid #ded3c2;
+
+		.el-menu,
+		.el-menu--inline {
+			--el-menu-bg-color: transparent;
+			--el-menu-text-color: #4c4237;
+			--el-menu-hover-text-color: #352d27;
+			--el-menu-active-color: #43563c;
+			background-color: transparent !important;
+		}
+
+		.el-menu-item,
+		.el-sub-menu__title {
+			color: #4c4237 !important;
+		}
+
+		.el-menu-item .svg-icon,
+		.el-sub-menu__title .svg-icon {
+			color: #87775f !important;
+		}
+
+		.el-menu-item:hover,
+		.el-sub-menu__title:hover {
+			color: #352d27 !important;
+			background-color: #e4dac9 !important;
+		}
+
+		.el-menu-item.is-active {
+			color: #43563c !important;
+			background: #dce5d2 !important;
+			font-weight: 600;
+		}
+
+		.el-sub-menu.is-active > .el-sub-menu__title {
+			color: #43563c !important;
+		}
+
+		.el-sub-menu__icon-arrow {
+			color: #87775f !important;
+		}
+	}
+
 	.layout-header {
 		padding: 0 !important;
 		height: auto !important;
@@ -89,7 +143,7 @@ body,
 		padding: 0 !important;
 		overflow: hidden;
 		width: 100%;
-		background-color: var(--next-bg-main-color);
+		background-color: var(--agri-paper);
 		display: flex;
 		flex-direction: column;
 
@@ -123,8 +177,8 @@ body,
 			background: var(--el-color-white);
 			width: 100%;
 			height: 100%;
-			border-radius: 4px;
-			border: 1px solid var(--el-border-color-light, #ebeef5);
+			border-radius: 8px;
+			border: 1px solid var(--agri-line);
 			overflow: hidden;
 		}
 	}

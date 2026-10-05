@@ -1,11 +1,9 @@
 <template>
 	<div class="layout-parent">
 		<router-view v-slot="{ Component }">
-			<transition :name="setTransitionName" mode="out-in">
-				<keep-alive :include="getKeepAliveNames">
-					<component :is="Component" :key="state.refreshRouterViewKey" class="w100" v-show="!isIframePage" />
-				</keep-alive>
-			</transition>
+			<keep-alive :include="getKeepAliveNames">
+				<component :is="Component" :key="state.refreshRouterViewKey" class="w100" v-show="!isIframePage" />
+			</keep-alive>
 		</router-view>
 		<transition :name="setTransitionName" mode="out-in">
 			<Iframes class="w100" v-show="isIframePage" :refreshKey="state.iframeRefreshKey" :name="setTransitionName" :list="state.iframeList" />
@@ -99,7 +97,8 @@ onUnmounted(() => {
 watch(
 	() => route.fullPath,
 	() => {
-		state.refreshRouterViewKey = decodeURI(route.fullPath);
+		// 运行编号和会话范围改变时保留工作台，避免重建时丢失播放或聊天状态。
+		state.refreshRouterViewKey = ['digitalTwin', 'modelCalibration', 'agentChat'].includes(String(route.name)) ? route.path : decodeURI(route.fullPath);
 	},
 	{
 		immediate: true,

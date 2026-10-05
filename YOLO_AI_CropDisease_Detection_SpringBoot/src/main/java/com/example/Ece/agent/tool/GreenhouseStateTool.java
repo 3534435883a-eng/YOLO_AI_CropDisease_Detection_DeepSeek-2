@@ -93,9 +93,11 @@ public class GreenhouseStateTool implements AgentTool {
         output.put("runCode", summary.getRun() == null ? null : summary.getRun().getRunCode());
         output.put("runStatus", summary.getRun() == null ? null : summary.getRun().getStatus());
         output.put("currentStep", Integer.valueOf(stepNo));
-        output.put("totalSteps", Integer.valueOf(AgentRunService.TOTAL_STEPS));
+        output.put("totalSteps", summary.getRun() == null ? null : summary.getRun().getTotalSteps());
         output.put("simulatedAt", summary.getRun() == null ? null : summary.getRun().getSimulatedAt());
-        output.put("greenhouse", "8号番茄温室（双跨薄膜棚，4 条种植床）");
+        output.put("greenhouse", summary.getRun() == null ? null : summary.getRun().getGreenhouseName());
+        output.put("tickMinutes", summary.getRun() == null ? null : summary.getRun().getTickMinutes());
+        output.put("profile", summary.getRun() == null ? null : summary.getRun().getProfile());
         output.put("currentState", summary.getCurrentState());
         output.put("metrics", summary.getMetrics());
         output.put("devices", summary.getDevices());

@@ -2,7 +2,12 @@
 	<div class="system-predict-container layout-padding">
 		<div class="system-predict-padding layout-padding-auto layout-padding-view">
 			<DetectionNav mode="image" view="detect" />
+			<div class="page-intro">
+				<div><p class="eyebrow">OBSERVE / IMAGE</p><h1>从一张叶片开始</h1><p>上传作物图像，查看模型标出的候选信号；结果需要结合知识依据与田间情况进一步核对。</p></div>
+				<div class="source-note"><span class="source-dot"></span>视觉模型候选 · 不等同于确诊</div>
+			</div>
 			<div class="header">
+				<div class="control-caption"><span>01</span><b>检测设置</b></div>
 				<div class="weight">
 					<el-select v-model="kind" placeholder="请选择作物种类" size="large" style="width: 200px" @change="getData">
 						<el-option v-for="item in state.kind_items" :key="item.value" :label="item.label"
@@ -30,7 +35,7 @@
 				<!-- 原图展示 -->
 				<el-col :xs="24" :sm="12">
 					<el-card shadow="hover" class="card">
-						<div class="image-title">原图片</div>
+						<div class="image-title"><span>02 / 输入图像</span><small>{{ imageUrl ? '已载入待检测样本' : '等待上传样本' }}</small></div>
 						<el-upload v-model="state.img" ref="uploadFile" class="avatar-uploader"
 							action="http://localhost:9999/files/upload" :show-file-list="false"
 							:on-success="handleAvatarSuccessone">
@@ -48,7 +53,7 @@
 				<!-- 预测结果图 -->
 				<el-col :xs="24" :sm="12">
 					<el-card shadow="hover" class="card">
-						<div class="image-title">预测结果</div>
+						<div class="image-title"><span>03 / 模型标注</span><small>{{ predictedImageUrl ? '候选检测结果' : '尚无检测结果' }}</small></div>
 						<el-image v-if="predictedImageUrl" :src="predictedImageUrl" class="preview-image"
 							fit="contain" />
 						<div v-else class="placeholder">
@@ -506,15 +511,38 @@ onMounted(() => {
 }
 
 .predict-button {
-	background: linear-gradient(45deg, #409eff, #36a2f1);
-	border: none;
-	box-shadow: 0 2px 6px rgba(64, 158, 255, 0.3);
-	transition: all 0.3s ease;
+	background: #98553d;
+	border: 1px solid #98553d;
+	box-shadow: none;
+	transition: background .18s ease;
 
 
 	&:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+		background: #7c432f;
+		border-color: #7c432f;
 	}
 }
+.page-intro { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; padding: 4px 2px 17px; }
+.page-intro .eyebrow { margin:0 0 5px; color:#887564; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.page-intro h1 { margin:0; color:#382b25; font:600 25px/1.3 Georgia,'Songti SC',serif; }
+.page-intro p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.65; }
+.source-note { display:flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid #eadbc8; color:#755740; background:#f7efe4; font-size:12px; white-space:nowrap; }
+.source-dot { width:7px; height:7px; border-radius:50%; background:#b06b45; }
+.header { height:auto; min-height:72px; align-content:center; background:#fdfbf7; border:1px solid #e9e0d5; border-radius:3px; box-shadow:none; }
+.control-caption { display:flex; align-items:center; gap:8px; padding:0 14px 0 2px; margin-right:2px; border-right:1px solid #e5dbcf; color:#514137; font-size:13px; white-space:nowrap; }
+.control-caption span { color:#a46a4d; font:600 12px Georgia,serif; }
+.image-display { margin-top:14px; }
+.image-display .card { border:1px solid #e7ded3; border-radius:3px; background:#fffdf9; }
+.image-display .card :deep(.el-card__body) { padding:16px; }
+.image-display .image-title { display:flex; align-items:center; justify-content:space-between; color:#49372c; border-color:#ece3d8; font-size:13px; }
+.image-display .image-title small { color:#988b7e; font-size:11px; font-weight:400; }
+.image-display .avatar-uploader { border-color:#d8cabc; border-radius:2px; background:#f9f6ef; }
+.image-display .upload-icon { color:#a56c4d; }
+.image-display .upload-text { color:#76685d; }
+.image-display .placeholder { background:#f8f5ee; color:#8d8075; }
+.review-action { border:1px solid #e8ded2; background:#f9f5ed; color:#675448; }
+.result-section :deep(.el-card) { border:1px solid #e8ded2; border-radius:3px; background:#fffdf9; }
+.result-section .bottom .result-column .result-title { color:#75665a; }
+.result-section .bottom .result-column .result-value { color:#88523a; }
+@media (max-width: 900px) { .page-intro { align-items:flex-start; flex-direction:column; }.control-caption { width:100%; padding:0 0 10px; border-right:0; border-bottom:1px solid #e5dbcf; } }
 </style>

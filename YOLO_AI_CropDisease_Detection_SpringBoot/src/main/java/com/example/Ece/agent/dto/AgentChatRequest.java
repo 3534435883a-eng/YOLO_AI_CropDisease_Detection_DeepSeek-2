@@ -7,6 +7,12 @@ public class AgentChatRequest {
     private String question;
     private String crop;
     private Long runId;
+    private String simulationRunId;
+    private Boolean allowSimulationActions;
+    public Boolean getAllowSimulationActions(){return allowSimulationActions;}
+    public void setAllowSimulationActions(Boolean value){allowSimulationActions=value;}
+    public String getSimulationRunId(){return simulationRunId;}
+    public void setSimulationRunId(String value){simulationRunId=value;}
 
     public String getSessionId() { return sessionId; }
 

@@ -44,7 +44,7 @@ public class PrescriptionService {
         }
         String conclusion = plan.getSummary();
         if (state != null) {
-            conclusion = conclusion + String.format("（当前 %.1f℃ / 湿度 %.0f%% / 土壤 %.0f%%）",
+            conclusion = conclusion + String.format("（当前 %.1f℃ / 湿度 %.0f%% / 基质水分模型量 %.0f%%）",
                     state.getTemperatureC(), state.getAirHumidityPct(), state.getSoilMoisturePct());
         }
         // 任何设备动作都需人工确认；全部动作都为"待机"时无需确认
@@ -56,8 +56,8 @@ public class PrescriptionService {
         StringBuilder builder = new StringBuilder();
         builder.append(deviceLabel(command.getDeviceCode()));
         builder.append("（规则 ").append(command.getRuleCode()).append("）");
-        if (command.getResourceCode() != null) {
-            builder.append("，预计消耗 ").append(formatAmount(command.getResourceAmount()))
+        if (command.getResourceCode() != null && command.getResourceAmount() != null) {
+            builder.append("，单步模拟耗量（未校准） ").append(formatAmount(command.getResourceAmount()))
                     .append(" ").append(unitLabel(command.getResourceCode()));
         }
         return builder.toString();
@@ -96,6 +96,6 @@ public class PrescriptionService {
         if (AgentDeviceCodes.CO2_SUPPLY.equals(deviceCode)) {
             return "开启 CO₂ 补给";
         }
-        return "调整设备 " + deviceCode;
+        return "调整设备 " + AgentDeviceCodes.label(deviceCode);
     }
 }

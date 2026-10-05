@@ -1,5 +1,7 @@
 package com.example.Ece.agent.eval;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
@@ -22,6 +24,13 @@ public class EvaluationBatch {
         this.outcomes = outcomes == null
                 ? new EnumMap<EvaluationStrategy, EvaluationOutcome>(EvaluationStrategy.class)
                 : new EnumMap<EvaluationStrategy, EvaluationOutcome>(outcomes);
+    }
+
+    public Map<String, Object> getProfile() {
+        Map<String, Object> profile = HortiM3Profile.metadata();
+        profile.put("days", days);
+        profile.put("endDate", HortiM3Profile.DEFAULT_START_DATE.plusDays(days - 1L).toString());
+        return profile;
     }
 
     public String getBatchId() { return batchId; }

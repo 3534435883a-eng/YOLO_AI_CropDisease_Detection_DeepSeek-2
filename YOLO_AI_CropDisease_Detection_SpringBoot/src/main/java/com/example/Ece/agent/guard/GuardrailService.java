@@ -35,7 +35,7 @@ public class GuardrailService {
 
     /** 语气模糊、既可能是建议也可能是完成态的表述：改写成建议语气，不做整段拒绝。 */
     private static final String[] AMBIGUOUS_ACTION_PATTERNS = {
-            "自动开启", "自动执行", "自动调节", "自动启动", "已开启", "已执行", "已启动"
+            "已开启", "已执行", "已启动"
     };
 
     private static final String[] PESTICIDE_KEYWORDS = {
@@ -53,21 +53,26 @@ public class GuardrailService {
             "\n（本次为降级检索：仅关键词匹配，请人工核对出处）";
     private static final String TRUNCATED_NOTE = "\n（回答过长已截断，请追问具体环节）";
     private static final String EXECUTION_DISCLAIMER =
-            "\n（说明：本系统只提供决策建议，不直接执行设备动作；如需执行请由操作人员在平台上确认）";
+            "\n（以上为建议，尚未应用新的仿真设备动作；执行情况以大棚面板为准）";
 
     public GuardrailCheck check(String answer, List<ScoredChunk> citations, boolean degraded) {
+        return check(answer,citations,degraded,false);
+    }
+    public GuardrailCheck check(String answer,List<ScoredChunk> citations,boolean degraded,boolean simulatedExecution) {
         String text = answer == null ? "" : answer.trim();
+        if(text.isEmpty())return GuardrailCheck.reject("ANSWER_EMPTY",text);
         boolean hasCitation = citations != null && !citations.isEmpty();
 
         // 规则②（硬拦）：不得声称已经替用户执行了设备动作
         for (String pattern : EXECUTION_CLAIM_PATTERNS) {
-            if (text.contains(pattern)) {
+            if (positiveMention(text,pattern)&&!(simulatedExecution&&text.contains("仿真"))) {
                 return GuardrailCheck.reject(REASON_AUTO_EXECUTION_CLAIM, text);
             }
         }
 
         // 规则③：没有引用就不得给出含药剂/用量的专业结论
-        if (!hasCitation && containsAny(text, PESTICIDE_KEYWORDS)) {
+        if (!hasCitation && containsAny(text, PESTICIDE_KEYWORDS)
+                && java.util.regex.Pattern.compile("\\d+(?:\\.\\d+)?\\s*(?:倍|克|毫升|mg|ml|mL|g[/／]|天安全间隔)").matcher(text).find()) {
             return GuardrailCheck.reject(REASON_NO_EVIDENCE, text);
         }
 
@@ -76,7 +81,7 @@ public class GuardrailService {
         // 规则②（软改）：模糊表述统一改成建议语气，并补一句"不直接执行设备动作"
         boolean ambiguousActionSeen = false;
         for (String pattern : AMBIGUOUS_ACTION_PATTERNS) {
-            if (rewritten.contains(pattern)) {
+            if (positiveMention(rewritten,pattern)&&!(simulatedExecution&&text.contains("仿真"))) {
                 ambiguousActionSeen = true;
                 rewritten = rewritten.replace(pattern, advisoryWording(pattern));
             }
@@ -85,8 +90,9 @@ public class GuardrailService {
             rewritten = rewritten + EXECUTION_DISCLAIMER;
         }
 
-        // 规则①：涉药必须显式提示人工确认
-        if (containsAny(rewritten, PESTICIDE_KEYWORDS) && !rewritten.contains("需人工确认")) {
+        // 只给实际施用建议加提示；介绍能力、否定用药或原理解释无需固定尾注。
+        boolean applicationAdvice=java.util.regex.Pattern.compile("(?:建议|推荐|可选|可用|采用|使用|施用|选用|喷施|喷洒).{0,18}(?:药剂|农药|多菌灵|代森锰锌|百菌清|戊唑醇|嘧霉胺|苯醚甲环唑|异菌脲|腐霉利|霜脲氰)").matcher(rewritten).find();
+        if (applicationAdvice && !rewritten.contains("需人工确认")) {
             rewritten = rewritten + MANUAL_CONFIRM_NOTE;
         }
 
@@ -95,12 +101,7 @@ public class GuardrailService {
             rewritten = rewritten + DEGRADED_NOTE;
         }
 
-        // 规则⑤：仿真不得表述为实测
-        for (String pattern : MEASURED_CLAIM_PATTERNS) {
-            if (rewritten.contains(pattern)) {
-                rewritten = rewritten.replace(pattern, "推演显示");
-            }
-        }
+        // M3包含真实历史观测。来源性质由绑定上下文和返回元数据说明，不能把所有“实测”字样盲目改成模拟。
 
         // 规则⑥：长度上限，防止刷屏与 token 失控
         if (rewritten.length() > MAX_ANSWER_CHARS) {
@@ -125,5 +126,11 @@ public class GuardrailService {
             }
         }
         return false;
+    }
+    private boolean positiveMention(String text,String phrase){
+        for(int start=0;(start=text.indexOf(phrase,start))>=0;start+=phrase.length()){
+            String prefix=text.substring(Math.max(0,start-20),start);
+            if(!java.util.regex.Pattern.compile("(?:未|没有|不能|不代表|不要|不会|不得|尚未|并未|不应).{0,16}$").matcher(prefix).find())return true;
+        }return false;
     }
 }

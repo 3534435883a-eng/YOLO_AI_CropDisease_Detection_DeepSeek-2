@@ -3,6 +3,8 @@ package com.example.Ece.agent.service;
 import com.example.Ece.agent.crop.CropStage;
 import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
+import com.example.Ece.agent.eval.ResourceRates;
+import com.example.Ece.agent.profile.HortiM3Profile;
 import com.example.Ece.agent.model.SimulationState;
 import com.example.Ece.agent.parameter.ParameterSource;
 import com.example.Ece.agent.parameter.ParameterSourceService;
@@ -65,12 +67,17 @@ public class WaterFertilizerPrescriptionService {
      * 制度部分与运行状态无关，不该因为没起运行就整份作废。</p>
      */
     public WaterFertilizerPrescription draft(SimulationState state) {
+        return draft(state, HortiM3Profile.AGENT_TICK_MINUTES);
+    }
+
+    public WaterFertilizerPrescription draft(SimulationState state, int tickMinutes) {
         Map<String, ParameterSource> registry = registryByCode();
 
         double fieldCapacity = SoilParameters.FIELD_CAPACITY_PCT;
         double triggerFraction = SoilParameters.IRRIGATION_TRIGGER_FRACTION_OF_FC;
         double triggerPct = fieldCapacity * triggerFraction;
-        double irrigationLiters = TomatoSimulationEngine.IRRIGATION_L_PER_TICK;
+        double irrigationLiters = TomatoSimulationEngine.IRRIGATION_L_PER_TICK
+                * Math.max(1, tickMinutes) / ResourceRates.REFERENCE_MINUTES;
         double millimeters = irrigationLiters / SoilParameters.BED_AREA_M2;
 
         List<WaterFertilizerPrescription.Item> items = new ArrayList<WaterFertilizerPrescription.Item>();
@@ -84,8 +91,11 @@ public class WaterFertilizerPrescriptionService {
                 format(triggerPct), "%vol",
                 "由「灌溉下限比例 × 田间持水量」推得；其中田间持水量未登记出处，故本值亦不得单独作为依据",
                 registry, CODE_TRIGGER_FRACTION));
-        items.add(item("IRRIGATION_LITERS", "单次滴灌水量",
-                format(irrigationLiters), "L/次", registry, CODE_IRRIGATION_LITERS));
+        items.add(derived("IRRIGATION_LITERS", "单步模拟滴灌量（未校准）",
+                format(irrigationLiters), "L/" + tickMinutes + "分钟",
+                "由未校准参考量 " + format(TomatoSimulationEngine.IRRIGATION_L_PER_TICK)
+                        + " L/15分钟 × 当前步长/15 推得；不是 M3 实测灌水制度",
+                registry, CODE_IRRIGATION_LITERS));
         items.add(derived("IRRIGATION_MM", "单次滴灌折合水深",
                 format(millimeters), "mm/次",
                 "由「单次水量 ÷ 种植床面积 " + format(SoilParameters.BED_AREA_M2) + " m²」推得",
@@ -158,10 +168,10 @@ public class WaterFertilizerPrescriptionService {
         if (state == null) {
             return "当前没有进行中的模拟运行，无法判断是否触发灌溉；以下为制度层面的处方。";
         }
-        String head = String.format(Locale.ROOT, "当前土壤水分 %.2f %%vol，灌溉触发点 %.2f %%vol：",
+        String head = String.format(Locale.ROOT, "当前基质水分模型量 %.2f %%vol，灌溉触发点 %.2f %%vol：",
                 state.getSoilMoisturePct(), triggerPct);
         if (due) {
-            return head + String.format(Locale.ROOT, "**已达到灌溉下限**，规则层会建议滴灌一次约 %.0f L（待人工确认）。", liters);
+            return head + String.format(Locale.ROOT, "**已达到模型灌溉下限**，规则层单步模拟量约 %.0f L（未校准，待人工确认）。", liters);
         }
         return head + String.format(Locale.ROOT,
                 "尚未达到灌溉下限，按此制度暂不需要灌溉（距触发点还差 %.2f 个百分点）。",
@@ -189,7 +199,7 @@ public class WaterFertilizerPrescriptionService {
                 + "因此无法判断当前是否已到追肥节点，也无法按生育期给出差异化水肥量。追肥只能给制度。");
         notes.add("**氮收支尚未配平**：土壤速效氮在季内见底、养分因子长期钳在下限，"
                 + "因此本处方的追肥量是**论文取值**，不是模型算出的最优值；改变施用量不会在模型中产生相应的产量响应。");
-        notes.add("**湿帘用水未计入**：评测侧未折算湿帘蒸发耗水，水耗数字（若引用）偏低。");
+        notes.add("**未导入 M3 原始农事记录**：水肥制度仍含其它文献取值与未校准假设；252 m² 为全试验区面积，不是 CK 样本面积。湿帘补水随模拟温湿度计算，不包含在滴灌处方量中。");
         return notes;
     }
 

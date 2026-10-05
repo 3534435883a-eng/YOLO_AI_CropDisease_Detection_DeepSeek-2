@@ -1,5 +1,7 @@
 package com.example.Ece.agent.service;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.dto.AgentExplanationRequest;
 import com.example.Ece.agent.dto.AgentExplanationResponse;
 import com.example.Ece.agent.dto.AgentComparisonResponse;
@@ -9,6 +11,7 @@ import com.example.Ece.agent.dto.CreateAgentRunRequest;
 import com.example.Ece.agent.dto.DeviceHealthRequest;
 import com.example.Ece.agent.dto.ManualDeviceRequest;
 import com.example.Ece.agent.dto.VisionImportRequest;
+import com.example.Ece.agent.eval.ResourceRates;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.model.AgentDeviceCodes;
@@ -45,13 +48,13 @@ import java.util.UUID;
  */
 @Service
 public class AgentRunService {
-    public static final int TOTAL_STEPS = 96;
-    public static final int DEFAULT_TICK_MINUTES = 15;
+    public static final int TOTAL_STEPS = HortiM3Profile.AGENT_STEPS_PER_DAY;
+    public static final int DEFAULT_TICK_MINUTES = HortiM3Profile.AGENT_TICK_MINUTES;
     public static final long DEFAULT_GREENHOUSE_ID = 77L;
-    public static final long DEFAULT_SEED = 20260921L;
-    private static final String MODEL_VERSION = "tomato-greenhouse-v5";
-    private static final String RULE_VERSION = "tomato-policy-v2";
-    private static final LocalDateTime SIMULATION_START = LocalDateTime.of(2026, 9, 21, 6, 0);
+    public static final long DEFAULT_SEED = 20250419L;
+    private static final String MODEL_VERSION = "horti-m3-tomato-v1";
+    private static final String RULE_VERSION = "horti-m3-policy-v1";
+    private static final LocalDateTime SIMULATION_START = HortiM3Profile.DEFAULT_START_DATE.atStartOfDay();
     private static final DateTimeFormatter INPUT_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final AgentJdbcRepository repository;
@@ -82,18 +85,16 @@ public class AgentRunService {
     @Transactional
     public AgentRunResponse createRun(CreateAgentRunRequest request) {
         CreateAgentRunRequest input = request == null ? new CreateAgentRunRequest() : request;
-        long greenhouseId = input.getGreenhouseId() == null ? DEFAULT_GREENHOUSE_ID : input.getGreenhouseId();
-        AgentJdbcRepository.GreenhouseSeed source = repository.findGreenhouseSeed(greenhouseId);
-        if (source == null) {
-            source = defaultSeed(greenhouseId);
-        }
+        Long greenhouseId = input.getGreenhouseId();
+        AgentJdbcRepository.GreenhouseSeed source = greenhouseId == null ? defaultSeed() : repository.findGreenhouseSeed(greenhouseId);
+        if (source == null) throw new IllegalArgumentException("选定的历史温室不存在，请使用默认 M3 模拟场景");
 
         LocalDateTime now = LocalDateTime.now();
         repository.deactivateActiveRuns(now);
         long seed = input.getSeed() == null ? DEFAULT_SEED : input.getSeed();
         String cropName = blankToDefault(input.getCropName(), "番茄");
         String cropCode = blankToDefault(input.getCropCode(), "TOMATO");
-        String greenhouseCode = "GH-" + String.format(Locale.ROOT, "%02d", source.id == null ? greenhouseId : source.id);
+        String greenhouseCode = greenhouseId == null ? HortiM3Profile.ID : "GH-" + greenhouseId;
         String runCode = "TOMATO-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase(Locale.ROOT);
         SimulationState initial = initialState(source);
 
@@ -101,7 +102,7 @@ public class AgentRunService {
         row.runCode = runCode;
         row.greenhouseCode = greenhouseCode;
         row.cropType = cropCode;
-        row.growthStage = "开花坐果期";
+        row.growthStage = "模型初始期（未校准）";
         row.status = "PAUSED";
         row.activeSlot = 1;
         row.stepNo = 0;
@@ -119,9 +120,11 @@ public class AgentRunService {
 
         createDevices(row.id, now);
         createResources(row.id, now);
-        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
-                jsonMap("source", "greenhouse:" + greenhouseId, "label", "历史基线，仅用于仿真初始化"), now);
-        saveTwinFrame(baselineSnapshotId, row.id, 0, "LEGACY_HISTORY",
+        String initialSource = greenhouseId == null ? "SIMULATED" : "LEGACY_HISTORY";
+        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, initialSource,
+                jsonMap("source", greenhouseId == null ? HortiM3Profile.ID : "greenhouse:" + greenhouseId,
+                        "profile", HortiM3Profile.metadata(), "label", "初始化参数；非 M3 原始观测"), now);
+        saveTwinFrame(baselineSnapshotId, row.id, 0, initialSource,
                 initial, row.seed, row.tickMinutes, repository.findDevices(row.id),
                 repository.findResources(row.id), Collections.emptyList());
         repository.insertAudit(row.id, "RUN_CREATED", "RUN", row.id, row.createdBy,
@@ -168,6 +171,8 @@ public class AgentRunService {
                         new TypeReference<Map<String, Object>>() { });
                 item.put("recorded", recorded.containsKey("twinFrameVersion"));
                 item.put("modelVersion", recorded.get("modelVersion"));
+                item.put("profile", recorded.get("profile"));
+                item.put("tickMinutes", recorded.get("tickMinutes"));
                 item.put("sensorSource", recorded.get("sensorSource"));
                 item.put("devices", recorded.getOrDefault("devices", Collections.emptyList()));
                 item.put("resources", recorded.getOrDefault("resources", Collections.emptyList()));
@@ -489,10 +494,10 @@ public class AgentRunService {
     }
 
     private void advanceLocked(AgentJdbcRepository.RunRow run, String actor, boolean scheduler) {
-        if (run.stepNo > 0 && !MODEL_VERSION.equals(run.modelVersion)) {
-            throw new IllegalStateException("运行模型版本与当前版本不一致，请重置或新建仿真运行");
+        if (!MODEL_VERSION.equals(run.modelVersion)) {
+            throw new IllegalStateException("这是旧版运行，请新建 M3 模拟；旧快照可继续回放");
         }
-        if (run.stepNo >= TOTAL_STEPS) {
+        if (run.stepNo >= totalStepsFor(run)) {
             run.status = "COMPLETED";
             run.updatedAt = LocalDateTime.now();
             repository.updateRun(run);
@@ -505,7 +510,7 @@ public class AgentRunService {
         List<AgentJdbcRepository.DeviceRow> devices = repository.findDevicesForUpdate(run.id);
         ensureTwinDevices(run.id, LocalDateTime.now(), devices);
         List<AgentJdbcRepository.ResourceRow> resources = repository.findResourcesForUpdate(run.id);
-        DecisionPlan plan = decisionPolicy.decide(current.state);
+        DecisionPlan plan = decisionPolicy.decide(current.state, run.tickMinutes);
         int nextStep = current.stepNo + 1;
         LocalDateTime now = LocalDateTime.now();
         Map<String, Boolean> effectiveStates = new LinkedHashMap<>();
@@ -596,9 +601,9 @@ public class AgentRunService {
             BigDecimal resourceAmount = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
                     ? BigDecimal.valueOf(simulationEngine.coolingPadEvaporationLiters(
                         current.state, run.tickMinutes, run.seed)).setScale(3, java.math.RoundingMode.HALF_UP)
-                    : resourceAmountFor(device.deviceCode);
-            BigDecimal padPumpEnergy = new BigDecimal("0.060");
-            BigDecimal irrigationPumpEnergy = new BigDecimal("0.120");
+                    : resourceAmountFor(device.deviceCode, run.tickMinutes);
+            BigDecimal padPumpEnergy = amountForMinutes(ResourceRates.COOLING_PAD_KWH_PER_STEP, run.tickMinutes);
+            BigDecimal irrigationPumpEnergy = amountForMinutes(ResourceRates.IRRIGATION_PUMP_KWH_PER_STEP, run.tickMinutes);
             boolean pumpNeedsEnergy = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
                     || AgentDeviceCodes.IRRIGATION.equals(device.deviceCode);
             BigDecimal pumpEnergy = AgentDeviceCodes.COOLING_PAD.equals(device.deviceCode)
@@ -665,7 +670,7 @@ public class AgentRunService {
         run.modelVersion = MODEL_VERSION;
         run.simulatedAt = projected.getSimulatedAt();
         run.updatedAt = now;
-        if (nextStep >= TOTAL_STEPS) {
+        if (nextStep >= totalStepsFor(run)) {
             run.status = "COMPLETED";
         }
         repository.updateRun(run);
@@ -673,14 +678,17 @@ public class AgentRunService {
     }
 
     private void resetLocked(AgentJdbcRepository.RunRow row, String actor) {
+        if (!MODEL_VERSION.equals(row.modelVersion)) {
+            throw new IllegalStateException("这是旧版运行，请新建 M3 模拟；旧运行保留用于回放");
+        }
         repository.clearRuntimeData(row.id);
         LocalDateTime now = LocalDateTime.now();
         repository.resetDevices(row.id, now);
         repository.resetResources(row.id, now);
         SimulationState initial = parseState(row.baselineJson);
-        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, "LEGACY_HISTORY",
-                jsonMap("source", "run-baseline", "label", "重置后的固定历史基线"), now);
-        saveTwinFrame(baselineSnapshotId, row.id, 0, "LEGACY_HISTORY",
+        long baselineSnapshotId = repository.insertSnapshot(row.id, 0, initial, "SIMULATED",
+                jsonMap("source", "run-baseline", "profile", HortiM3Profile.metadata(), "label", "重置后的模拟初值"), now);
+        saveTwinFrame(baselineSnapshotId, row.id, 0, "SIMULATED",
                 initial, row.seed, row.tickMinutes, repository.findDevices(row.id),
                 repository.findResources(row.id), Collections.emptyList());
         row.status = "PAUSED";
@@ -717,14 +725,16 @@ public class AgentRunService {
         response.setId(row.id);
         response.setRunCode(row.runCode);
         response.setRunName(row.runCode);
-        response.setGreenhouseName("8号温室");
+        response.setGreenhouseName(HortiM3Profile.ID.equals(row.greenhouseCode) ? HortiM3Profile.DISPLAY_NAME : "历史温室 " + row.greenhouseCode);
         response.setGreenhouseCode(row.greenhouseCode);
         response.setCropName("番茄");
         response.setCropType(row.cropType);
         response.setStatus(row.status);
         response.setCurrentStep(row.stepNo);
-        response.setTotalSteps(TOTAL_STEPS);
-        response.setProgress((int) Math.round(row.stepNo * 100.0 / TOTAL_STEPS));
+        response.setTotalSteps(totalStepsFor(row));
+        response.setTickMinutes(row.tickMinutes);
+        response.setProfile(MODEL_VERSION.equals(row.modelVersion) ? HortiM3Profile.metadata() : null);
+        response.setProgress((int) Math.round(row.stepNo * 100.0 / totalStepsFor(row)));
         response.setSimulatedAt(row.simulatedAt == null ? null : row.simulatedAt.toString());
         response.setCreatedAt(row.createdAt == null ? null : row.createdAt.toString());
         response.setUpdatedAt(row.updatedAt == null ? null : row.updatedAt.toString());
@@ -735,9 +745,9 @@ public class AgentRunService {
         List<Map<String, Object>> metrics = new ArrayList<>();
         metrics.add(metric("temperature", "室内温度", state.getTemperatureC(), "C", "SIMULATED"));
         metrics.add(metric("humidity", "空气湿度", state.getAirHumidityPct(), "%", "SIMULATED"));
-        metrics.add(metric("soilMoisture", "土壤水分", state.getSoilMoisturePct(), "%", "SIMULATED"));
+        metrics.add(metric("soilMoisture", "基质水分模型量", state.getSoilMoisturePct(), "%", "SIMULATED"));
         metrics.add(metric("co2", "CO2", state.getCo2Ppm(), "ppm", "SIMULATED"));
-        metrics.add(metric("light", "光照", state.getLightPpfd(), "PPFD", "SIMULATED"));
+        metrics.add(metric("light", "模型 PPFD", state.getLightPpfd(), "PPFD", "SIMULATED"));
         metrics.add(metric("vpd", "VPD", state.getVpdKpa(), "kPa", "CALCULATED"));
         return metrics;
     }
@@ -825,7 +835,7 @@ public class AgentRunService {
         List<Map<String, Object>> items = new ArrayList<>();
         items.add(comparison("temperature", "室内温度", baseline.getTemperatureC(), strategy.getTemperatureC(), "C"));
         items.add(comparison("humidity", "空气湿度", baseline.getAirHumidityPct(), strategy.getAirHumidityPct(), "%"));
-        items.add(comparison("soilMoisture", "土壤水分", baseline.getSoilMoisturePct(), strategy.getSoilMoisturePct(), "%"));
+        items.add(comparison("soilMoisture", "基质水分模型量", baseline.getSoilMoisturePct(), strategy.getSoilMoisturePct(), "%"));
         items.add(comparison("environmentRisk", "环境风险", baseline.getEnvironmentRisk(), strategy.getEnvironmentRisk(), "%"));
         items.add(comparison("diseasePressure", "病害环境压力", baseline.getDiseasePressure(), strategy.getDiseasePressure(), "%"));
         return items;
@@ -848,6 +858,7 @@ public class AgentRunService {
 
     private void ensureTwinDevices(Long runId, LocalDateTime now, List<AgentJdbcRepository.DeviceRow> devices) {
         Map<String, String> names = new LinkedHashMap<>();
+        names.put(AgentDeviceCodes.HEATING, "加热系统（模拟容量）");
         names.put(AgentDeviceCodes.IRRIGATION, "灌溉水泵");
         names.put(AgentDeviceCodes.VENTILATION, "通风风机");
         names.put(AgentDeviceCodes.GROW_LIGHT, "补光灯");
@@ -886,6 +897,7 @@ public class AgentRunService {
         repository.updateSnapshotInput(snapshotId, jsonMap("twinFrameVersion", 2,
                 "runId", runId, "stepNo", stepNo, "sourceType", sourceType,
                 "modelVersion", MODEL_VERSION, "ruleVersion", RULE_VERSION,
+                "tickMinutes", tickMinutes, "profile", HortiM3Profile.metadata(),
                 "devices", deviceMaps(devices), "resources", resourceMaps(resources),
                 "consumption", consumption, "sensorReadings", sensorReadings(state, seed, tickMinutes, devices),
                 "sensorSource", "DERIVED_FROM_SNAPSHOT"));
@@ -899,11 +911,11 @@ public class AgentRunService {
         readings.put("SENSOR_AIR_S", state.getAirHumidityPct());
         readings.put("SENSOR_CO2", state.getCo2Ppm());
         readings.put("SENSOR_LIGHT", state.getLightPpfd());
-        for (int bed = 1; bed <= 4; bed++) {
+        for (int bed = 1; bed <= HortiM3Profile.EXPERIMENT_PLOT_COUNT; bed++) {
             readings.put("SENSOR_ROOT_" + bed, state.getSoilMoisturePct());
         }
         readings.put("SENSOR_FLOW", isDeviceOn(devices, AgentDeviceCodes.IRRIGATION)
-                ? resourceAmountFor(AgentDeviceCodes.IRRIGATION).doubleValue() / Math.max(1, tickMinutes) : 0.0);
+                ? resourceAmountFor(AgentDeviceCodes.IRRIGATION, tickMinutes).doubleValue() / Math.max(1, tickMinutes) : 0.0);
         return readings;
     }
 
@@ -949,26 +961,39 @@ public class AgentRunService {
         if (AgentDeviceCodes.CO2_SUPPLY.equals(code)) return "CO2";
         if (AgentDeviceCodes.VENTILATION.equals(code) || AgentDeviceCodes.GROW_LIGHT.equals(code)
                 || AgentDeviceCodes.SHADE.equals(code) || AgentDeviceCodes.ROOF_VENT.equals(code)
-                || AgentDeviceCodes.EXHAUST_FAN.equals(code) || AgentDeviceCodes.CIRCULATION_FAN.equals(code)) return "ENERGY";
+                || AgentDeviceCodes.EXHAUST_FAN.equals(code) || AgentDeviceCodes.CIRCULATION_FAN.equals(code)
+                || AgentDeviceCodes.HEATING.equals(code)) return "ENERGY";
         return null;
     }
 
-    private BigDecimal resourceAmountFor(String code) {
-        if (AgentDeviceCodes.IRRIGATION.equals(code)) return new BigDecimal("60.000");
-        if (AgentDeviceCodes.CO2_SUPPLY.equals(code)) return new BigDecimal("0.250");
-        if (AgentDeviceCodes.VENTILATION.equals(code)) return new BigDecimal("0.350");
-        if (AgentDeviceCodes.GROW_LIGHT.equals(code)) return new BigDecimal("1.200");
-        if (AgentDeviceCodes.SHADE.equals(code)) return new BigDecimal("0.100");
-        if (AgentDeviceCodes.ROOF_VENT.equals(code)) return new BigDecimal("0.030");
-        if (AgentDeviceCodes.EXHAUST_FAN.equals(code)) return new BigDecimal("0.420");
-        if (AgentDeviceCodes.CIRCULATION_FAN.equals(code)) return new BigDecimal("0.080");
-        return null;
+    private BigDecimal resourceAmountFor(String code, int minutes) {
+        double rate;
+        if (AgentDeviceCodes.IRRIGATION.equals(code)) rate = ResourceRates.IRRIGATION_M3_PER_STEP * 1000.0;
+        else if (AgentDeviceCodes.CO2_SUPPLY.equals(code)) rate = ResourceRates.CO2_KG_PER_STEP;
+        else if (AgentDeviceCodes.VENTILATION.equals(code)) rate = ResourceRates.VENTILATION_KWH_PER_STEP;
+        else if (AgentDeviceCodes.GROW_LIGHT.equals(code)) rate = ResourceRates.GROW_LIGHT_KWH_PER_STEP;
+        else if (AgentDeviceCodes.SHADE.equals(code)) rate = ResourceRates.SHADE_KWH_PER_STEP;
+        else if (AgentDeviceCodes.ROOF_VENT.equals(code)) rate = ResourceRates.ROOF_VENT_KWH_PER_STEP;
+        else if (AgentDeviceCodes.EXHAUST_FAN.equals(code)) rate = ResourceRates.EXHAUST_FAN_KWH_PER_STEP;
+        else if (AgentDeviceCodes.CIRCULATION_FAN.equals(code)) rate = ResourceRates.CIRCULATION_FAN_KWH_PER_STEP;
+        else if (AgentDeviceCodes.HEATING.equals(code)) rate = ResourceRates.HEATING_KWH_PER_STEP;
+        else return null;
+        return amountForMinutes(rate, minutes);
+    }
+
+    private BigDecimal amountForMinutes(double rate, int minutes) {
+        return BigDecimal.valueOf(rate * minutes / ResourceRates.REFERENCE_MINUTES)
+                .setScale(3, java.math.RoundingMode.HALF_UP);
+    }
+
+    private int totalStepsFor(AgentJdbcRepository.RunRow run) {
+        return 24 * 60 / Math.max(1, run.tickMinutes);
     }
 
     private void createResources(Long runId, LocalDateTime now) {
-        addResource(runId, "WATER", "灌溉与湿帘循环补水", "L", "1200.000", "200.000", now);
-        addResource(runId, "CO2", "CO2 气体", "kg", "2.000", "0.300", now);
-        addResource(runId, "ENERGY", "虚拟能源", "kWh", "30.000", "5.000", now);
+        addResource(runId, "WATER", "灌溉与湿帘循环补水", "L", "2000.000", "200.000", now);
+        addResource(runId, "CO2", "CO2 气体", "kg", "20.000", "0.300", now);
+        addResource(runId, "ENERGY", "虚拟能源", "kWh", "1000.000", "5.000", now);
     }
 
     private void addResource(Long runId, String code, String name, String unit, String opening, String low,
@@ -1047,17 +1072,17 @@ public class AgentRunService {
                 number(seed.soilPh, 6.8));
     }
 
-    private AgentJdbcRepository.GreenhouseSeed defaultSeed(long id) {
+    private AgentJdbcRepository.GreenhouseSeed defaultSeed() {
         AgentJdbcRepository.GreenhouseSeed seed = new AgentJdbcRepository.GreenhouseSeed();
-        seed.id = id;
-        seed.greenhouseName = "8号温室";
+        seed.id = null;
+        seed.greenhouseName = HortiM3Profile.DISPLAY_NAME;
         seed.cropType = "番茄";
-        seed.temperature = new BigDecimal("24.0");
-        seed.airHumidity = 75;
-        seed.soilHumidity = 40;
-        seed.co2Concentration = 720;
-        seed.soilPh = new BigDecimal("6.8");
-        seed.lightIntensity = 310;
+        seed.temperature = BigDecimal.valueOf(HortiM3Profile.ASSUMED_INITIAL_AIR_TEMPERATURE_C);
+        seed.airHumidity = (int) HortiM3Profile.ASSUMED_INITIAL_RELATIVE_HUMIDITY_PCT;
+        seed.soilHumidity = (int) HortiM3Profile.ASSUMED_INITIAL_SUBSTRATE_MOISTURE_PCT;
+        seed.co2Concentration = (int) HortiM3Profile.ASSUMED_INITIAL_CO2_PPM;
+        seed.soilPh = new BigDecimal("6.2");
+        seed.lightIntensity = 0;
         return seed;
     }
 

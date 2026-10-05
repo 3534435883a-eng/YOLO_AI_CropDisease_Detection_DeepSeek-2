@@ -144,7 +144,7 @@ public class AgriPlanBaseline {
         private static String promptBlockOf(EvaluationBatch batch, EvaluationStrategy best,
                                             EvaluationOutcome outcome, double perSquareMeter) {
             StringBuilder builder = new StringBuilder();
-            builder.append("以下数值来自**固定标准情景**的机理模型评测，")
+            builder.append("以下数值来自 **Horti-M3 2025 / CK / 广辉201 参数参考场景**（未导入原始观测、未校准）的机理模型评测，")
                     .append("**不采用你提供的农情输入**，因此不是对你棚况的预测，")
                     .append("只能作为方案取值的量级参照。\n");
             builder.append("- 参考情景推荐策略：").append(best.getLabel())
@@ -163,7 +163,7 @@ public class AgriPlanBaseline {
                 builder.append(windowNote).append('\n');
             }
             builder.append("注意：该情景的初始条件与设备参数是演示取值，")
-                    .append("不得当作工程设计值或真实耗量引用。\n");
+                    .append("840 株和 252 m² 是全试验区模拟规模，非 CK 处理实测；不得当作工程设计值或真实耗量引用。\n");
             return builder.toString();
         }
 
@@ -185,7 +185,7 @@ public class AgriPlanBaseline {
             return "**注意：该窗口内利润为负（" + format(profitYuan, 0)
                     + " 元），这是推演期太短导致的**——番茄坐果在推演期后段才发生，"
                     + "短窗口里产量尚未上来、资源成本却已计满。这个负数**不代表经营亏损**，"
-                    + "不要据此写成本结论；要评估经济性请把推演天数加到 120 以上。";
+                    + "不要据此写成本结论；当前 M3 观测窗口不等于完整生长季；经济性需补充完整季观测后校准。";
         }
 
         public String getBatchId() { return batchId; }

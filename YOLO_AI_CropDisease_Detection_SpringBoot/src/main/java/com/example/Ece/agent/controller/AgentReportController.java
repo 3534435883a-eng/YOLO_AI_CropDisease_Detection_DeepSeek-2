@@ -1,5 +1,7 @@
 package com.example.Ece.agent.controller;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.report.ProductionReportService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,7 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/ai/agent/report")
 public class AgentReportController {
 
-    private static final long DEFAULT_SEED = 20260921L;
+    private static final long DEFAULT_SEED = 20250419L;
 
     private final ProductionReportService reportService;
 
@@ -31,7 +33,7 @@ public class AgentReportController {
      * 生成并导出 Markdown 报告。
      *
      * @param seed    天气相位种子，缺省 20260921
-     * @param days    推演天数，缺省 120（与评测平台默认一致）
+     * @param days    推演天数，缺省 56（与评测平台默认一致）
      * @param batchId 批次号，可选
      */
     @GetMapping(produces = "text/markdown;charset=UTF-8")
@@ -39,7 +41,7 @@ public class AgentReportController {
                          @RequestParam(value = "days", required = false) Integer days,
                          @RequestParam(value = "batchId", required = false) String batchId) {
         long effectiveSeed = seed == null ? DEFAULT_SEED : seed.longValue();
-        int effectiveDays = days == null || days.intValue() <= 0 ? 120 : days.intValue();
+        int effectiveDays = days == null || days.intValue() <= 0 ? HortiM3Profile.DEFAULT_DAYS : days.intValue();
         return reportService.renderMarkdown(batchId, effectiveSeed, effectiveDays);
     }
 }

@@ -11,7 +11,8 @@ package com.example.Ece.agent.crop;
  * </ul>
  *
  * <p><b>数值说明：</b>本文件中的取值均为“典型文献区间，实施时逐条核对出处”。
- * 这里刻意不写出具体论文标题、页码或年份，以避免引用不确切的出处。</p>
+ * 已核对的基点对照见 SOURCE_NOTES；其余典型值仍待逐条核实。
+ * 文献对照不等于使用 M3 观测完成参数校准。</p>
  */
 public final class TomatoGrowthParameters {
 
@@ -21,7 +22,7 @@ public final class TomatoGrowthParameters {
 
     /** 各常数的文献族来源说明（供上层文档/接口展示，避免在代码中臆造具体出处）。 */
     public static final String[] SOURCE_NOTES = new String[] {
-            "温度三基点（BASE/OPTIMAL/MAX）与有效积温阈值：TOMGROM 模型族 + 国内番茄栽培文献；典型文献区间，实施时逐条核对出处。",
+            "生长基点10°C与牛通等《中国蔬菜》2026(3):192-200的评分基点一致（PDF第3–4页），仅为文献对照，非M3校准；最适/最高温度与物候积温阈值仍待逐项核对出处。",
             "冠层消光系数 K 与光能利用效率 RUE：TOMSIM 模型族；典型文献区间，实施时逐条核对出处。",
             "比叶面积 SLA 与叶片日衰老率：TOMSIM 模型族 + 国内番茄栽培文献；典型文献区间，实施时逐条核对出处。",
             "果实分配系数：TOMSIM 模型族；典型文献区间，实施时逐条核对出处。",

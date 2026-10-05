@@ -144,15 +144,21 @@ public class PidControlPolicy {
     }
 
     public Control decide(SimulationState state) {
+        return decide(state, 15);
+    }
+
+    /** 积分/微分按实际步长折算，15 分钟为旧增益的参考时间单位。 */
+    public Control decide(SimulationState state, int minutes) {
+        double dtSteps = Math.max(1, minutes) / 15.0;
         double temperatureError = (state.getTemperatureC() - TEMPERATURE_SET_C) / TEMPERATURE_SPAN_C;
         double humidityError = (state.getAirHumidityPct() - HUMIDITY_SET_PCT) / HUMIDITY_SPAN_PCT;
         double co2Error = (CO2_SET_PPM - state.getCo2Ppm()) / CO2_SPAN_PPM;
         double lightError = (PPFD_SET - state.getLightPpfd()) / PPFD_SPAN;
 
-        double cooling = clamp(temperatureLoop.output(temperatureError, 1.0), 0.0, 1.0);
-        double dehumidify = clamp(humidityLoop.output(humidityError, 1.0), 0.0, 1.0);
-        double co2 = clamp(co2Loop.output(co2Error, 1.0), 0.0, 1.0);
-        double light = clamp(lightLoop.output(lightError, 1.0), 0.0, 1.0);
+        double cooling = clamp(temperatureLoop.output(temperatureError, dtSteps), 0.0, 1.0);
+        double dehumidify = clamp(humidityLoop.output(humidityError, dtSteps), 0.0, 1.0);
+        double co2 = clamp(co2Loop.output(co2Error, dtSteps), 0.0, 1.0);
+        double light = clamp(lightLoop.output(lightError, dtSteps), 0.0, 1.0);
 
         // 降温与排湿共用同一组换气设备：取两者需求的大者，保持"通风同时降温排湿"的语义。
         double exchangeDemand = Math.max(cooling, dehumidify);

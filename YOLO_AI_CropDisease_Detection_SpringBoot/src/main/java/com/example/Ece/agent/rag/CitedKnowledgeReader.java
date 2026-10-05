@@ -65,6 +65,12 @@ public class CitedKnowledgeReader {
      * 该来源满足本读取器的全部要求：官方发布、有可核对 URL、有发布日期与数值口径。</p>
      */
     private static final String[] RESOURCES = {
+            "/knowledge/guidance-tomato-weather.json",
+            "/knowledge/guidance-tomato-wind-rain.json",
+            "/knowledge/guidance-tomato-humidity.json",
+            "/knowledge/papers-tomato-feedback.json",
+            "/knowledge/papers-tomato-assimilation.json",
+            "/knowledge/papers-tomato-digital-twin.json",
             "/knowledge/standards-nyt5449.json",
             "/knowledge/standards-db37t1849.json",
             "/knowledge/standards-db61t1422.json",
@@ -73,6 +79,13 @@ public class CitedKnowledgeReader {
             "/knowledge/standards-db21t3417.json",
             "/knowledge/standards-db14t1700.json",
             "/knowledge/papers-tomato-npk-uptake.json",
+            // 用户补充论文只录经核对摘要；条件、表号与适用边界随条目保留。
+            "/knowledge/papers-tomato-environment-control.json",
+            "/knowledge/papers-tomato-supplemental-light.json",
+            "/knowledge/papers-tomato-mulch-co2.json",
+            "/knowledge/papers-tomato-soil-intercrop.json",
+            "/knowledge/papers-tomato-maize-whitefly.json",
+            "/knowledge/papers-tomato-foliar-calcium.json",
             "/knowledge/standards-pesticide-tomato.json",
             "/knowledge/market-input-price-liaoning-2026w38.json",
             // 2026-09-27：其余 8 种作物此前**只有病害知识、农事类为 0**，问"这一周该怎么管"
@@ -93,6 +106,59 @@ public class CitedKnowledgeReader {
             readResource(path, codes, entries);
         }
         return entries;
+    }
+
+    /** Curated summaries and file fingerprints, independent of the live retrieval index. */
+    public Map<String, Map<String, Object>> readLocalEvidence() {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<String, Map<String, Object>>();
+        for (String path : RESOURCES) {
+            InputStream stream = getClass().getResourceAsStream(path);
+            if (stream == null) throw new IllegalStateException("未找到知识摘要清单 " + path);
+            try (InputStream input = stream; Scanner scanner = new Scanner(input, StandardCharsets.UTF_8.name())) {
+                String text = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
+                JSONObject root = JSON.parseObject(text);
+                JSONObject local = root == null ? null : root.getJSONObject("localDocument");
+                if (local == null) continue;
+                JSONObject source = root.getJSONObject("source");
+                JSONArray entries = root.getJSONArray("entries");
+                if (source == null || entries == null || entries.isEmpty()) {
+                    throw new IllegalStateException("本地论文摘要不完整 " + path);
+                }
+                String code = required(source, "sourceCode", path);
+                String id = required(local, "documentId", path);
+                String hash = required(local, "sha256", path);
+                String relative = required(local, "relativePath", path).replace('\\', '/');
+                long size = local.getLongValue("sizeBytes");
+                if (!id.matches("[a-f0-9]{64}") || !hash.matches("[a-f0-9]{64}") || size <= 0
+                        || result.containsKey(code)) {
+                    throw new IllegalStateException("本地论文标识或文件指纹无效 " + path);
+                }
+                Map<String, Object> document = new LinkedHashMap<String, Object>();
+                document.put("id", id);
+                document.put("fileName", relative.substring(relative.lastIndexOf('/') + 1));
+                document.put("sha256", hash);
+                document.put("sizeBytes", Long.valueOf(size));
+                document.put("reviewedAt", required(local, "reviewedAt", path));
+                List<Map<String, Object>> summaries = new ArrayList<Map<String, Object>>();
+                for (int i = 0; i < entries.size(); i++) {
+                    JSONObject entry = entries.getJSONObject(i);
+                    Map<String, Object> summary = new LinkedHashMap<String, Object>();
+                    summary.put("id", Long.valueOf(entry.getLongValue("id")));
+                    summary.put("topic", required(entry, "topic", path));
+                    summary.put("fieldType", required(entry, "fieldType", path));
+                    summary.put("text", required(entry, "text", path));
+                    summaries.add(summary);
+                }
+                Map<String, Object> evidence = new LinkedHashMap<String, Object>();
+                evidence.put("localDocument", document);
+                evidence.put("reviewedSummaries", summaries);
+                evidence.put("summaryCount", Integer.valueOf(summaries.size()));
+                result.put(code, evidence);
+            } catch (java.io.IOException error) {
+                throw new IllegalStateException("读取本地论文摘要失败 " + path, error);
+            }
+        }
+        return result;
     }
 
     private void readResource(String path, Set<String> codes, List<KnowledgeSourceEntry> entries) {

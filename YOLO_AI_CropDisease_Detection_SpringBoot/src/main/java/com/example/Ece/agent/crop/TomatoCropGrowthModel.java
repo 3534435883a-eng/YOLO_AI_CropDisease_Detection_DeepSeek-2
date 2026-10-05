@@ -1,5 +1,7 @@
 package com.example.Ece.agent.crop;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.model.SimulationState;
 import org.springframework.stereotype.Component;
 
@@ -56,8 +58,8 @@ public class TomatoCropGrowthModel {
     /** 同化物供应达到饱和的参考总干重（g·m^-2）。 */
     private static final double ASSIMILATE_REFERENCE_G = 40.0;
 
-    /** 固定 20 穗代理，用于由坐果率换算果数。 */
-    private static final double TRUSS_PROXY = 20.0;
+    /** 六穗整枝 × 每穗假设 5 果的单株果数代理；非 M3 实测坐果参数。 */
+    private static final double TRUSS_PROXY = HortiM3Profile.TOPPING_AFTER_TRUSS * 5.0;
 
     /** 每个 GDD 增量带来的单果干重增长（g）。 */
     private static final double SINGLE_FRUIT_GROWTH_G_PER_GDD = 0.02;
@@ -147,6 +149,20 @@ public class TomatoCropGrowthModel {
      */
     public TomatoCropState advance(TomatoCropState current, SimulationState environment, int minutes,
                                    double externalStressFactor) {
+        return advanceVersion(current, environment, minutes, externalStressFactor, null);
+    }
+
+    /** M3 candidate: sunlight PAR conversion and thermal stem extension; legacy advance remains frozen. */
+    public TomatoCropState advanceCalibrated(TomatoCropState current, SimulationState environment,
+                                             int minutes, double heightCmPerGdd) {
+        if (!Double.isFinite(heightCmPerGdd) || heightCmPerGdd < 0 || heightCmPerGdd > 1) {
+            throw new IllegalArgumentException("heightCmPerGdd must be in [0,1]");
+        }
+        return advanceVersion(current, environment, minutes, 1.0, Double.valueOf(heightCmPerGdd));
+    }
+
+    private TomatoCropState advanceVersion(TomatoCropState current, SimulationState environment,
+                                           int minutes, double externalStressFactor, Double heightCmPerGdd) {
         if (current == null) {
             return initial();
         }
@@ -166,7 +182,9 @@ public class TomatoCropGrowthModel {
 
         // 2) 冠层光截获 -> 干物质增量
         double lai = clamp(current.getLai(), 0.0, TomatoGrowthParameters.MAX_LAI);
-        double par = PAR_FRACTION_OF_LIGHT * lightPpfd;
+        // Sunlight approximation: 4.57 umol/J (Thimijan & Heins 1983, Table 3).
+        // PPFD already counts PAR photons: do not apply a shortwave PAR fraction again.
+        double par = heightCmPerGdd == null ? PAR_FRACTION_OF_LIGHT * lightPpfd : lightPpfd / 4.57;
         double parMJ = par * sliceMinutes * 60.0 / 1e6;
         double iAbsorbed = parMJ * (1.0 - Math.exp(-TomatoGrowthParameters.EXTINCTION_K * lai));
         double temperatureFactor = temperatureFactor(temperatureC);
@@ -208,7 +226,9 @@ public class TomatoCropGrowthModel {
         double nextLai = clamp(lai + dLai, 0.0, TomatoGrowthParameters.MAX_LAI);
 
         // 6) 株高：与新增叶干重联动
-        double plantHeightCm = clamp(current.getPlantHeightCm() + dLeaf * HEIGHT_CM_PER_G_LEAF,
+        double heightIncrement = heightCmPerGdd == null ? dLeaf * HEIGHT_CM_PER_G_LEAF
+                : heightCmPerGdd.doubleValue() * gddIncrement;
+        double plantHeightCm = clamp(current.getPlantHeightCm() + heightIncrement,
                 0.0, MAX_PLANT_HEIGHT_CM);
 
         // 7) 总干重：果实干重不得超过总干重

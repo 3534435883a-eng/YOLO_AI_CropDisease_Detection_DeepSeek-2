@@ -1,5 +1,7 @@
 package com.example.Ece.agent.tool;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.eval.EvaluationBatch;
 import com.example.Ece.agent.eval.EvaluationOutcome;
@@ -39,8 +41,8 @@ public class ProductionReportTool implements AgentTool {
     private static final String SOURCE_TABLE = "agent_report";
     private static final String TITLE = "生产规划报告摘要";
     private static final String EXPORT_PATH = "/ai/agent/report";
-    private static final int DEFAULT_DAYS = 120;
-    private static final long DEFAULT_SEED = 20260921L;
+    private static final int DEFAULT_DAYS = HortiM3Profile.DEFAULT_DAYS;
+    private static final long DEFAULT_SEED = 20250419L;
 
     /**
      * 报告附带的默认检索主题（2026-09-27 新增）。
@@ -91,7 +93,7 @@ public class ProductionReportTool implements AgentTool {
     public String inputSchemaJson() {
         return "{\"type\":\"object\",\"properties\":{"
                 + "\"seed\":{\"type\":\"integer\",\"description\":\"天气相位种子，可选；同种子结果可复算\"},"
-                + "\"days\":{\"type\":\"integer\",\"description\":\"推演天数，默认 120\"}},"
+                + "\"days\":{\"type\":\"integer\",\"description\":\"推演天数，默认 56\"}},"
                 + "\"required\":[]}";
     }
 

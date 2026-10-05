@@ -1,0 +1,33 @@
+{
+  "source": {
+    "sourceCode": "guidance-humidity-ut-w017",
+    "sourceName": "University of Tennessee Extension：Controlling the Environment in Greenhouses Used for Tomato Production（W017）",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W017.pdf",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "W017; online-copy-2023-10; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "guidance_humidity_ut_w017"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "温室高湿、结露与加热排湿",
+      "fieldType": "ENVIRONMENT",
+      "text": "W017讨论塑料覆盖番茄温室的温湿调节。加热降低相对湿度，但没有直接排走水汽；通风和气流分布参与湿度管理。叶片实际是否结露还需叶温或湿润测量，空气RH只能提示条件。"
+    },
+    {
+      "id": 2,
+      "topic": "湿帘蒸发降温在高湿下的限制",
+      "fieldType": "ENVIRONMENT",
+      "text": "W017说明空气湿度越高，可蒸发水量和降温效果越低。暴雨高湿时不能假定开启湿帘就有固定降温幅度；需要结合外界空气、风机和温室条件。该旧版推广资料的数值不取代本地标准。"
+    },
+    {
+      "id": 3,
+      "topic": "温度、湿度和CO₂的关联",
+      "fieldType": "ENVIRONMENT",
+      "text": "W017将温室供热、通风与空气分布共同考虑，关注温度、湿度和CO₂。模型简化时保留这些关联；设备功率、换气率与热容量仍需独立标定，不能仅靠文章推断本棚设备效果。"
+    }
+  ]
+}

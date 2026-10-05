@@ -185,24 +185,38 @@ defineExpose({
 
 <style scoped lang="scss">
 :deep(.dia) {
-	width: 800px;
-	height: auto;
-	min-height: 500px;
+	width: min(800px, calc(100vw - 40px));
 	display: flex;
 	flex-direction: column;
+	border: 1px solid var(--agri-line);
+	border-radius: 8px;
+	box-shadow: 0 18px 50px rgba(52, 39, 33, .16);
+	.el-dialog__header { padding: 20px 24px 14px; border-bottom: 1px solid var(--agri-line); }
+	.el-dialog__title { color: var(--agri-wood); font: 600 21px/1.3 Georgia, 'Songti SC', 'SimSun', serif; }
+	.el-dialog__body { padding: 16px 24px 8px !important; }
+	.el-dialog__footer { padding: 12px 24px 20px; border-top: 1px solid var(--agri-line); }
 }
 
 .el-form {
-	width: 90%;
+	width: 100%;
 	margin: 0 auto;
-	padding: 20px 0;
+	padding: 8px 0 0;
 }
 
 :deep(.el-form-item__label) {
 	font-weight: 500;
+	color: var(--agri-ink);
 }
 
 :deep(.el-input-number) {
 	width: 100%;
 }
-</style> 
+
+.dialog-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 600px) {
+	:deep(.dia .el-dialog__body) { padding: 12px 16px 4px !important; }
+	:deep(.dia .el-dialog__header), :deep(.dia .el-dialog__footer) { padding-left: 16px; padding-right: 16px; }
+	.el-form :deep(.el-col) { flex: 0 0 100%; max-width: 100%; }
+}
+</style>

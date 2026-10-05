@@ -6,6 +6,7 @@ import java.util.List;
 
 /** Codes persisted in agent_device and used by the deterministic policy. */
 public final class AgentDeviceCodes {
+    public static final String HEATING = "HEATING";
     public static final String IRRIGATION = "IRRIGATION";
     public static final String VENTILATION = "VENTILATION";
     // Keep the persisted code aligned with the existing Vue environment page.
@@ -18,7 +19,7 @@ public final class AgentDeviceCodes {
     public static final String CIRCULATION_FAN = "CIRCULATION_FAN";
 
     private static final List<String> ALL = Collections.unmodifiableList(Arrays.asList(
-            IRRIGATION, VENTILATION, GROW_LIGHT, SHADE, ROOF_VENT,
+            HEATING, IRRIGATION, VENTILATION, GROW_LIGHT, SHADE, ROOF_VENT,
             EXHAUST_FAN, COOLING_PAD, CIRCULATION_FAN, CO2_SUPPLY));
 
     private AgentDeviceCodes() {
@@ -36,6 +37,7 @@ public final class AgentDeviceCodes {
      * "端墙排风机/湿帘循环水泵"，处方工具用自己的短名"排风/湿帘"，同一台设备两个叫法）。</p>
      */
     public static String label(String code) {
+        if (HEATING.equals(code)) return "加热系统（模拟）";
         if (IRRIGATION.equals(code)) {
             return "滴灌";
         }

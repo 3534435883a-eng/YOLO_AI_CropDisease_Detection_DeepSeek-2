@@ -4,7 +4,6 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.example.Ece.agent.guard.GuardrailCheck;
 import com.example.Ece.agent.guard.GuardrailService;
-import com.example.Ece.agent.guard.CitationReferenceValidator;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.KnowledgeChunker;
 import com.example.Ece.agent.rag.ScoredChunk;
@@ -36,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.BooleanSupplier;
 
 /**
  * 智能体编排循环：理解意图 → 选择工具 → 执行 → 观察 → 再决策。
@@ -46,7 +46,7 @@ import java.util.function.Consumer;
  * 3) 单步与整轮超时（单步经线程池 {@code Future.get} 强制超时）。
  *
  * 证据可靠性由检索的 lowScore 判定：只有存在关键词证据的命中才算可靠，
- * 否则拒答而不是拿语义漂移的结果编答案。引用编号在每轮合并后全局重编号，
+ * 否则仅作为一般解释，不拿语义漂移的结果充当引用。引用编号在每轮合并后全局重编号，
  * 保证 LLM 看到的编号与最终展示完全一致。
  */
 @Component
@@ -87,16 +87,6 @@ public class AgentOrchestrator {
                     + "请重试一次；若反复失败请检查模型服务配置。这不是知识库缺少依据。";
 
     /**
-     * 通用知识回答的**出处声明**（2026-09-27 新增）。
-     *
-     * <p>政策调整：此前"无可靠证据"一律拒答。用户要求放开——让模型在库缺时也能用自身
-     * 学到的通用农艺知识作答。放开的方式是**加声明，而不是取消边界**：回答第一行必须原样
-     * 写出这句话，编排层**逐字校验**，没带就不放行——宁可拒答，也不能让"通用经验"
-     * 被读成"知识库依据"。</p>
-     */
-    public static final String GENERAL_KNOWLEDGE_BANNER = "【以下不来自本项目知识库，属通用农艺经验】";
-
-    /**
      * **检索降级**时的拒答文案（2026-09-27 新增）。
      *
      * <p>必须与 {@link #REFUSAL_ANSWER} 分开：前者说的是"知识库里没有"，后者说的是
@@ -112,23 +102,6 @@ public class AgentOrchestrator {
                     + "这**不代表知识库里没有相关内容**——请稍后重试，或确认向量服务（Flask，端口 5000）已启动。";
 
     /**
-     * 通用知识作答步的指令。
-     *
-     * <p>三条硬边界保留：<b>不给药剂剂量</b>（留给当地登记与产品标签）、
-     * <b>不声称已执行设备操作</b>、<b>结尾提示人工确认</b>。放开的是"能不能答"，
-     * 不是"能不能给出具体用药量"。</p>
-     */
-    private static final String GENERAL_KNOWLEDGE_INSTRUCTION =
-            "本轮**没有检索到可引用的本项目知识库依据**。请改用你自身掌握的通用农艺知识回答，但必须遵守：\n"
-                    + "1. 回答的**第一行**必须是下面这句，一字不改：" + GENERAL_KNOWLEDGE_BANNER + "\n"
-                    + "2. 不得给出任何具体药剂名称、剂量、稀释倍数或安全间隔期——那条线只能由当地登记与产品标签决定；\n"
-                    + "3. 不得声称已执行任何设备操作；\n"
-                    + "4. 结尾必须提示需人工确认并遵循当地登记与用药规范；\n"
-                    + "5. 若通用知识也不足以回答，就直接说依据不足，不要编；\n"
-                    + "6. 若问题点名的病/虫/主题在本项目知识库中没有条目，**必须明确指出这一点**，"
-                    + "并说明下面给的是通用经验——**不得用名字相近的其他病害替代作答**。";
-
-    /**
      * 作答阶段的系统提示。
      *
      * <p><b>为什么必须单独一套</b>：规划阶段的系统提示写着"每一步只输出一个 JSON"，
@@ -137,22 +110,26 @@ public class AgentOrchestrator {
      * 作答阶段必须显式解除 JSON 约束（并继续禁止越权执行声明）。</p>
      */
     static final String ANSWER_SYSTEM_PROMPT =
-            "你是面向番茄设施种植的农业智能体，当前进入【作答】阶段。请直接用中文散文输出最终答复："
-                    + "先给结论，再给依据与[编号]引用（编号必须与上文证据完全一致），最后给风险与注意事项。"
-                    + "不要输出 JSON，不要复述工具名或调用过程。证据不足时明确说明依据不足，不得臆造。"
-                    + "不得声称已经自动执行了任何设备操作。"
-                    // 实测漏判："如何给番茄施肥"只能检索到病害类片段，模型会拿相近主题硬答。
-                    // 知识库当前只覆盖病害，遇到栽培/水肥/环境类问题必须如实说明缺依据。
-                    + "若检索到的证据与问题主题不一致（例如问施肥/灌溉/温度管理却只拿到病害片段），"
-                    + "必须明确说明知识库当前缺少该主题的依据，不得用相近主题的证据作答。";
+            "你是农业平台的决策助手。现在用自然中文回答用户，先直接回应关注点，复杂问题才分步展开。"
+            +"不要每题套结论/依据/风险模板，不要复述内部工具名，不输出规划JSON。"
+            +"可用自身知识解释一般原理；论文结论、具体阈值和处方仅引用实际支持它的本轮资料[编号]。"
+            +"没有合适资料时说明具体限制，不能把近似主题硬作依据或编造来源。"
+            +"当前状态只按服务端快照，M3是历史观测，scenario是模拟；未测果实/风速/叶面湿润不编造。"
+            +"M3 environment与observedHeightCm是历史记录；original/predicted/correctedHeightCm是模型株高，growth及scenario.growth的LAI、干重、果实、阶段为模型或初始化假设，不是M3测量。"
+            +"原始土壤VWC未标定，不单凭数值判定缺水或水分充足；historical/estimated原值不能称现场实测。"
+            +"设备动作仅按实际工具状态描述，分析中或仅建议不能称已执行。已执行仿真动作必须说仿真，不能说控制实物。"
+            +"默认简短而具体，普通状态问题先用3至6句回应；只有用户要求详细对比时才展开表格或全部字段。"
+            +"不在正文堆UUID、风险代码或工具内部字段，使用用户熟悉的中文；回答结构按问题决定，不添加不相关的药剂尾注。"
+            +"来源由界面展示，正文在被支持的句子处加[编号]，一般不重复罗列网址；除非用户明确需要可复制地址。不能把指南的应急干预阈值说成只有到达它才可干预。";
 
     private final AgentToolRegistry registry;
+    @Autowired(required=false)
+    private com.example.Ece.agent.m3.M3LiveService liveService;
     private final LlmClient llmClient;
     private final CitationFormatter citationFormatter = new CitationFormatter();
     private final GuardrailService guardrailService;
     /** 会话历史持久化；为 null 表示不持久化（单元测试默认如此）。 */
     private final AgentChatHistoryService historyService;
-    private final CitationReferenceValidator citationReferenceValidator = new CitationReferenceValidator();
     private final SessionHistoryStore sessionHistoryStore = new SessionHistoryStore();
     private final ExecutorService toolExecutor = Executors.newCachedThreadPool(new ThreadFactory() {
         private final AtomicInteger counter = new AtomicInteger();
@@ -204,7 +181,14 @@ public class AgentOrchestrator {
      * 应当由控制器报错与日志暴露，而不是被记成一条"正常的历史"。</p>
      */
     public AgentResult run(String sessionId, String question, String crop, Consumer<AgentStepEvent> sink) {
-        AgentResult result = runInternal(sessionId, question, crop, sink);
+        return run(sessionId,question,crop,null,null,sink);
+    }
+    public AgentResult run(String sessionId,String question,String crop,String simulationRunId,Long legacyRunId,Consumer<AgentStepEvent> sink) {
+        return run(sessionId,question,crop,simulationRunId,legacyRunId,true,()->false,sink);
+    }
+    public AgentResult run(String sessionId,String question,String crop,String simulationRunId,Long legacyRunId,
+                           boolean allowActions,BooleanSupplier cancelled,Consumer<AgentStepEvent> sink) {
+        AgentResult result = runInternal(sessionId, question, crop, simulationRunId,legacyRunId,allowActions,cancelled,sink);
         if (historyService != null) {
             try {
                 historyService.record(sessionId, crop, question, result);
@@ -215,14 +199,27 @@ public class AgentOrchestrator {
         return result;
     }
 
-    private AgentResult runInternal(String sessionId, String question, String crop, Consumer<AgentStepEvent> sink) {
+    private AgentResult runInternal(String sessionId, String question, String crop,String simulationRunId,Long legacyRunId,
+                                    boolean allowActions,BooleanSupplier cancelled,Consumer<AgentStepEvent> sink) {
         List<AgentStepEvent> events = new ArrayList<AgentStepEvent>();
         List<Map<String, Object>> priorHistory = sessionHistoryStore.snapshot(sessionId);
         List<Map<String, Object>> history = new ArrayList<Map<String, Object>>();
-        history.add(message("system", systemPrompt()));
+        boolean simulationAvailable=simulationRunId!=null&&!simulationRunId.trim().isEmpty();
+        history.add(message("system", systemPrompt(simulationAvailable,simulationAvailable||legacyRunId!=null)));
         // 历史消息放在 system 提示之后，避免旧会话内容覆盖当前编排约束。
         history.addAll(priorHistory);
         history.add(message("user", userPrompt(question, crop)));
+        if(!allowActions)history.add(message("user","本轮是重新回答，只重新分析和解释，不执行新的仿真设备动作。"));
+        if(simulationRunId!=null&&!simulationRunId.trim().isEmpty()){
+            try {
+                com.fasterxml.jackson.databind.node.ObjectNode run=liveService.current(simulationRunId,true);
+                com.fasterxml.jackson.databind.node.ObjectNode context=compactContext(run.path("current"));
+                history.add(message("user","服务端绑定当前M3运行 "+simulationRunId+"；environment及observedHeightCm为历史观测，其他株高及growth为模型计算；scenario为虚拟事件与设备响应。只使用本轮时间的状态："+context));
+                Map<String,Object> payload=new LinkedHashMap<>();payload.put("simulationRunId",simulationRunId);payload.put("snapshot",context);
+                AgentStepEvent event=new AgentStepEvent("context",0,"simulation.snapshot","已关联当前M3大棚",payload);
+                events.add(event);if(sink!=null)sink.accept(event);
+            }catch(Exception e){return finish(events,sink,new ArrayList<>(),0,null,AgentResult.Status.ERROR,"SIMULATION_UNAVAILABLE","关联运行不可用，请重开大棚或解除关联后继续提问。");}
+        }
 
         Map<String, Integer> toolCalls = new HashMap<String, Integer>();
         Set<String> seenDigests = new HashSet<String>();
@@ -243,6 +240,7 @@ public class AgentOrchestrator {
         int executed = 0;
 
         while (planSteps < MAX_STEPS) {
+            if(stopped(cancelled))return cancelled(events,sink,executed);
             planSteps++;
             if (System.currentTimeMillis() - startedAt > TOTAL_TIMEOUT_MS) {
                 blockReason = "TOTAL_TIMEOUT";
@@ -256,6 +254,7 @@ public class AgentOrchestrator {
                         AgentResult.Status.ERROR, "LLM_ERROR", error.getClass().getSimpleName());
             }
             JSONObject plan = parsePlan(rawPlan);
+            if(stopped(cancelled))return cancelled(events,sink,executed);
             if (plan == null) {
                 blockReason = "PLAN_UNPARSEABLE";
                 break;
@@ -265,11 +264,25 @@ public class AgentOrchestrator {
                 break;
             }
             AgentTool tool = registry.find(toolName);
+            if ((!simulationAvailable && toolName.startsWith("simulation."))
+                    || (!simulationAvailable && legacyRunId==null && "platform.greenhouseState".equals(toolName))) {
+                history.add(message("user","本轮是独立问答，没有关联大棚；请回应用户问题，不读取或操作模拟大棚。"));
+                continue;
+            }
             if (tool == null) {
                 history.add(message("user", "工具 " + toolName + " 不存在，请从目录中选择，或直接 FINALIZE。"));
                 continue;
             }
             Map<String, Object> input = toMap(plan.getJSONObject("input"));
+            if(!allowActions&&"simulation.decide".equals(toolName)){toolName="simulation.snapshot";tool=registry.find(toolName);input.clear();}
+            if(toolName.startsWith("simulation.")){
+                input.put("simulationRunId",simulationRunId);input.put("question",question);
+                input.put("applyAuthorized",allowActions&&isExecutionRequest(question));
+            }else if("platform.greenhouseState".equals(toolName)){
+                if(simulationRunId!=null&&!simulationRunId.trim().isEmpty()){
+                    tool=registry.find("simulation.snapshot");toolName="simulation.snapshot";input.clear();input.put("simulationRunId",simulationRunId);
+                }else if(legacyRunId!=null)input.put("runId",legacyRunId);
+            }
             String digest = KnowledgeChunker.sha256(toolName + "|" + input);
             if (seenDigests.contains(digest)) {
                 blockReason = "DUPLICATE_TOOL_CALL";
@@ -284,9 +297,18 @@ public class AgentOrchestrator {
             toolCalls.put(toolName, Integer.valueOf(used == null ? 1 : used.intValue() + 1));
 
             long stepStartedAt = System.currentTimeMillis();
-            Map<String, Object> output = executeWithTimeout(tool, input);
+            if(stopped(cancelled))return cancelled(events,sink,executed);
+            Map<String, Object> output = executeWithTimeout(tool, input, cancelled);
             long durationMs = System.currentTimeMillis() - stepStartedAt;
             executed++;
+            Map<String,Object> useful=new LinkedHashMap<>(output);useful.remove("items");useful.remove("citations");
+            if(useful.get("snapshot") instanceof com.fasterxml.jackson.databind.JsonNode)useful.put("snapshot",compactContext((com.fasterxml.jackson.databind.JsonNode)useful.get("snapshot")));
+            if(useful.get("scenario") instanceof com.fasterxml.jackson.databind.node.ObjectNode){
+                com.fasterxml.jackson.databind.node.ObjectNode slim=((com.fasterxml.jackson.databind.node.ObjectNode)useful.get("scenario")).deepCopy();
+                slim.remove("trends");slim.remove("timeline");slim.remove("shadowRisk");slim.remove("withoutIntervention");useful.put("scenario",slim);
+            }
+            String toolObservation=new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(useful).toString();
+            history.add(message("user","工具观察结果："+(toolObservation.length()>11000?toolObservation.substring(0,10900)+"（观察摘要已截断；未显示的字段不可推测）":toolObservation)));
 
             List<Map<String, Object>> stepCitations = new ArrayList<Map<String, Object>>();
             Object rawCitations = output.get("citations");
@@ -357,6 +379,9 @@ public class AgentOrchestrator {
             payload.put("input", input);
             payload.put("note", output.get("note"));
             payload.put("mapping", output.get("mapping"));
+            if(output.get("scenario")!=null)payload.put("simulation",output.get("scenario"));
+            if(output.get("snapshot") instanceof com.fasterxml.jackson.databind.JsonNode)
+                payload.put("simulation",((com.fasterxml.jackson.databind.JsonNode)output.get("snapshot")).path("scenario"));
 
             AgentStepEvent stepEvent = new AgentStepEvent("step", executed, toolName,
                     summarize(toolName, stepCitations.size(), durationMs, output), payload);
@@ -372,113 +397,98 @@ public class AgentOrchestrator {
             Object terminalAnswer = output.get("terminalAnswer");
             if (Boolean.TRUE.equals(output.get("terminal")) && terminalAnswer != null) {
                 Object terminalReason = output.get("terminalReason");
-                return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                        AgentResult.Status.REFUSED,
-                        terminalReason == null ? "TOOL_TERMINAL" : String.valueOf(terminalReason),
-                        String.valueOf(terminalAnswer));
+                history.add(message("user","该识别/检索有明确限制："+terminalAnswer+"。不能用相近病害替代确诊；可以说明限制并给一般检查建议。"));
+                blockReason=terminalReason==null?"TOOL_TERMINAL":String.valueOf(terminalReason);break;
             }
         }
 
-        // 没有可靠证据时直接拒答，**不再调用作答步**：既省一次大模型往返，
-        // 也不给模型"顺手编个结论"的机会——这条路径的答案本来就会被丢弃。
         if (!reliableEvidence) {
-            // 降级优先于其它拒答原因：TOOL_REPEAT_LIMIT / DUPLICATE_TOOL_CALL 这类"模型反复重试"
-            // 在降级时几乎总是同一件事的后果（检索总不达标 → 再试一次），
-            // 若按 blockReason 报出去，用户看到的是内部原因码，看不到"服务掉线"这个真因。
-            if (degradedSeen) {
-                String degradedRefusal = DEGRADED_REFUSAL_ANSWER
-                        + (observations.isEmpty() ? "" : "（" + String.join("；", observations) + "）");
-                return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                        AgentResult.Status.REFUSED, "DEGRADED_RETRIEVAL", degradedRefusal);
-            }
-            // 2026-09-27 政策调整：**不再一律拒答**。若检索确实命中过关键词（问题落在农业域内、
-            // 只是库里依据不足），就允许模型用自身通用农艺知识作答——但回答必须逐字带出处声明。
-            // 关键词零命中（如"帮我写一首诗"）仍直接拒答：那不是知识缺口，是不该答的问题。
-            if (sawKeywordHits) {
-                List<Map<String, Object>> generalHistory = new ArrayList<Map<String, Object>>(history);
-                generalHistory.add(message("user", GENERAL_KNOWLEDGE_INSTRUCTION));
-                String general = null;
-                try {
-                    general = unwrapAnswer(llmClient.compose(composeHistory(generalHistory)));
-                } catch (RuntimeException error) {
-                    general = null;
-                }
-                // 逐字校验出处声明：没带就不放行。宁可拒答，也不能让"通用经验"被读成"知识库依据"。
-                if (general != null && general.contains(GENERAL_KNOWLEDGE_BANNER)) {
-                    GuardrailCheck generalGuardrail =
-                            guardrailService.check(general, new ArrayList<ScoredChunk>(), degradedSeen);
-                    if (generalGuardrail.isAllowed()) {
-                        return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                                AgentResult.Status.DONE, "GENERAL_KNOWLEDGE", general);
-                    }
-                    blockReason = generalGuardrail.getReason();
-                }
-            }
-            String refusal = observations.isEmpty() ? REFUSAL_ANSWER
-                    : REFUSAL_ANSWER + "（" + String.join("；", observations) + "）";
-            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                    AgentResult.Status.REFUSED, blockReason == null ? "NO_RELIABLE_EVIDENCE" : blockReason,
-                    refusal);
+            history.add(message("user","本轮没有取得可引用资料。仍可用自身知识给一般解释与可用建议；"
+                    +"具体未核实的阈值、处方或论文结论只说明限制，不能编造引用，也不要使用固定声明横幅。"));
         }
-
-        String answer = null;
-        try {
-            answer = unwrapAnswer(llmClient.compose(composeHistory(history)));
-        } catch (RuntimeException error) {
-            answer = null;
+        if(degradedSeen)history.add(message("user","检索本轮降级，不等于主题不存在；仅对需资料核实的部分说明限制。"));
+        if(stopped(cancelled))return cancelled(events,sink,executed);
+        String answer;
+        try {answer=unwrapAnswer(llmClient.compose(composeHistory(history)));}
+        catch(RuntimeException error){return finish(events,sink,new ArrayList<>(),executed,null,
+                AgentResult.Status.ERROR,"LLM_ERROR",ANSWER_FAILED_ANSWER);}
+        if(answer==null||answer.trim().isEmpty())return finish(events,sink,new ArrayList<>(),executed,null,
+                AgentResult.Status.ERROR,"ANSWER_EMPTY",ANSWER_FAILED_ANSWER);
+        if(stopped(cancelled))return cancelled(events,sink,executed);
+        boolean executedSimulation=hasSimulationExecution(events);
+        GuardrailCheck guardrail=guardrailService.check(answer,evidenceChunks,degradedSeen,executedSimulation);
+        if(!guardrail.isAllowed()){
+            List<Map<String,Object>> retry=composeHistory(history);
+            retry.add(message("user","上次回答含无法核实的执行声明或药剂处方。请保留有用的解释，去除未核实的具体处方/执行声明，"
+                    +"执行状态仅按实际工具结果描述，仿真动作必须明确说仿真。"));
+            try {answer=unwrapAnswer(llmClient.compose(retry));guardrail=guardrailService.check(answer,evidenceChunks,degradedSeen,executedSimulation);}
+            catch(RuntimeException ignored){}
         }
-        if (answer == null || answer.trim().isEmpty()) {
-            // 有证据却拿不到回答（模型调用失败或输出被截断）：如实按未完成返回。
-            // 曾用拒答文案兜底并报 DONE，界面上会显示成"结论"，把失败伪装成成功。
-            // 现在文案也换了：这里是**调用失败**，不是知识缺口，两者不能共用一句话（见常量注释）。
-            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                    AgentResult.Status.REFUSED, "ANSWER_EMPTY", ANSWER_FAILED_ANSWER);
+        if(!guardrail.isAllowed())return finish(events,sink,new ArrayList<>(),executed,null,
+                AgentResult.Status.REFUSED,guardrail.getReason(),"这部分处方或执行结果无法核实。可以继续提供环境分析，或先补充登记标签、实际执行记录。");
+        answer=guardrail.getRewrittenAnswer();
+        // Reject invented reference numbers before publication; allow an uncited general explanation.
+        java.util.regex.Matcher verify=java.util.regex.Pattern.compile("\\[(\\d+)\\]").matcher(answer);
+        boolean invalid=false;
+        while(verify.find()){try{int n=Integer.parseInt(verify.group(1));if(n<1||n>citations.size())invalid=true;}catch(NumberFormatException e){invalid=true;}}
+        if(invalid){
+            List<Map<String,Object>> retry=composeHistory(history);
+            retry.add(message("user","请修正引用：只有本轮证据编号1至"+citations.size()+"可使用；没有支持的结论改为条件性一般说明，不编造来源。"));
+            try{answer=unwrapAnswer(llmClient.compose(retry));}catch(RuntimeException e){return finish(events,sink,new ArrayList<>(),executed,null,AgentResult.Status.ERROR,"LLM_ERROR",ANSWER_FAILED_ANSWER);}
+            GuardrailCheck checked=guardrailService.check(answer,evidenceChunks,degradedSeen,executedSimulation);
+            if(!checked.isAllowed()||answer==null)return finish(events,sink,new ArrayList<>(),executed,null,AgentResult.Status.REFUSED,"CITATION_INVALID","本轮引用无法核对，请重试或查看已取得的资料。");
+            answer=checked.getRewrittenAnswer();
+            java.util.regex.Matcher again=java.util.regex.Pattern.compile("\\[(\\d+)\\]").matcher(answer);
+            while(again.find()){try{int n=Integer.parseInt(again.group(1));if(n<1||n>citations.size())return finish(events,sink,new ArrayList<>(),executed,null,AgentResult.Status.REFUSED,"CITATION_INVALID","模型返回了无法核对的引用编号，请重试。");}catch(NumberFormatException e){return finish(events,sink,new ArrayList<>(),executed,null,AgentResult.Status.REFUSED,"CITATION_INVALID","引用编号无效，请重试。");}}
         }
-        GuardrailCheck guardrail = guardrailService.check(answer, evidenceChunks, degradedSeen);
-
-        if (guardrail.isAllowed() && !citationReferenceValidator.hasValidReferences(
-                guardrail.getRewrittenAnswer(), citations.size())) {
-            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                    AgentResult.Status.REFUSED, GuardrailService.REASON_NO_EVIDENCE,
-                    REFUSAL_ANSWER + "（回答未包含可核对的有效引用编号）");
+        Map<Integer,Integer> used=new LinkedHashMap<>();
+        java.util.regex.Matcher refs=java.util.regex.Pattern.compile("\\[(\\d+)\\]").matcher(answer);
+        StringBuffer body=new StringBuffer();List<Map<String,Object>> selected=new ArrayList<>();
+        while(refs.find()){
+            int old=Integer.parseInt(refs.group(1));
+            if(!used.containsKey(old)){int no=used.size()+1;used.put(old,no);Map<String,Object> c=new LinkedHashMap<>(citations.get(old-1));c.put("index",no);selected.add(c);}
+            refs.appendReplacement(body,"["+used.get(old)+"]");
         }
-
-        // 被安全守门判为"越权执行声明"时给一次重写机会：实测多数情况是模型顺手写了"已自动…"，
-        // 并非真要越权。重写一次既不放行声明本身，也避免把整段有依据的分析直接丢成拒答。
-        if (!guardrail.isAllowed() && GuardrailService.REASON_AUTO_EXECUTION_CLAIM.equals(guardrail.getReason())) {
-            String retry = null;
-            try {
-                retry = unwrapAnswer(llmClient.compose(composeHistoryAfterExecutionClaim(history)));
-            } catch (RuntimeException error) {
-                retry = null;
-            }
-            if (retry != null && !retry.trim().isEmpty()) {
-                GuardrailCheck recheck = guardrailService.check(retry, evidenceChunks, degradedSeen);
-                if (recheck.isAllowed()) {
-                    if (!citationReferenceValidator.hasValidReferences(recheck.getRewrittenAnswer(), citations.size())) {
-                        return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                                AgentResult.Status.REFUSED, GuardrailService.REASON_NO_EVIDENCE,
-                                REFUSAL_ANSWER + "（回答未包含可核对的有效引用编号）");
-                    }
-                    sessionHistoryStore.append(sessionId, question, recheck.getRewrittenAnswer());
-                    return finish(events, sink, citations, executed, recheck.getRewrittenAnswer(),
-                            AgentResult.Status.DONE, blockReason, null);
-                }
-                guardrail = recheck;
-            }
-        }
-        if (!guardrail.isAllowed()) {
-            return finish(events, sink, new ArrayList<Map<String, Object>>(), executed, null,
-                    AgentResult.Status.REFUSED, guardrail.getReason(), REFUSAL_ANSWER);
-        }
-        sessionHistoryStore.append(sessionId, question, guardrail.getRewrittenAnswer());
-        return finish(events, sink, citations, executed, guardrail.getRewrittenAnswer(),
-                AgentResult.Status.DONE, blockReason, null);
+        refs.appendTail(body);answer=body.toString();selected=citationFormatter.renumber(selected);
+        sessionHistoryStore.append(sessionId,question,answer);
+        return finish(events,sink,selected,executed,answer,AgentResult.Status.DONE,selected.isEmpty()?"GENERAL_KNOWLEDGE":null,null);
     }
 
-    private Map<String, Object> executeWithTimeout(final AgentTool tool, final Map<String, Object> input) {
+    private com.fasterxml.jackson.databind.node.ObjectNode compactContext(com.fasterxml.jackson.databind.JsonNode frame){
+        com.fasterxml.jackson.databind.node.ObjectNode copy=(com.fasterxml.jackson.databind.node.ObjectNode)frame.deepCopy();
+        copy.remove("plants");copy.remove("updates");
+        if(copy.path("scenario").isObject()){
+            com.fasterxml.jackson.databind.node.ObjectNode scenario=(com.fasterxml.jackson.databind.node.ObjectNode)copy.path("scenario");
+            scenario.remove("trends");scenario.remove("timeline");
+            scenario.remove("shadowRisk");scenario.remove("withoutIntervention");scenario.remove("assumptions");
+            scenario.remove("parameters");
+            if(scenario.path("decision").path("plan").isObject())((com.fasterxml.jackson.databind.node.ObjectNode)scenario.path("decision").path("plan")).remove("references");
+        }
+        return copy;
+    }
+    private boolean isExecutionRequest(String question){
+        if(question==null||question.matches("(?s).*?(不要|不执行|先别|别执行|只建议|只分析).*"))return false;
+        return java.util.regex.Pattern.compile("(请|帮我|现在|直接|立即|给我).{0,16}(执行|开启|打开|关闭|启动|处理|解决)|^(执行|开启|打开|关闭|启动|处理)|^把.{0,12}(开|关|停)").matcher(question).find();
+    }
+    private boolean hasSimulationExecution(List<AgentStepEvent> events){
+        for(AgentStepEvent e:events){
+            Object data=e.getPayload().get("simulation");
+            if(data instanceof com.fasterxml.jackson.databind.JsonNode && ((com.fasterxml.jackson.databind.JsonNode)data).has("decision")
+                    && ((com.fasterxml.jackson.databind.JsonNode)data).path("decision").has("executedAt"))return true;
+            Object snapshot=e.getPayload().get("snapshot");
+            if(snapshot instanceof com.fasterxml.jackson.databind.JsonNode && ((com.fasterxml.jackson.databind.JsonNode)snapshot).path("scenario").path("decision").has("executedAt"))return true;
+        }
+        return false;
+    }
+
+    private boolean stopped(BooleanSupplier cancellation){return Thread.currentThread().isInterrupted()||cancellation.getAsBoolean();}
+    private AgentResult cancelled(List<AgentStepEvent> events,Consumer<AgentStepEvent> sink,int executed){
+        return finish(events,sink,new ArrayList<>(),executed,null,AgentResult.Status.ERROR,"CANCELLED","回答已停止。已提交的仿真方案请查看大棚状态。");
+    }
+    private Map<String, Object> executeWithTimeout(final AgentTool tool, final Map<String, Object> input,final BooleanSupplier cancelled) {
         Future<Map<String, Object>> future = toolExecutor.submit(new Callable<Map<String, Object>>() {
             public Map<String, Object> call() throws Exception {
+                if(stopped(cancelled))return errorOutput("CANCELLED","回答已停止");
                 return tool.execute(input);
             }
         });
@@ -489,6 +499,7 @@ public class AgentOrchestrator {
             future.cancel(true);
             return errorOutput("STEP_TIMEOUT", "工具执行超时（" + STEP_TIMEOUT_MS + "ms）");
         } catch (InterruptedException error) {
+            future.cancel(true);
             Thread.currentThread().interrupt();
             return errorOutput("INTERRUPTED", "工具执行被中断");
         } catch (ExecutionException error) {
@@ -530,6 +541,12 @@ public class AgentOrchestrator {
         if (generalKnowledge) {
             payload.put("generalKnowledge", Boolean.TRUE);
         }
+        for(AgentStepEvent e:events){
+            if(e.getPayload().containsKey("snapshot"))payload.put("simulationContext",e.getPayload().get("snapshot"));
+            if(e.getPayload().containsKey("simulation"))payload.put("simulation",e.getPayload().get("simulation"));
+        }
+        payload.put("answerBasis",kept.isEmpty()?"MODEL_EXPLANATION":"CITED_SOURCES");
+        payload.put("citations",kept);
         payload.put("citationCount", Integer.valueOf(kept.size()));
         payload.put("steps", Integer.valueOf(executed));
         AgentStepEvent finalEvent = new AgentStepEvent("final", executed, null, finalAnswer, payload);
@@ -674,9 +691,11 @@ public class AgentOrchestrator {
         return builder.toString();
     }
 
-    private String systemPrompt() {
-        return "你是面向番茄设施种植的农业智能体。可用工具目录：" + registry.catalogJson()
+    private String systemPrompt(boolean simulationAvailable,boolean greenhouseStateAvailable) {
+        return "你是农业平台的决策助手，围绕用户选择的作物和问题回答。可用工具目录：" + registry.catalogJson(simulationAvailable,greenhouseStateAvailable)
                 + "。每一步只输出一个 JSON：{\"tool\":\"工具名\",\"input\":{...}}；"
+                + "一般交流和概念解释可直接FINALIZE；具体数值/文献/处方再检索；当前大棚先使用服务端上下文或simulation.snapshot。"
+                + "只有用户要求制定或执行仿真方案才选simulation.decide；已提交不等于执行。"
                 + "没有可用工具或信息已足够时输出 {\"tool\":\"FINALIZE\",\"input\":{}}。"
                 + "禁止输出 JSON 以外的内容。不得编造工具名。"
                 // 实测：同一问题、同一提示，模型自选查询词不同会导致漏检（一次检索漏掉"同心轮纹"型病斑，

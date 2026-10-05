@@ -256,7 +256,7 @@ try {
 
     if (-not $backendReady) {
         Write-Host '启动 Spring Boot 后端...'
-        Start-LoggedProcess -FilePath $mavenExe -ArgumentList @('spring-boot:run') -WorkingDirectory $backendRoot `
+        Start-LoggedProcess -FilePath $mavenExe -ArgumentList @('-Dmaven.test.skip=true', 'spring-boot:run') -WorkingDirectory $backendRoot `
             -LogPath (Join-Path $logRoot 'backend.log')
         if (-not (Wait-LocalPort -Port 9999 -TimeoutSeconds 120)) {
             throw "Spring Boot 后端未能在 120 秒内启动，请查看 $logRoot\backend.log。"

@@ -1,6 +1,7 @@
 import vue from '@vitejs/plugin-vue';
 import { resolve } from 'path';
-import { defineConfig, loadEnv, ConfigEnv } from 'vite';
+import { defineConfig, loadEnv, ConfigEnv,transformWithEsbuild } from 'vite';
+import ts from 'typescript';
 import vueSetupExtend from 'vite-plugin-vue-setup-extend';
 
 const pathResolve = (dir: string) => {
@@ -14,8 +15,26 @@ const alias: Record<string, string> = {
 
 const viteConfig = defineConfig((mode: ConfigEnv) => {
 	const env = loadEnv(mode.mode, process.cwd());
+    // Vite 4 recursively scans every output directory for tsconfig. On this disk old dist/lib
+    // is unreadable. Read the actual project configuration explicitly, without scanning artifacts.
+    const parsed=ts.readConfigFile(pathResolve('tsconfig.json'),ts.sys.readFile);
+    if(parsed.error)throw new Error('无法读取项目tsconfig.json');
+    const tsconfigRaw=JSON.stringify(parsed.config);
 	return {
-		plugins: [vue(), vueSetupExtend()],
+		plugins: [vue(), vueSetupExtend(),{
+            name:'agriculture-explicit-typescript',enforce:'post',
+            async transform(code,id){
+                if(id.includes('node_modules')||id.includes('type=style'))return null;
+                if(/\.[cm]?tsx?(?:$|\?)/.test(id)||id.endsWith('.vue')||id.includes('type=script'))
+                    return transformWithEsbuild(code,id,{loader:'ts',target:'esnext',tsconfigRaw,sourcemap:true});
+                return null;
+            },
+            async renderChunk(code,chunk){
+                if(mode.command!=='build')return null;
+                return transformWithEsbuild(code,chunk.fileName,{loader:'js',target:'es2020',minify:true,tsconfigRaw,sourcemap:true});
+            }
+        }],
+        esbuild:false,
 		root: process.cwd(),
 		resolve: { alias },
 		base: mode.command === 'serve' ? '/' : env.VITE_PUBLIC_PATH,
@@ -27,6 +46,7 @@ const viteConfig = defineConfig((mode: ConfigEnv) => {
 			port: env.VITE_PORT as unknown as number,
 			open: env.VITE_OPEN,
 			hmr: true,
+            watch:{ignored:['**/dist/**','**/dist-current/**','**/dist-m3*/**']},
 			proxy: {
 				'/api': {
 					//设置拦截器  拦截器格式   斜杠+拦截器名字，名字可以自己定
@@ -45,7 +65,9 @@ const viteConfig = defineConfig((mode: ConfigEnv) => {
 			},
 		},
 		build: {
-			outDir: 'dist',
+            // Fresh output avoids the old unreadable dist residue on E:.
+			outDir: process.env.AGRICULTURE_BUILD_DIR || 'dist-current',
+            emptyOutDir:false,
 			chunkSizeWarningLimit: 1500,
 			rollupOptions: {
 				output: {

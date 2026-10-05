@@ -1,5 +1,7 @@
 package com.example.Ece.config;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -26,7 +28,7 @@ public class AgriPlanProperties {
     private boolean allowPesticideDosage = false;
 
     /** 参考基线的默认推演天数。 */
-    private int defaultDays = 120;
+    private int defaultDays = HortiM3Profile.DEFAULT_DAYS;
 
     /** 单次推演的整段超时（毫秒）。必须大于上游预期最长生成时间，见 SSE emitter 的超时预算。 */
     private long timeoutMs = 240_000L;

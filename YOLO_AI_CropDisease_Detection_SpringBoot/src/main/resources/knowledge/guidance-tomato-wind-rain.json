@@ -1,0 +1,33 @@
+{
+  "source": {
+    "sourceCode": "guidance-weather-moa-fujian-2023",
+    "sourceName": "农业农村部种植业管理司：蔬菜应对强降温大风降雨天气技术指导意见（福建省农业农村厅转载）",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "http://nynct.fujian.gov.cn/ztzl/kpxj/zrzhl/202304/t20230423_6153806.htm",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "2023-04-23; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "guidance_weather_moa_fujian_2023"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "暴雨强风下的温室结构与开口管理",
+      "fieldType": "ENVIRONMENT",
+      "text": "指导按北方、南方及高海拔条件给出措施。大风来临前检查棚膜、压膜与结构，必要时关闭通风口和门，及时处理破损。仿真开窗风速约束属于工程假设，不能说指南规定了统一风速阈值。"
+    },
+    {
+      "id": 2,
+      "topic": "暴雨后的外部排水与棚内检查",
+      "fieldType": "ENVIRONMENT",
+      "text": "强降雨时检查外围沟渠和排水，防止积水进入设施；雨后复查棚体、根区湿度和植株。封闭棚内是否进水须有现场依据，不能根据室外雨量直接推断根区含水量。"
+    },
+    {
+      "id": 3,
+      "topic": "降温与设施保温能力",
+      "fieldType": "ENVIRONMENT",
+      "text": "冷空气影响时按地区和棚型采用保温等措施，并观察内部温度。设备故障需要实际检查；AI仿真可切换健康设备，但不能声称完成真实维修。该指南的2023天气过程信息不作当前预测。"
+    }
+  ]
+}

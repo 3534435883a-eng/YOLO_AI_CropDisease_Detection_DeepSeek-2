@@ -16,22 +16,22 @@
 			</div>
 			<el-form ref="roleDialogFormRef" :model="state.form" size="default" label-width="100px" :rules="rules">
 				<el-row :gutter="35">
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="账号" prop="username" style="color: #000">
 							<el-input v-model="state.form.username" placeholder="请输入账号" clearable></el-input>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="密码" prop="password">
 							<el-input v-model="state.form.password" placeholder="请输入密码" clearable></el-input>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="姓名" prop="name" style="color: #000">
 							<el-input v-model="state.form.name" placeholder="请输入姓名" clearable></el-input>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="性别" prop="sex">
 							<el-select v-model="state.form.sex" placeholder="请选择性别" style="width: 100%">
 								<el-option label="男" value="男" />
@@ -39,17 +39,17 @@
 							</el-select>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="Email" prop="email">
 							<el-input v-model="state.form.email" placeholder="请输入Email" clearable></el-input>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="手机号码" prop="tel">
 							<el-input v-model="state.form.tel" placeholder="请输入手机号码" clearable></el-input>
 						</el-form-item>
 					</el-col>
-					<el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="mb20">
+					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb20">
 						<el-form-item label="角色" prop="role">
 							<el-select v-model="state.form.role" value-key="id" placeholder="请选择注册角色" style="width: 100%">
 								<el-option v-for="item in option" :key="item.id" :label="item.label" :value="item.role" />
@@ -223,40 +223,54 @@ defineExpose({
 
 <style scoped lang="scss">
 :deep(.dia) {
-	width: 800px;
-	height: 650px;
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
+	width: min(720px, calc(100vw - 40px));
+	max-height: 88vh;
+	border: 1px solid var(--agri-line);
+	border-radius: 8px;
+	box-shadow: 0 18px 50px rgba(52, 39, 33, .16);
+	.el-dialog__header { padding: 20px 24px 14px; border-bottom: 1px solid var(--agri-line); }
+	.el-dialog__title { color: var(--agri-wood); font: 600 21px/1.3 Georgia, 'Songti SC', 'SimSun', serif; }
+	.el-dialog__body { padding: 14px 24px 6px !important; }
+	.el-dialog__footer { padding: 12px 24px 20px; border-top: 1px solid var(--agri-line); }
 }
 
 .el-form {
-	width: 80%;
-	margin-left: 10%;
+	width: 100%;
+	margin: 0 auto;
+	:deep(.el-form-item__label) { color: var(--agri-ink); font-weight: 500; }
 }
 
 .imgs {
-	font-size: 28px;
-	color: hsl(215, 8%, 58%);
-	width: 120px;
-	height: 120px;
+	font-size: 22px;
+	color: var(--agri-olive);
+	width: 72px;
+	height: 72px;
 	display: flex;
 	justify-content: center;
 	align-items: center;
-	border: 1px dashed #d9d9d9;
-	border-radius: 6px;
+	border: 1px dashed var(--agri-line);
+	border-radius: 50%;
 	cursor: pointer;
-	margin-left: 320px;
-	margin-bottom: 20px;
+	margin: 2px auto 14px;
+	background: #f6f1e7;
 }
 
-.avatar-uploader .el-upload:hover {
-	border-color: #409eff;
+.avatar-uploader :deep(.el-upload:hover) {
+	color: var(--agri-terracotta);
 }
 .avatar {
-	width: 120px;
-	height: 120px;
+	width: 72px;
+	height: 72px;
 	display: block;
+	border-radius: 50%;
+	object-fit: cover;
+}
+
+.dialog-footer { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 600px) {
+	:deep(.dia .el-dialog__body) { padding: 12px 16px 4px !important; }
+	:deep(.dia .el-dialog__header), :deep(.dia .el-dialog__footer) { padding-left: 16px; padding-right: 16px; }
+	.el-form :deep(.el-col) { flex: 0 0 100%; max-width: 100%; }
 }
 </style>

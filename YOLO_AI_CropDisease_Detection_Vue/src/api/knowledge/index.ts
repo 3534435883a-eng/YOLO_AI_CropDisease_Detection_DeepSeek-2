@@ -34,6 +34,41 @@ export interface VisionMap {
 	items?: VisionClassMapItem[];
 }
 
+export interface LocalKnowledgeDocument {
+	id: string;
+	fileName: string;
+	category: string;
+	folder: string;
+	sizeBytes: number;
+}
+
+export interface LocalKnowledgeLibrary {
+	available: boolean;
+	count: number;
+	documents: LocalKnowledgeDocument[];
+}
+
+export interface KnowledgeSourceItem {
+	sourceCode?: string;
+	sourceName?: string;
+	sourceType?: string;
+	authorityLevel?: number;
+	version?: string;
+	url?: string | null;
+	licenseNote?: string | null;
+	localDocument?: {
+		id: string;
+		fileName: string;
+		sizeBytes: number;
+		sha256: string;
+		reviewedAt: string;
+		/** File is present with the expected size; its hash is checked when opened. */
+		available: boolean;
+	};
+	summaryCount?: number;
+	reviewedSummaries?: { id: number; topic: string; fieldType: string; text: string }[];
+}
+
 /** 后端所有控制器统一返回 {code,msg,data} 信封，这里只取 data。 */
 function unwrap<T>(response: unknown): T {
 	if (response && typeof response === 'object' && ('code' in response || 'data' in response)) {
@@ -44,6 +79,30 @@ function unwrap<T>(response: unknown): T {
 
 export const getVisionClassMap = async (): Promise<VisionMap> => {
 	return unwrap<VisionMap>(await request.get('/api/ai/knowledge/vision-map'));
+};
+
+export const getLocalKnowledgeLibrary = async (): Promise<LocalKnowledgeLibrary> => {
+	return unwrap<LocalKnowledgeLibrary>(await request.get('/api/ai/knowledge/library'));
+};
+
+export const getKnowledgeSources = async (): Promise<KnowledgeSourceItem[]> => {
+	return unwrap<KnowledgeSourceItem[]>(await request.get('/api/ai/knowledge/sources'));
+};
+
+/** Request a single PDF through Axios so the existing Authorization header is preserved. */
+export const getLocalPdfBlob = async (id: string): Promise<Blob> => {
+	return (await request.get(`/api/ai/knowledge/library/${encodeURIComponent(id)}/content`, {
+		responseType: 'blob',
+		headers: { Accept: 'application/pdf' },
+	})) as Blob;
+};
+
+/** The server verifies the archived original against the curated source fingerprint. */
+export const getSourcePdfBlob = async (sourceCode: string): Promise<Blob> => {
+	return (await request.get(`/api/ai/knowledge/sources/${encodeURIComponent(sourceCode)}/content`, {
+		responseType: 'blob',
+		headers: { Accept: 'application/pdf' },
+	})) as Blob;
 };
 
 export const MATCH_RULE_LABELS: Record<string, string> = {

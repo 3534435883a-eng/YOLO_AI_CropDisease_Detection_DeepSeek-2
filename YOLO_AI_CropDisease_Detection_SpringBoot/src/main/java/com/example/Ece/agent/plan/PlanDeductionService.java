@@ -1,5 +1,7 @@
 package com.example.Ece.agent.plan;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.alibaba.fastjson.JSON;
 import com.example.Ece.config.AgriPlanProperties;
 import com.example.Ece.dto.ai.AiChatResponse;
@@ -36,7 +38,7 @@ public class PlanDeductionService {
     private static final Logger log = LoggerFactory.getLogger(PlanDeductionService.class);
 
     /** 默认种子。固定值让"同一份农情跑两次"可对比；要变化由调用方显式传。 */
-    public static final long DEFAULT_SEED = 20260928L;
+    public static final long DEFAULT_SEED = 20250419L;
 
     private final DeepSeekService deepSeekService;
     private final AgriPlanBaseline baselineCalculator;
@@ -199,7 +201,8 @@ public class PlanDeductionService {
         payload.put("highTemperatureMinutes", Long.valueOf(baseline.getHighTemperatureMinutes()));
         // 这句话必须随数值一起下发，且要能被界面显著展示：
         // 它是这份数值唯一没说谎的前提。
-        payload.put("scopeNote", "固定标准情景基线，不采用你提供的农情输入，不是对你棚况的预测");
+        payload.put("profile", HortiM3Profile.metadata());
+        payload.put("scopeNote", "Horti-M3 2025 / CK / 广辉201 参数参考；252 m² 全试验区规模模拟，不是 CK 实测汇总。未导入原始观测，作物和控制参数未校准；不采用你的农情输入，不是对你棚况的预测");
         // 窗口不足的解释（利润为负时非 null）。界面旁边就是那个负利润数字，
         // 不解释的话，看到的人只会得出一个反向结论。
         payload.put("windowNote", baseline.getWindowNote());

@@ -1,0 +1,27 @@
+{
+  "source": {
+    "sourceCode": "paper-feedback-smolenova-2025",
+    "sourceName": "Smoleňová等：Development of a tomato functional–structural plant model for digital twin applications（in silico Plants, 2025）",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "https://doi.org/10.1093/insilicoplants/diaf022",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "2025; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "paper_feedback_smolenova_2025"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "番茄三维模型与观测状态同步",
+      "fieldType": "ENVIRONMENT",
+      "text": "研究结合气候、形态与观测，利用株高校准同步虚拟植株。热时间驱动器官发育可作为形态机制参考；三维动画应由同一模型状态驱动，视觉效果不能作为计算精度证据。"
+    },
+    {
+      "id": 2,
+      "topic": "数字孪生模型的适用范围",
+      "fieldType": "ENVIRONMENT",
+      "text": "论文模型和参数有具体品种及幼株条件。M3广辉201后续生育阶段不能直接沿用其有效性结论；缺少叶面积、器官质量或结果观测时，相关显示保持未校准模型参考。"
+    }
+  ]
+}

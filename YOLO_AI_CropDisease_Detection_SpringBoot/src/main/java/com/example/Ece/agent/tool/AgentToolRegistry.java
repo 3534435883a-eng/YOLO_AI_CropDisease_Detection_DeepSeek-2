@@ -42,9 +42,15 @@ public class AgentToolRegistry {
     }
 
     public String catalogJson() {
+        return catalogJson(true, true);
+    }
+
+    public String catalogJson(boolean simulationAvailable, boolean greenhouseStateAvailable) {
         StringBuilder builder = new StringBuilder("[");
         boolean first = true;
         for (AgentTool tool : tools.values()) {
+            if (!simulationAvailable && tool.name().startsWith("simulation.")) continue;
+            if (!greenhouseStateAvailable && "platform.greenhouseState".equals(tool.name())) continue;
             if (!first) {
                 builder.append(",");
             }

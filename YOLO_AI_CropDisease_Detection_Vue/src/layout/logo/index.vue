@@ -1,10 +1,10 @@
 <template>
 	<div class="layout-logo" v-if="setShowLogo" @click="onThemeConfigChange">
-		<img :src="logoMini" class="layout-logo-medium-img" />
-		<!-- <span>{{ themeConfig.globalTitle }}</span> -->
+		<div class="brand-mark" aria-hidden="true">禾</div>
+		<div class="brand-copy"><strong>禾序</strong><span>农业智能体</span></div>
 	</div>
 	<div class="layout-logo-size" v-else @click="onThemeConfigChange">
-		<img :src="logoMini" class="layout-logo-size-img" />
+		<div class="brand-mark" aria-label="禾序">禾</div>
 	</div>
 </template>
 
@@ -13,7 +13,6 @@ import { computed } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useThemeConfig } from '/@/stores/themeConfig';
 // import logoMini from '/@/assets/logo-mini.svg';
-import logoMini from '/@/assets/logo.png';
 
 // 定义变量内容
 const storesThemeConfig = useThemeConfig();
@@ -34,43 +33,27 @@ const onThemeConfigChange = () => {
 <style scoped lang="scss">
 .layout-logo {
 	width: 220px;
-	height: 50px;
+	height: 76px;
 	display: flex;
 	align-items: center;
-	justify-content: center;
-	box-shadow: rgb(0 21 41 / 2%) 0px 1px 4px;
-	color: var(--el-color-primary);
-	font-size: 16px;
+	justify-content: flex-start;
+	gap: 11px;
+	padding: 0 22px;
+	border-bottom: 1px solid #ded3c2;
+	color: #493e33;
 	cursor: pointer;
-	animation: logoAnimation 0.3s ease-in-out;
-	span {
-		white-space: nowrap;
-		display: inline-block;
-	}
-	&:hover {
-		span {
-			color: var(--color-primary-light-2);
-		}
-	}
-	&-medium-img {
-		width: 40px;
-		margin-right: 10px;
-	}
+	.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #9b8668; color: #96462f; font-family: Georgia, serif; font-size: 20px; }
+	.brand-copy { display: flex; flex-direction: column; gap: 2px; }
+	.brand-copy strong { font-family: "Noto Serif SC", "Songti SC", serif; font-size: 19px; font-weight: 600; letter-spacing: 0.08em; }
+	.brand-copy span { color: #786b5b; font-size: 11px; letter-spacing: 0.08em; }
 }
 .layout-logo-size {
 	width: 100%;
-	height: 50px;
+	height: 76px;
 	display: flex;
+	align-items: center;
+	justify-content: center;
 	cursor: pointer;
-	animation: logoAnimation 0.3s ease-in-out;
-	&-img {
-		width: 20px;
-		margin: auto;
-	}
-	&:hover {
-		img {
-			animation: logoAnimation 0.3s ease-in-out;
-		}
-	}
+	.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; border: 1px solid #9b8668; color: #96462f; font-family: Georgia, serif; font-size: 20px; }
 }
 </style>

@@ -17,7 +17,7 @@ export const useThemeConfig = defineStore('themeConfig', {
 			 * 全局主题
 			 */
 			// 默认 primary 主题颜色
-			primary: '#409eff',
+			primary: '#96462f',
 			// 是否开启深色模式
 			isIsDark: false,
 
@@ -25,9 +25,9 @@ export const useThemeConfig = defineStore('themeConfig', {
 			 * 顶栏设置
 			 */
 			// 默认顶栏导航背景颜色
-			topBar: '#ffffff',
+			topBar: '#fcf8ef',
 			// 默认顶栏导航字体颜色
-			topBarColor: '#000000',
+			topBarColor: '#352d27',
 			// 是否开启顶栏背景颜色渐变
 			isTopBarColorGradual: false,
 
@@ -35,11 +35,11 @@ export const useThemeConfig = defineStore('themeConfig', {
 			 * 菜单设置
 			 */
 			// 默认菜单导航背景颜色
-			menuBar: '#d1e4f8',
+			menuBar: '#e7dccb',
 			// 默认菜单导航字体颜色
-			menuBarColor: '#000000',
+			menuBarColor: '#4c4237',
 			// 默认菜单高亮背景色
-			menuBarActiveColor: '#fff',
+			menuBarActiveColor: '#dce5d2',
 			// 是否开启菜单背景颜色渐变
 			isMenuBarColorGradual: false,
 
@@ -136,9 +136,9 @@ export const useThemeConfig = defineStore('themeConfig', {
 			 * 全局网站标题 / 副标题
 			 */
 			// 网站主标题（菜单导航、浏览器当前网页标题）
-			globalTitle: '智慧农业',
+			globalTitle: '禾序 · 农业智能体',
 			// 网站副标题（登录页顶部文字）
-			globalViceTitle: '智慧农业',
+			globalViceTitle: '禾序 · 农业智能体',
 			// 网站副标题（登录页顶部文字）
 			globalViceTitleMsg: '专注作物病害检测',
 			// 默认初始语言，可选值"<zh-cn|en|zh-tw>"，默认 zh-cn

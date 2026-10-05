@@ -1,0 +1,105 @@
+{
+  "reviewedAt": "2026-09-29",
+  "sourceCount": 6,
+  "entryCount": 21,
+  "records": [
+    {
+      "resource": "papers-tomato-environment-control.json",
+      "sourceCode": "paper-niu2026-environment-control",
+      "entries": 4,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/面向常规控制器的番茄日光温室环境最优控制_牛通.pdf",
+        "sha256": "27f284c221605d6a0bf2c3f684e19fd50fc45dcdee437eeddaa1ea1cd262b4ba",
+        "documentId": "6c3ba01db49c46acdf23c703c34e1fa4446995bb594b89078faca87df5a4a7ce",
+        "sizeBytes": 1500679,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    },
+    {
+      "resource": "papers-tomato-supplemental-light.json",
+      "sourceCode": "paper-wang2026-supplemental-light",
+      "entries": 4,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/不同补光光质对温室番茄生长及产量和品质的影响_王翠丽.pdf",
+        "sha256": "312fb70fa5556aa158cb2da822b60b96550001682da521973f5da4e285920a25",
+        "documentId": "f815f57dd29a6478694233276353e4740f4546c0b6ddbd1c34de1e934af39a1e",
+        "sizeBytes": 1131537,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    },
+    {
+      "resource": "papers-tomato-mulch-co2.json",
+      "sourceCode": "paper-sun2026-mulch-co2",
+      "entries": 3,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/不同地面覆盖方式对日光温室内二氧化碳浓度与番茄生长的影响_孙勤.pdf",
+        "sha256": "ba97647c48e7da9896ee1bbf309b5ec1187aa3c177ff32aaa54375a141aa798e",
+        "documentId": "eac25de4413799f49a12cd835ff541dc9d8aae4680daf125c29908dc80f3651e",
+        "sizeBytes": 1568706,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    },
+    {
+      "resource": "papers-tomato-soil-intercrop.json",
+      "sourceCode": "paper-zhang2016-soil-intercrop",
+      "entries": 3,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/不同间作模式对温室连作番茄产量、土壤微生物和酶的影响_张海春.pdf",
+        "sha256": "82f43130e1791614aa13b670ba5615d0ecdd4091e551c0b4fd1bd92b9b40f67d",
+        "documentId": "00ee16eb4585a9df9de3c4e97b628e376fb97742ccec115dca4df5f8ed242064",
+        "sizeBytes": 270526,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    },
+    {
+      "resource": "papers-tomato-maize-whitefly.json",
+      "sourceCode": "paper-wei2022-maize-whitefly",
+      "entries": 4,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/番茄玉米间套作对烟粉虱的屏障效应及控制番茄黄化曲叶病毒病的效果_魏佩瑶.pdf",
+        "sha256": "8e9ff31d31caa30b7a1b23a0f2216ec98e79558a738f95fea974b058ef56b15b",
+        "documentId": "d66ef82b14e79ee5621ceb63bd74700a942751ea61173a23b8d1227fae7ccf71",
+        "sizeBytes": 470720,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    },
+    {
+      "resource": "papers-tomato-foliar-calcium.json",
+      "sourceCode": "paper-li2026-foliar-calcium",
+      "entries": 3,
+      "localDocument": {
+        "relativePath": "用户补充_20260929/模型与生长参考/叶面喷施纳米碳酸钙对番茄生长、品质及钙吸收的影响_李文慧.pdf",
+        "sha256": "c9cb294541b5bc2e640380b895136636aa994fd58593c9a3120d1408769f0bfa",
+        "documentId": "eef8bbe6dd72c21f02dd174898f973b446e420d12ad9b589a31d71048a52d8dd",
+        "sizeBytes": 1109250,
+        "reviewedAt": "2026-09-29"
+      },
+      "activationStatus": "RUNTIME_INDEXED"
+    }
+  ],
+  "runtimeStatus": "INDEXED",
+  "activatedAt": "2026-09-29T14:40:47.738913+00:00",
+  "runtimeSnapshot": {
+    "chunkCount": 480,
+    "vectorCount": 480,
+    "sourceCount": 35,
+    "indexLoadedAtMillis": 1790692741147,
+    "indexVectorSearchAvailable": true
+  },
+  "previousSnapshot": {
+    "chunkCount": 459,
+    "vectorCount": 459,
+    "sourceCount": 29
+  },
+  "build": {
+    "task": "maven compile",
+    "result": "SUCCESS",
+    "testsAdded": false,
+    "testsRun": false
+  }
+}

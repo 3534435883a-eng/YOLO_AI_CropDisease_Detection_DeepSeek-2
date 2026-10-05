@@ -48,6 +48,11 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 		},
 		children: [
 			{
+				path: '/modelCalibration', name: 'modelCalibration',
+				component: () => import('/@/views/modelCalibration/index.vue'),
+				meta: { title: '模型校准', isHide: false, isKeepAlive: false, roles: ['admin','common','others'], icon: 'iconfontjs icon-znws' },
+			},
+			{
 				path: '/homePage',
 				name: 'homePage',
 				component: () => import('/@/views/homePage/index.vue'),
@@ -60,21 +65,6 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					isIframe: false,
 					roles: ['admin', 'common', 'others'],
 					icon: 'iconfontjs icon-sy',
-				},
-			},
-			{
-				path: '/dataView',
-				name: 'dataView',
-				component: () => import('/@/views/dataView/index.vue'),
-				meta: {
-					title: '数据大屏',
-					isLink: '',
-					isHide: false,
-					isKeepAlive: true,
-					isAffix: false,
-					isIframe: false,
-					roles: ['admin', 'common', 'others'],
-					icon: 'iconfontjs icon-sj',
 				},
 			},
 			{
@@ -115,7 +105,7 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 					title: '数字孪生温室',
 					isLink: '',
 					isHide: false,
-					isKeepAlive: true,
+					isKeepAlive: false,
 					isAffix: false,
 					isIframe: false,
 					roles: ['admin', 'common', 'others'],
@@ -143,6 +133,21 @@ export const dynamicRoutes: Array<RouteRecordRaw> = [
 				component: () => import('/@/views/visionCoverage/index.vue'),
 				meta: {
 					title: '视觉—知识覆盖',
+					isLink: '',
+					isHide: false,
+					isKeepAlive: true,
+					isAffix: false,
+					isIframe: false,
+					roles: ['admin', 'common', 'others'],
+					icon: 'iconfontjs icon-bingchonghai-1haichong',
+				},
+			},
+			{
+				path: '/referenceLibrary',
+				name: 'referenceLibrary',
+				component: () => import('/@/views/referenceLibrary/index.vue'),
+				meta: {
+					title: '文献与来源',
 					isLink: '',
 					isHide: false,
 					isKeepAlive: true,

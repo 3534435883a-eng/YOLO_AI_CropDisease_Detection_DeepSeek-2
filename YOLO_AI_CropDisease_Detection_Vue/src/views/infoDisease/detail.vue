@@ -9,7 +9,9 @@
 		>
 			<div class="disease-detail">
 				<div class="detail-header">
+					<p class="eyebrow">DISEASE FIELD NOTE · {{ state.disease.cropType || '知识条目' }}</p>
 					<div class="title">{{ state.disease.name }}</div>
+					<p class="detail-subtitle">病害表现与防治信息 · 用于知识核对参考</p>
 				</div>
 				<div class="detail-content">
 					<div class="content-left">
@@ -85,74 +87,81 @@ defineExpose({ openDialog });
 
 <style scoped lang="scss">
 .disease-detail {
-	padding: 0 20px 20px 20px;
+	padding: 8px 20px 22px;
 	.detail-header {
-		text-align: center;
-		margin-bottom: 25px;
-		margin-top: -10px;
+		text-align: left;
+		margin-bottom: 22px;
+		padding-bottom: 15px;
+		border-bottom: 1px solid #e8dfd4;
+		.eyebrow { margin:0 0 7px; color:#9a755a; font-size:10px; font-weight:700; letter-spacing:.12em; }
 		.title {
-			font-size: 32px;
-			font-weight: bold;
-			color: #303133;
+			font:600 28px/1.3 Georgia,'Songti SC',serif;
+			color:#382b25;
 		}
+		.detail-subtitle { margin:5px 0 0; color:#81766c; font-size:12px; }
 	}
 	.detail-content {
 		display: flex;
-		gap: 30px;
+		gap: 24px;
 		.content-left {
 			flex: 1;
 			.section {
-				margin-bottom: 25px;
+				margin-bottom: 18px;
 				.section-title {
-					font-size: 20px;
-					font-weight: bold;
-					color: #303133;
-					margin-bottom: 15px;
+					font-size: 15px;
+					font-weight: 650;
+					color: #49372c;
+					margin-bottom: 9px;
 					display: flex;
 					align-items: center;
 					.el-icon {
 						margin-right: 8px;
 						font-size: 22px;
-						color: #409EFF;
+							color: #a15d40;
 					}
 				}
 				.section-content {
-					font-size: 16px;
-					color: #606266;
-					line-height: 2;
+					font-size: 14px;
+					color: #65594f;
+					line-height: 1.8;
 					text-align: justify;
-					padding: 20px;
-					background: #f5f7fa;
-					border-radius: 8px;
+					padding: 14px 16px;
+					background: #f8f4ed;
+					border:1px solid #ebe1d5;
+					border-radius: 3px;
 				}
 			}
 		}
 		.content-right {
-			width: 450px;
+			width: min(38%, 380px);
 			.section {
 				.section-title {
-					font-size: 20px;
-					font-weight: bold;
-					color: #303133;
-					margin-bottom: 15px;
+					font-size: 15px;
+					font-weight: 650;
+					color: #49372c;
+					margin-bottom: 9px;
 					display: flex;
 					align-items: center;
 					.el-icon {
 						margin-right: 8px;
 						font-size: 22px;
-						color: #409EFF;
+							color: #a15d40;
 					}
 				}
 				.image-content {
 					display: flex;
 					justify-content: center;
 					align-items: center;
-					padding: 20px;
-					background: #f5f7fa;
-					border-radius: 8px;
+					padding: 12px;
+					background: #f8f4ed;
+					border:1px solid #ebe1d5;
+					border-radius: 3px;
+					:deep(.el-image) { width:100% !important; height:360px !important; border-radius:2px !important; }
 				}
 			}
 		}
 	}
 }
-</style> 
+:deep(.el-dialog) { max-width:calc(100vw - 28px); border-radius:4px; background:#fffdf9; }
+@media(max-width:850px) { .disease-detail .detail-content { flex-direction:column; }.disease-detail .detail-content .content-right { width:100%; }.disease-detail .detail-content .content-right .section .image-content :deep(.el-image) { height:min(60vw,360px) !important; } }
+</style>

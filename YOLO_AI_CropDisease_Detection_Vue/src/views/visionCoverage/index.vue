@@ -174,38 +174,38 @@ onMounted(load);
 .vision-coverage {
 	min-height: calc(100vh - 60px);
 	// 底部留白：避让右下角既有全局浮窗（"番茄智能体"状态卡），否则会压住表格最后几行。
-	padding: 24px 24px 112px;
-	background: #f3f7f2;
-	color: #1c2b22;
+	padding: 24px 28px 112px;
+	background: #f7f3eb;
+	color: #382b25;
 }
-.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 4px 0 20px; border-bottom: 1px solid #d7e3d9; }
-.eyebrow { margin: 0 0 6px; color: #708277; font-size: 11px; font-weight: 650; }
-h2, h3 { margin: 0; } h2 { font-size: 27px; } h3 { font-size: 17px; }
-.header-copy { max-width: 820px; margin: 7px 0 0; color: #617168; font-size: 13px; line-height: 1.7; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; padding: 4px 0 20px; border-bottom: 1px solid #e3d8c9; }
+.eyebrow { margin: 0 0 6px; color: #8a7665; font-size: 10px; font-weight: 700; letter-spacing:.12em; }
+h2, h3 { margin: 0; } h2 { color:#382b25; font:600 27px/1.25 Georgia,'Songti SC',serif; } h3 { font-size: 17px; }
+.header-copy { max-width: 820px; margin: 7px 0 0; color: #756b62; font-size: 13px; line-height: 1.7; }
 .header-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
-.strong { color: #223428; font-weight: 650; }
+.strong { color: #80503b; font-weight: 650; }
 .overview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0 14px; }
-.panel { padding: 17px; margin-bottom: 14px; border: 1px solid #dce8df; border-radius: 8px; background: #fff; }
-.metric-card { min-height: 128px; padding: 15px; border: 1px solid #dce8df; border-radius: 8px; background: #fff; }
-.metric-label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #627369; font-size: 13px; }
-.metric-card strong { display: block; margin: 20px 0 6px; font-size: 25px; font-weight: 650; }
-.metric-card p { margin: 0; color: #809087; font-size: 12px; line-height: 1.6; }
+.panel { padding: 18px; margin-bottom: 14px; border: 1px solid #e5dbcf; border-radius: 3px; background: #fffdf9; }
+.metric-card { min-height: 128px; padding: 16px; border: 1px solid #e5dbcf; border-radius: 3px; background: #fffdf9; }
+.metric-label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: #75665a; font-size: 13px; }
+.metric-card strong { display: block; margin: 20px 0 6px; color:#49372c; font:600 26px Georgia,serif; }
+.metric-card p { margin: 0; color: #8a7d71; font-size: 12px; line-height: 1.6; }
 .panel-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
 .crop-list { display: grid; gap: 10px; }
 .crop-row { display: grid; grid-template-columns: 64px 1fr 300px; align-items: center; gap: 12px; }
 .crop-name { font-size: 13px; font-weight: 650; }
-.crop-bar { height: 10px; border-radius: 5px; background: #eef2ef; overflow: hidden; }
-.bar-covered { height: 100%; background: #2d8a54; }
-.crop-stat { color: #617168; font-size: 12px; }
-.crop-stat b { color: #223428; } .crop-stat b.gap { color: #b07316; }
+.crop-bar { height: 8px; border-radius: 2px; background: #eee8df; overflow: hidden; }
+.bar-covered { height: 100%; background: #818a53; }
+.crop-stat { color: #756b62; font-size: 12px; }
+.crop-stat b { color: #49372c; } .crop-stat b.gap { color: #a66635; }
 .detail-table { width: 100%; }
-.covered-text { color: #2d8a54; font-weight: 600; }
-.gap-text { color: #b07316; font-weight: 600; }
+.covered-text { color: #697849; font-weight: 600; }
+.gap-text { color: #a66635; font-weight: 600; }
 .muted { color: #84928a; }
 .evidence-text { color: #5c6d63; font-size: 12px; line-height: 1.6; }
 .source-link { margin-left: 6px; color: #2d8a54; font-size: 12px; }
 .notes { margin: 0; padding-left: 18px; color: #5c6d63; font-size: 13px; line-height: 1.85; }
-.notes code { padding: 1px 5px; border-radius: 4px; background: #eef3ef; color: #3d4f44; font-size: 12px; }
+.notes code { padding: 1px 5px; border-radius: 2px; background: #f1ebe2; color: #5d4a3b; font-size: 12px; }
 @media (max-width: 1180px) {
 	.overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 	.crop-row { grid-template-columns: 64px 1fr; }

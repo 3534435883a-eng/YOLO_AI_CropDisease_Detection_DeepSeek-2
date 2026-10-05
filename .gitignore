@@ -36,3 +36,13 @@ ffmpeg-7.1-full_build/
 # 该工具自带的 .gitignore 已声明 "These are local to each machine and should not be committed"，
 # 因此整目录忽略，而不是只提交它的 .gitignore。
 .codegraph/
+
+# Local planning, screenshots for debugging, and uploaded private source documents
+.planning/
+docs/artifacts/
+docs/research/local-paper-extracts*/
+农业论文/用户补充_20260929/
+**/.env
+**/.env.*
+!**/.env.example
+**/*credentials*.local*

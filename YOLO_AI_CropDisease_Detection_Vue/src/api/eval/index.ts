@@ -9,6 +9,7 @@
  *    调用方必须在界面上标注「示例数据」。
  */
 import axios, { AxiosInstance } from 'axios';
+import { HORTI_M3_PROFILE } from '/@/views/digitalTwin/hortiM3Profile';
 
 /* -------------------------------------------------------------------------- */
 /*                                  类型定义                                   */
@@ -29,7 +30,7 @@ export type StrategyCode =
 
 export type DiseaseCode = 'BOTRYTIS' | 'LATE_BLIGHT' | 'POWDERY_MILDEW' | 'LEAF_MOLD';
 
-export type DeviceCode = 'IRRIGATION' | 'VENTILATION' | 'SUPPLEMENTAL_LIGHT' | 'SHADE' | 'CO2_SUPPLY';
+export type DeviceCode = 'IRRIGATION' | 'VENTILATION' | 'SUPPLEMENTAL_LIGHT' | 'SHADE' | 'CO2_SUPPLY' | 'HEATING' | 'ROOF_VENT' | 'EXHAUST_FAN' | 'COOLING_PAD' | 'CIRCULATION_FAN';
 
 export type StageCode = 'SEEDLING' | 'FLOWERING' | 'FRUIT_SET' | 'FRUIT_GROWTH' | 'MATURITY' | string;
 
@@ -51,6 +52,11 @@ export interface DeviceState {
 	SUPPLEMENTAL_LIGHT: boolean;
 	SHADE: boolean;
 	CO2_SUPPLY: boolean;
+	HEATING: boolean;
+	ROOF_VENT: boolean;
+	EXHAUST_FAN: boolean;
+	COOLING_PAD: boolean;
+	CIRCULATION_FAN: boolean;
 	[key: string]: boolean;
 }
 
@@ -188,7 +194,7 @@ export const DISEASE_LABELS: Record<string, string> = {
 	LEAF_MOLD: '叶霉病',
 };
 
-export const DEVICE_ORDER: DeviceCode[] = ['IRRIGATION', 'VENTILATION', 'SUPPLEMENTAL_LIGHT', 'SHADE', 'CO2_SUPPLY'];
+export const DEVICE_ORDER: DeviceCode[] = ['IRRIGATION', 'VENTILATION', 'SUPPLEMENTAL_LIGHT', 'SHADE', 'CO2_SUPPLY', 'HEATING', 'ROOF_VENT', 'EXHAUST_FAN', 'COOLING_PAD', 'CIRCULATION_FAN'];
 
 export const DEVICE_LABELS: Record<string, string> = {
 	IRRIGATION: '灌溉',
@@ -196,6 +202,11 @@ export const DEVICE_LABELS: Record<string, string> = {
 	SUPPLEMENTAL_LIGHT: '补光',
 	SHADE: '遮阳',
 	CO2_SUPPLY: 'CO₂补充',
+	HEATING: '加热',
+	ROOF_VENT: '屋窗',
+	EXHAUST_FAN: '排风',
+	COOLING_PAD: '湿帘',
+	CIRCULATION_FAN: '环流',
 };
 
 export const STAGE_LABELS: Record<string, string> = {
@@ -221,14 +232,19 @@ export const EMPTY_DEVICES: DeviceState = {
 	SUPPLEMENTAL_LIGHT: false,
 	SHADE: false,
 	CO2_SUPPLY: false,
+	HEATING: false,
+	ROOF_VENT: false,
+	EXHAUST_FAN: false,
+	COOLING_PAD: false,
+	CIRCULATION_FAN: false,
 };
 
 /** 默认批次号；父级路由可通过 /digitalTwin/:batchId 覆盖 */
-export const DEFAULT_BATCH_ID = 'TOMATO-WINTER-2026A';
+export const DEFAULT_BATCH_ID = 'HORTI-M3-2025-CK-GUANGHUI201';
 
-export const DEFAULT_SEED = 20260921;
+export const DEFAULT_SEED = 20250419;
 
-export const DEFAULT_DAYS = 120;
+export const DEFAULT_DAYS = HORTI_M3_PROFILE.days;
 
 /* -------------------------------------------------------------------------- */
 /*                                 axios 实例                                  */
@@ -402,23 +418,23 @@ const errorText = (e: unknown): string => {
  *      gdd 10~15 / 温度 20~25℃ / 湿度 70% / CO₂ 530~640ppm / PPFD 490~620 /
  *      土壤 61~63%；第 1 天累计成本 ≈ 61 元。
  *
- * 经济量级参考后端实测（120 天）：成本 3.9k~8.4k 元、利润 −1.5k~+3.2k 元、
+ * 旧示例系数尚未用 M3 原始数据校准；经济输出不代表 M3 实测收益。
  *      P3 产量 ≈ 3.86 t（后端 3,647.6 kg）。为此成本计入了人工、折旧、管理
  *      与种苗摊销——若只计水电，「不干预」反而会显得最赚钱，基准对比就失去意义。
  */
 
-const START_MS = Date.UTC(2026, 8, 21, 6, 0, 0); // 2026-09-21T06:00
-const PLANT_DENSITY = 2.2; // 株/m²
-const HOUSE_AREA_M2 = 338; // 26m × 13m
-const PLANT_COUNT = Math.round(PLANT_DENSITY * HOUSE_AREA_M2);
+const START_MS = Date.UTC(2025, 3, 19, 23, 30, 0); // 2026-09-21T06:00
+const HOUSE_AREA_M2 = HORTI_M3_PROFILE.experiment.totalArea; // 全试验区面积，非全棚面积
+const PLANT_COUNT = HORTI_M3_PROFILE.experiment.plantCount; // 全试验区规模，不是 CK 样本量
+const PLANT_DENSITY = PLANT_COUNT / HOUSE_AREA_M2;
 const FRUIT_DRY_RATIO = 0.055; // 鲜果干物质率
-const TOMATO_PRICE_YUAN_PER_KG = 3.0; // 产地批发价（对齐后端实测经济量级）
+const TOMATO_PRICE_YUAN_PER_KG = 3.0; // 产地批发价（假设价格，非 M3 实测）
 const DAILY_HARVEST_FRACTION = 0.048; // 成熟后每日采收比例（占当时挂果量）
 const WATER_PRICE_YUAN_PER_M3 = 4.0;
 const ENERGY_PRICE_YUAN_PER_KWH = 0.65;
-const HEAT_KWH_PER_C = 4.0; // 加温能耗系数：kWh / (℃·日)，双层膜温室
+const HEAT_KWH_PER_C = 4.0 * HORTI_M3_PROFILE.greenhouse.length * HORTI_M3_PROFILE.greenhouse.width / 338; // 加温能耗系数：kWh / (℃·日)，双层膜温室
 const BASE_DAILY_COST_YUAN = 0.35; // 待机成本（与契约样例 day1 costYuan 同量级）
-const MANAGEMENT_COST_YUAN_PER_DAY = 22.0; // 人工 + 折旧 + 管理，按 338 m² 温室折算
+const MANAGEMENT_COST_YUAN_PER_DAY = 22.0 * HOUSE_AREA_M2 / 338; // 人工 + 折旧 + 管理，由旧示例按试验区面积折算，非实测
 const ESTABLISH_COST_TOTAL_YUAN = PLANT_COUNT * 0.9 + 400; // 种苗 + 基质/底肥，定植后 30 天摊销
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -545,7 +561,7 @@ interface DemoRun {
 	agg: DemoAggregate;
 }
 
-/** 单策略 120 天日尺度推演（示例数据） */
+/** 单策略 M3 观测窗口的日尺度示例（不等于后端半小时仿真）（示例数据） */
 const simulateStrategy = (p: DemoProfile, days: number, seed: number): DemoRun => {
 	const rnd = mulberry32(seed);
 	const points: EvalDayPoint[] = [];
@@ -647,7 +663,8 @@ const simulateStrategy = (p: DemoProfile, days: number, seed: number): DemoRun =
 
 		// —— 加温（各策略最低温度设定不同，能耗计入 energyKWh / costYuan）——
 		let heatKWh = 0;
-		if (temp < p.heatSetpointC) {
+		if (p.deviceMode !== 'NONE' && temp < p.heatSetpointC) {
+			dev.HEATING = true;
 			heatKWh = (p.heatSetpointC - temp) * HEAT_KWH_PER_C;
 			temp = p.heatSetpointC;
 		}
@@ -1009,7 +1026,7 @@ export const hourFromSimulatedAt = (simulatedAt: string, fallback = 6): number =
 };
 
 /** simulatedAt → 一年中的第几天（用于太阳位置） */
-export const dayOfYearFromSimulatedAt = (simulatedAt: string, fallback = 264): number => {
+export const dayOfYearFromSimulatedAt = (simulatedAt: string, fallback = 109): number => {
 	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(simulatedAt || '');
 	if (!m) return fallback;
 	const ms = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));

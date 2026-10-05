@@ -1,0 +1,27 @@
+{
+  "source": {
+    "sourceCode": "paper-feedback-oliveira-2025",
+    "sourceName": "Oliveira等：Leveraging data from plant monitoring into crop models（Information Processing in Agriculture, 2025）",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "https://doi.org/10.1016/j.inpa.2025.02.003",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "2025; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "paper_feedback_oliveira_2025"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "番茄模型的观测同化与预测",
+      "fieldType": "ENVIRONMENT",
+      "text": "论文用植株质量及图像观测，通过UKF与EnKF更新Reduced State TOMGRO。模型先预测，再在观测到达时根据误差更新状态；本项目株高EKF属于简化实现，并未复现论文全部模型。"
+    },
+    {
+      "id": 2,
+      "topic": "观测质量与生长修正的限制",
+      "fieldType": "ENVIRONMENT",
+      "text": "论文部分结果改善，也有同化降低表现的情形；观测质量和观测函数会影响结果。修正株高不保证叶面积、果实或产量准确。更新后对当次观测的拟合误差不能当未来预测误差。"
+    }
+  ]
+}

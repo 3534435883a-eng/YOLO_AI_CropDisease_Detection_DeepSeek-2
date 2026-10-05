@@ -1,5 +1,7 @@
 package com.example.Ece.agent.eco;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.crop.CropStage;
 import com.example.Ece.agent.crop.TomatoCropState;
 import com.example.Ece.agent.crop.TomatoGrowthParameters;
@@ -40,7 +42,7 @@ public class SoilWaterNutrientModel {
      * 60 L → 0.168 个百分点）**相差 4 倍**。改后与引擎口径一致：60 L / 142.8 m² = 0.42 mm
      * × 0.4 = 0.168 个百分点，与引擎的换算完全相同。</p>
      */
-    private static final double MM_TO_PCT_VOL = 0.4;
+    private static final double MM_TO_PCT_VOL = 100.0 / (HortiM3Profile.ASSUMED_EFFECTIVE_ROOT_DEPTH_M * 1000.0);
 
     /** 简化 Hargreaves 式系数。 */
     private static final double HARGREAVES_COEFFICIENT = 0.0023;
@@ -85,7 +87,7 @@ public class SoilWaterNutrientModel {
 
     /** 环境缺失时的默认光强（PPFD）。 */
     /** environment 或其模拟时间为空时的日序回退值（9 月 21 日，与评测起始日一致）。 */
-    private static final int DEFAULT_DAY_OF_YEAR = 264;
+    private static final int DEFAULT_DAY_OF_YEAR = HortiM3Profile.DEFAULT_START_DATE.getDayOfYear();
 
     /**
      * 初始土壤状态：适宜含水率、低盐、中性偏酸、养分充足。
@@ -176,8 +178,8 @@ public class SoilWaterNutrientModel {
         // 3) 灌溉量（mm/本步）
         //    2026-09-26 修：`IRRIGATION_MM_PER_STEP` 名字说"每步"、注释说"mm/day"，自相矛盾；
         //    且与引擎各浇各的（引擎按 60 L/次 = 0.42 mm）。现统一用由引擎推出的**每次事件水量**，
-        //    不再乘时间片——因为它是每次事件的量，不是速率。
-        double irrigationMm = irrigationOn ? SoilParameters.IRRIGATION_MM_PER_EVENT : 0.0;
+        //    按 15 分钟参考开泵时间折算，与引擎、水耗台账使用同一实际步长。
+        double irrigationMm = irrigationOn ? SoilParameters.IRRIGATION_MM_PER_EVENT * sliceMinutes / 15.0 : 0.0;
 
         // 4) 水量平衡：mm 换算为体积含水率变化，超出田间持水量的部分视为向下排水
         double deltaPct = (irrigationMm - etcMm) * MM_TO_PCT_VOL;

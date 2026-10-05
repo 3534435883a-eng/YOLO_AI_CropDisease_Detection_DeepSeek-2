@@ -1,5 +1,51 @@
 @import 'mixins/index.scss';
 
+/* 禾序：表面、边界与主操作共用同一组田间档案色 */
+:root {
+	--el-color-primary: var(--agri-terracotta);
+	--el-border-color: var(--agri-line);
+	--el-border-color-light: var(--agri-line);
+	--el-border-color-lighter: #e9dfcf;
+	--el-bg-color: var(--agri-surface);
+	--el-bg-color-overlay: var(--agri-surface);
+	--el-fill-color-blank: var(--agri-surface);
+	--el-menu-active-color: #fff8ed;
+}
+
+.el-button--primary {
+	--el-button-bg-color: var(--agri-terracotta);
+	--el-button-border-color: var(--agri-terracotta);
+	--el-button-hover-bg-color: #7e3826;
+	--el-button-hover-border-color: #7e3826;
+	--el-button-active-bg-color: #682d20;
+	--el-button-active-border-color: #682d20;
+}
+
+.el-input__wrapper,
+.el-textarea__inner,
+.el-select__wrapper,
+.el-date-editor.el-input__wrapper {
+	background-color: var(--agri-surface);
+	box-shadow: 0 0 0 1px var(--agri-line) inset;
+}
+
+.el-dialog,
+.el-drawer,
+.el-popper.is-light,
+.el-select__popper,
+.el-picker__popper {
+	--el-bg-color-overlay: var(--agri-surface);
+	background: var(--agri-surface);
+}
+
+.el-table {
+	--el-table-border-color: var(--agri-line);
+	--el-table-header-bg-color: #eee5d6;
+	--el-table-tr-bg-color: var(--agri-surface);
+	--el-table-row-hover-bg-color: #f2eadc;
+	color: var(--agri-ink);
+}
+
 /* Button 按钮
 ------------------------------- */
 // 第三方字体图标大小

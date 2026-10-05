@@ -1,0 +1,33 @@
+{
+  "source": {
+    "sourceCode": "guidance-weather-moa-2024",
+    "sourceName": "农业农村部：2024年冬季蔬菜生产技术指导意见",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "https://www.moa.gov.cn/gk/nszd_1/nszd_2/202411/t20241113_6466168.htm",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "2024-11-13; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "guidance_weather_moa_2024"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "冷湿阴雨天气的水分管理",
+      "fieldType": "ENVIRONMENT",
+      "text": "2024冬季指导按区域和棚型区分措施。低温阴雨时注意控制灌水，避免土壤过湿和根系受损；不能把室外下雨自动记为封闭温室的灌溉。适用措施需结合实际土壤和生育期。"
+    },
+    {
+      "id": 2,
+      "topic": "低温天气保温与排湿配合",
+      "fieldType": "ENVIRONMENT",
+      "text": "北方日光温室和南方塑料棚的保温条件不同；冷湿天气需兼顾保温、通风排湿和透光。通风不能只看湿度而忽略棚内降温，不将指南的地域建议变成所有温室固定阈值。"
+    },
+    {
+      "id": 3,
+      "topic": "阴雨弱光恢复后的作物观察",
+      "fieldType": "ENVIRONMENT",
+      "text": "连续阴雨需关注弱光、温湿变化及植株恢复。改善天气后仍检查根区、叶片和长势；天气结束不能直接宣称病害或作物风险解除。该资料为2024生产指导，不是当前天气预报。"
+    }
+  ]
+}

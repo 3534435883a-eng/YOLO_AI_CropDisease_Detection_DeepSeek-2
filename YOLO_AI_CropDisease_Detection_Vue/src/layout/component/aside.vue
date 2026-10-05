@@ -1,6 +1,6 @@
 <template>
 	<div class="h100" v-show="!isTagsViewCurrenFull">
-		<el-aside class="layout-aside" :class="setCollapseStyle">
+		<el-aside class="layout-aside workspace-sidebar" aria-label="农业工作区导航" :class="setCollapseStyle">
 			<Logo v-if="setShowLogo" />
 			<el-scrollbar class="flex-auto" ref="layoutAsideScrollbarRef" @mouseenter="onAsideEnterLeave(true)" @mouseleave="onAsideEnterLeave(false)">
 				<Vertical :menuList="state.menuList" />

@@ -1,5 +1,7 @@
 package com.example.Ece.agent.report;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.eval.EvaluationBatch;
 import com.example.Ece.agent.eval.EvaluationOutcome;
@@ -73,20 +75,23 @@ public class ProductionReportService {
                 .append("　种子：`").append(batch.getSeed()).append('`')
                 .append("　推演天数：").append(batch.getDays())
                 .append("　服务端耗时：").append(batch.getElapsedMillis()).append(" ms\n\n");
-        md.append("同种子、同参数、同代码版本必然逐值复现，因此本报告的数字可被复核。\n\n");
+        md.append("场景几何和采样间隔参考 [Horti-M3 论文](").append(HortiM3Profile.PAPER_URL)
+                .append(")；[公开数据](").append(HortiM3Profile.SOURCE_URL).append(") 尚未导入。\n\n")
+                .append("CK/广辉201 仅为参数参考标签；当前将单一模型扩展到全试验区，不复现 7 处理或两品种差异。初始物候、水肥、天气、加热容量、经济系数均未校准。模型 PPFD 不是论文 lux 实测转换。\n\n");
     }
 
     private void overview(StringBuilder md, EvaluationBatch batch) {
         md.append("## 一、生产基本情况\n\n");
         md.append("| 项 | 值 |\n|---|---|\n");
-        md.append("| 温室 | 8 号番茄温室（双跨薄膜棚） |\n");
-        md.append("| 棚体尺寸 | 26 m × 13 m（设计值，非实地测绘） |\n");
-        md.append("| 种植床 | 4 条 × 21 m × 1.7 m = ")
+        md.append("| 场景 | Horti-M3 2025 / CK / 广辉201（未校准） |\n");
+        md.append("| 棚体尺寸 | 40 m × 40 m；檐高 4.5 m，脊高 6 m |\n");
+        md.append("| 试验区 | 14 个小区 × 18 m² = ")
                 .append(format(SoilParameters.BED_AREA_M2, 1)).append(" m² |\n");
-        md.append("| 作物 | 番茄（半机理生长模型） |\n");
+        md.append("| 作物 | 番茄；840 株为全试验区规模，非 CK 单处理样本量 |\n");
+        md.append("| 开始日期 | ").append(HortiM3Profile.DEFAULT_START_DATE).append(" |\n");
         md.append("| 推演周期 | ").append(batch.getDays())
-                .append(" 天（15 分钟步长，共 ").append(batch.getDays() * 96).append(" 步） |\n");
-        md.append("| 受控设备 | 9 类：滴灌、通风、屋窗、排风、湿帘、遮阳、补光、环流、CO₂ 补给 |\n\n");
+                .append(" 天（30 分钟步长，共 ").append(batch.getDays() * HortiM3Profile.AGENT_STEPS_PER_DAY).append(" 步） |\n");
+        md.append("| 受控设备 | 10 类：滴灌、通风、屋窗、排风、湿帘、遮阳、补光、环流、CO₂ 补给、加热 |\n\n");
     }
 
     private void comparison(StringBuilder md, Map<EvaluationStrategy, EvaluationOutcome> outcomes) {
@@ -157,7 +162,7 @@ public class ProductionReportService {
             // 此时"按利润取最高"比较的其实只是资源成本——必须说明，否则读者会以为方案无差别。
             md.append("> **注意：本批推演周期内尚无商品产量**（番茄坐果在推演期后段才发生），")
                     .append("因此上面的「最高利润」实际只反映资源成本差异，**不足以据此排产**。")
-                    .append("请用完整生长季（≥ 120 天）出报告。\n\n");
+                    .append("M3 默认 56 天是公开观测窗口，并非完整生长季；请导入实测物候和采收数据后再校准经济性。\n\n");
         }
         md.append("- 商品产量 ").append(format(bestOutcome.getMarketableYieldKg(), 1)).append(" kg（")
                 .append(format(bestOutcome.getMarketableYieldKg() / SoilParameters.BED_AREA_M2, 2)).append(" kg/m²），")

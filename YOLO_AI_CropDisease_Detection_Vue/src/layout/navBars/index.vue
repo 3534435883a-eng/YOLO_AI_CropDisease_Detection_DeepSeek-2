@@ -1,6 +1,6 @@
 <template>
 	<div class="layout-navbars-container">
-		<BreadcrumbIndex />
+		<div class="header-row"><BreadcrumbIndex /><div class="scene-context"><span>模拟场景</span><strong>Horti-M3 · 番茄</strong></div></div>
 		<TagsView v-if="setShowTagsView" />
 	</div>
 </template>
@@ -31,5 +31,12 @@ const setShowTagsView = computed(() => {
 	flex-direction: column;
 	width: 100%;
 	height: 100%;
+	background: var(--agri-surface);
+	.header-row { display: flex; align-items: center; min-height: 58px; padding-right: 22px; border-bottom: 1px solid var(--agri-line); }
+	.header-row :deep(.layout-navbars-breadcrumb-index) { flex: 1; min-width: 0; width: auto; }
+	.scene-context { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; padding-left: 18px; color: var(--agri-muted); font-size: 12px; }
+	.scene-context strong { color: var(--agri-ink); font-size: 13px; font-weight: 600; }
 }
+
+@media (max-width: 1000px) { .layout-navbars-container .scene-context { display: none; } }
 </style>

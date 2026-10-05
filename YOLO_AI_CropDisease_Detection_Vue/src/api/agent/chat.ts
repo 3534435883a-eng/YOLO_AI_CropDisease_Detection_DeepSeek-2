@@ -14,6 +14,10 @@ export interface AgentChatRequest {
 	question: string;
 	crop?: string;
 	sessionId?: string;
+    simulationRunId?: string;
+    /** 重新回答时禁用新的设备动作。 */
+    allowSimulationActions?: boolean;
+    runId?: number;
 }
 
 /** 引用条目，键名与后端 `CitationFormatter` 输出保持一致。 */

@@ -2,6 +2,7 @@
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
 			<DetectionNav mode="camera" view="history" />
+			<div class="record-intro"><div><p class="eyebrow">OBSERVATION LOG / CAMERA</p><h1>摄像识别记录</h1><p>回看已保存的摄像检测片段与模型设置，历史结果仅作为候选观察信号。</p></div><span class="record-count">{{ state.tableData.total }} 条记录</span></div>
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.search1" size="default" placeholder="请输入农作物类型" style="max-width: 180px"> </el-input>
 				<!-- <el-input v-model="state.tableData.param.search3" size="default" placeholder="请输入最低阈值" style="max-width: 180px; margin-left: 15px"></el-input> -->
@@ -146,6 +147,11 @@ onMounted(() => {
 
 
 <style scoped lang="scss">
+.record-intro { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; padding:4px 2px 17px; }
+.record-intro .eyebrow { margin:0 0 5px; color:#887564; font-size:10px; font-weight:700; letter-spacing:.12em; }
+.record-intro h1 { margin:0; color:#382b25; font:600 25px/1.3 Georgia,'Songti SC',serif; }
+.record-intro p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.65; }
+.record-count { padding:7px 10px; border:1px solid #e5d7c8; color:#765a49; background:#f7efe4; font-size:12px; white-space:nowrap; }
 .system-role-container {
 
 	// background: radial-gradient(circle, #d3e3f1 0%, #ffffff 100%);
@@ -153,6 +159,11 @@ onMounted(() => {
 		padding: 15px;
 		.el-table {
 			flex: 1;
+			--el-table-header-bg-color: #f5efe6;
+			--el-table-row-hover-bg-color: #faf6ef;
+			--el-table-border-color: #ebe3d9;
+			--el-table-text-color: #493d34;
+			--el-table-header-text-color: #756457;
 			:deep(.el-table__row) {
 				height: 140px;  // 设置行高
 			}
@@ -168,12 +179,15 @@ onMounted(() => {
 				line-height: 1.3;  // 减小文字行高
 			}
 		}
+		.system-user-search { display:flex; align-items:center; gap:8px; padding:12px; border:1px solid #e9e0d5; background:#fdfbf7; }
 		:deep(.el-input) {
 			height: 32px;
 			line-height: 32px;
 		}
 	}
 }
+
+@media(max-width:700px) { .record-intro { align-items:flex-start; flex-direction:column; } }
 
 .video {
 	width: 100%;

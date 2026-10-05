@@ -38,7 +38,7 @@ const frame: TwinFrameState = {
 	soilMoisturePct: 56,
 	severity: { BOTRYTIS: 0, LATE_BLIGHT: 0, POWDERY_MILDEW: 0, LEAF_MOLD: 0 },
 	hour: 10.5,
-	dayOfYear: 264,
+	dayOfYear: 109,
 };
 twin.applyState(frame);
 twin.onInspect((entry) => {

@@ -1,5 +1,7 @@
 package com.example.Ece.agent.eval;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.crop.CropStage;
 import com.example.Ece.agent.crop.TomatoCropGrowthModel;
 import com.example.Ece.agent.crop.TomatoCropState;
@@ -35,7 +37,7 @@ import java.util.Set;
  * AI 性能评测平台：在同一初始状态、同一天气相位与同一时间步长下，让各档策略各跑一遍完整生长季，
  * 输出多目标指标矩阵与逐日序列。
  *
- * <p>五子系统在同一 15 分钟步长上耦合推进：微气候 → 水肥土壤 → 作物生长 → 病虫害流行 → 管理经济；
+ * <p>五子系统在同一 30 分钟步长上耦合推进：微气候 → 水肥土壤 → 作物生长 → 病虫害流行 → 管理经济；
  * 决策作用于全部子系统，后果由同一套模型计算，因此"更强"是可复算的数字而不是主观描述。</p>
  *
  * <p>P0–P3 为原有四档对照；P4–P6 为连续控制消融（仅 P / P+I / P+I+D），
@@ -47,12 +49,12 @@ import java.util.Set;
 @Service
 public class PerformanceEvaluationService {
 
-    public static final int DEFAULT_DAYS = 120;
-    public static final int STEP_MINUTES = 15;
+    public static final int DEFAULT_DAYS = HortiM3Profile.DEFAULT_DAYS;
+    public static final int STEP_MINUTES = HortiM3Profile.SENSOR_INTERVAL_MINUTES;
 
     private static final int STEPS_PER_DAY = 24 * 60 / STEP_MINUTES;
     /** 沙盘推演地平线：24 步 = 6 小时。8 步（2 小时）时生长差异尚未显现，择优几乎无差别。 */
-    private static final int AGENT_PROJECTION_STEPS = 24;
+    private static final int AGENT_PROJECTION_STEPS = 6 * 60 / STEP_MINUTES;
     /** 高温暴露阈值：取番茄适宜温度上限 28℃（原用 32℃ 导致该维度恒为 0，无法体现通风价值）。 */
     private static final double HIGH_TEMPERATURE_C = 28.0;
     private static final double HIGH_HUMIDITY_PCT = 85.0;
@@ -63,9 +65,9 @@ public class PerformanceEvaluationService {
      */
     private static final double CONTROL_TEMPERATURE_SET_C = PidControlPolicy.TEMPERATURE_SET_C;
     private static final double CONTROL_HUMIDITY_SET_PCT = PidControlPolicy.HUMIDITY_SET_PCT;
-    private static final LocalDateTime SIMULATION_START = LocalDateTime.of(2026, 9, 21, 6, 0);
+    private static final LocalDateTime SIMULATION_START = HortiM3Profile.DEFAULT_START_DATE.atStartOfDay();
 
-    /** 场景设定（示例）：第 45–55 天与第 85–95 天为夏季高温期，外界温度上浮 6℃。 */
+    /** 人为压力情景（非 M3 实测天气）：第 45–55 天与第 85–95 天，外界温度上浮 6℃。 */
     private static final double HEATWAVE_OFFSET_C = 6.0;
     private static final int[][] HEATWAVE_WINDOWS = {{45, 55}, {85, 95}};
 
@@ -117,7 +119,9 @@ public class PerformanceEvaluationService {
     private EvaluationOutcome simulate(EvaluationStrategy strategy, long seed, int days) {
         // 控制器带积分/微分记忆，必须每次运行新建并清零，否则档与档之间会互相污染，且同种子不再可复算。
         PidControlPolicy pidPolicy = pidPolicyOf(strategy);
-        SimulationState air = engine.evaluate(SIMULATION_START, 22.0, 72.0, 62.0, 600.0, 0.0, 6.2);
+        SimulationState air = engine.evaluate(SIMULATION_START, HortiM3Profile.ASSUMED_INITIAL_AIR_TEMPERATURE_C,
+                HortiM3Profile.ASSUMED_INITIAL_RELATIVE_HUMIDITY_PCT, HortiM3Profile.ASSUMED_INITIAL_SUBSTRATE_MOISTURE_PCT,
+                HortiM3Profile.ASSUMED_INITIAL_CO2_PPM, 0.0, 6.2);
         SoilState soil = soilModel.initial();
         TomatoCropState crop = cropModel.initial();
         DiseaseState disease = epidemicModel.initial();
@@ -241,7 +245,7 @@ public class PerformanceEvaluationService {
             // 2026-09-26 改：通风由**固定 30 分钟/天**改为**按温湿度阈值**。
             //
             // 原实现的通风是 `step >= 48 && step < 50`，即一天 96 个刻度里只开 2 个（30 分钟），
-            // 而灌溉是 `step % 24 == 0`，即**一天盲灌 4 次、不看墒情**。后果是 P1 的棚内比
+            // 而灌溉是 `step % (6 * 60 / STEP_MINUTES) == 0`，即**一天盲灌 4 次、不看墒情**。后果是 P1 的棚内比
             // "什么都不做"的 P0 **更湿**（高湿 74 835 vs 58 080 min），病害合计 150.35 vs 86.66，
             // 产量因而反低于 P0——序关系 P0 > P1，与"管理应当有益"的常识相悖。
             //
@@ -249,7 +253,7 @@ public class PerformanceEvaluationService {
             // 没有人会定时浇水却整天不通风。现改为"**按固定时点浇水 + 看到温湿度高就开通风**"，
             // 这才是"定时人工管理"应有的含义；灌溉仍走固定时点，故与 P2 的差异仍包含"盲灌 vs 按墒情"。
             Map<String, Boolean> fixed = emptyDevices();
-            if (step % 24 == 0) {
+            if (step % (6 * 60 / STEP_MINUTES) == 0) {
                 fixed.put(AgentDeviceCodes.IRRIGATION, Boolean.TRUE);
             }
             Map<String, Boolean> ruled = devicesOf(policy.decide(env));
@@ -276,7 +280,7 @@ public class PerformanceEvaluationService {
      * 保留规则侧灌溉后，本档与 P2 规则档的差异**只剩气候调节方式一项**。</p>
      */
     private Decision pidDecision(PidControlPolicy pidPolicy, Map<String, Boolean> ruled, SimulationState env) {
-        PidControlPolicy.Control control = pidPolicy.decide(env);
+        PidControlPolicy.Control control = pidPolicy.decide(env, STEP_MINUTES);
         Map<String, Double> duties = control.getDuties();
         Map<String, Boolean> devices = emptyDevices();
         for (String code : AgentDeviceCodes.all()) {
@@ -284,7 +288,7 @@ public class PerformanceEvaluationService {
             devices.put(code, Boolean.valueOf(duty != null && duty.doubleValue() > 0.0));
         }
         // 规则侧保留的两台设备：开关与出力都按规则结果折算。
-        for (String code : new String[]{AgentDeviceCodes.IRRIGATION, AgentDeviceCodes.CIRCULATION_FAN}) {
+        for (String code : new String[]{AgentDeviceCodes.IRRIGATION, AgentDeviceCodes.CIRCULATION_FAN, AgentDeviceCodes.HEATING}) {
             boolean on = Boolean.TRUE.equals(ruled.get(code));
             devices.put(code, Boolean.valueOf(on));
             duties.put(code, Double.valueOf(on ? 1.0 : 0.0));
@@ -511,7 +515,11 @@ public class PerformanceEvaluationService {
         energy += outputOf(devices, duties, AgentDeviceCodes.SHADE) * ResourceRates.SHADE_KWH_PER_STEP;
         co2 += outputOf(devices, duties, AgentDeviceCodes.CO2_SUPPLY) * ResourceRates.CO2_KG_PER_STEP;
         water += outputOf(devices, duties, AgentDeviceCodes.IRRIGATION) * ResourceRates.IRRIGATION_M3_PER_STEP;
-        return new ResourceUsage(water, energy, co2, 0.0, 0.0, ResourceRates.LABOR_HOURS_PER_STEP);
+        energy += outputOf(devices, duties, AgentDeviceCodes.HEATING) * ResourceRates.HEATING_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.CIRCULATION_FAN) * ResourceRates.CIRCULATION_FAN_KWH_PER_STEP;
+        energy += outputOf(devices, duties, AgentDeviceCodes.IRRIGATION) * ResourceRates.IRRIGATION_PUMP_KWH_PER_STEP;
+        double factor = STEP_MINUTES / (double) ResourceRates.REFERENCE_MINUTES;
+        return new ResourceUsage(water * factor, energy * factor, co2 * factor, 0.0, 0.0, ResourceRates.LABOR_HOURS_PER_STEP * factor);
     }
 
     /** 设备实际出力系数：关闭为 0；开启时取 duty（未给出则视为满出力 1.0）。 */
@@ -561,7 +569,9 @@ public class PerformanceEvaluationService {
                                             Map<String, Boolean> devices) {
         Map<String, Object> entry = new LinkedHashMap<String, Object>();
         entry.put("day", Integer.valueOf(day));
-        entry.put("simulatedAt", String.valueOf(env.getSimulatedAt()));
+        entry.put("simulatedAt", String.valueOf(env.getSimulatedAt().minusMinutes(STEP_MINUTES)));
+        entry.put("intervalEndAt", String.valueOf(env.getSimulatedAt()));
+        entry.put("sourceStatus", HortiM3Profile.SOURCE_STATUS);
         entry.put("gdd", round(crop.getGdd()));
         entry.put("lai", round(crop.getLai()));
         entry.put("plantHeightCm", round(crop.getPlantHeightCm()));

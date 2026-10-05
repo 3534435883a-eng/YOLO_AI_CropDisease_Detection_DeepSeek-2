@@ -7,7 +7,8 @@ export type AgentRunStatus = 'DRAFT' | 'RUNNING' | 'PAUSED' | 'COMPLETED' | 'FAI
 export interface AgentRun {
 	id: AgentRunId;
 	runCode?: string;
-	runCode?: string;
+	tickMinutes?: number;
+	profile?: Record<string, unknown> | null;
 	name?: string;
 	runName?: string;
 	greenhouseName?: string;

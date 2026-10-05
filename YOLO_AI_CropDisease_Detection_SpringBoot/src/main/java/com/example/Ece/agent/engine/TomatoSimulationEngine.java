@@ -1,5 +1,7 @@
 package com.example.Ece.agent.engine;
 
+import com.example.Ece.agent.profile.HortiM3Profile;
+
 import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.model.SimulationState;
 
@@ -14,18 +16,19 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class TomatoSimulationEngine {
-    private static final double BED_ROOT_VOLUME_L = 4.0 * 21.0 * 1.7 * 0.25 * 1000.0;
+    private static final double BED_ROOT_VOLUME_L = HortiM3Profile.TOTAL_EXPERIMENT_AREA_M2 * HortiM3Profile.ASSUMED_EFFECTIVE_ROOT_DEPTH_M * 1000.0;
     /**
-     * 棚体占地面积（m²）：26 m × 13 m。
+     * 棚体占地面积（m²）：M3 公开尺寸 40 m × 40 m。空气体积采用拱形剖面近似，非实测。
      *
      * <p>**公开**的理由与 {@link #IRRIGATION_L_PER_TICK} 相同：评测侧的耗能定额是**按棚体面积**估的，
      * 而棚体尺寸只能有一个定义。2026-09-26 发现 {@code ResourceRates} 的耗能定额按"500 m² 温室"估算，
      * 而本模型的棚体是 338 m²——**凭空多算 1.48 倍**。同一个规模基准散落在注释里靠人记，
      * 就会这样各写各的。</p>
      */
-    public static final double GREENHOUSE_FOOTPRINT_M2 = 26.0 * 13.0;
+    public static final double GREENHOUSE_FOOTPRINT_M2 = HortiM3Profile.GREENHOUSE_FOOTPRINT_M2;
 
-    private static final double GREENHOUSE_AIR_VOLUME_M3 = GREENHOUSE_FOOTPRINT_M2 * (4.0 + 1.7 * 2.0 / Math.PI);
+    private static final double GREENHOUSE_AIR_VOLUME_M3 = GREENHOUSE_FOOTPRINT_M2 * (HortiM3Profile.EAVE_HEIGHT_M
+            + (HortiM3Profile.RIDGE_HEIGHT_M - HortiM3Profile.EAVE_HEIGHT_M) * 2.0 / Math.PI);
     /**
      * 单步滴灌水量（L）。**公开**是为了让评测侧的成本记账能与物理侧对齐：
      * {@code ResourceRates.IRRIGATION_M3_PER_STEP} 必须等于本值 / 1000，
@@ -33,6 +36,9 @@ public class TomatoSimulationEngine {
      * {@code ResourceAccountingTest} 锁住这个等式。
      */
     public static final double IRRIGATION_L_PER_TICK = 60.0;
+
+    /** 每 15 分钟参考出力的加热温升；未校准的响应代理量。 */
+    public static final double ASSUMED_HEATING_C_PER_REFERENCE_TICK = 1.2;
 
     // ---- 湿空气交换与湿帘参数 ----------------------------------------------------
     // 这几个是 docs/tomato-greenhouse-agent.md「仿真依据与参数边界」里**明确点名**的未校准假设，
@@ -189,6 +195,9 @@ public class TomatoSimulationEngine {
             double duty = duty(dutyCycles, AgentDeviceCodes.GROW_LIGHT);
             light += 190.0 * duty * factor;
             temperature += 0.18 * duty * factor;
+        }
+        if (isOn(states, AgentDeviceCodes.HEATING)) {
+            temperature += ASSUMED_HEATING_C_PER_REFERENCE_TICK * duty(dutyCycles, AgentDeviceCodes.HEATING) * factor;
         }
         if (isOn(states, AgentDeviceCodes.SHADE)) {
             double duty = duty(dutyCycles, AgentDeviceCodes.SHADE);

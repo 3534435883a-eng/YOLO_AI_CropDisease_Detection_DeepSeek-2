@@ -6,6 +6,7 @@ import com.example.Ece.agent.eco.EpidemicParameters;
 import com.example.Ece.agent.eco.SoilParameters;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.eval.ResourceRates;
+import com.example.Ece.agent.profile.HortiM3Profile;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Field;
@@ -42,16 +43,16 @@ public class ParameterRegistry {
      * 登记版本。参数值或出处发生变化时应递增——与项目的快照版本纪律一致：
      * 引用登记结果时必须连版本一起引用，否则数字无从复现。
      */
-    public static final String REGISTRY_VERSION = "sim-params-2026-09-26";
+    public static final String REGISTRY_VERSION = "horti-m3-params-2026-09-29";
 
     /** 说明：这些类中仍未提取为具名常量的内联字面量不在登记范围内。 */
     public static final List<String> UNCOVERED_NOTE = Collections.unmodifiableList(Arrays.asList(
             "TomatoSimulationEngine：风险加权系数（0.25/0.20/0.20/0.12/0.10/0.13）、"
                     + "病害压力阈值（28/8/1.9/48/14/12）、室外气温与湿度相位（17+12·日照、84−32·日照）"
                     + "仍为方法体内联字面量，未提取为具名常量，故不在本登记表覆盖内。",
-            "TomatoDecisionPolicy：规则层阈值（29.0/27.0/32.0/33.0/75.0/80.0/88.0/30.0/900.0/45.0/280.0/650.0）"
-                    + "与设备资源定额（0.350/0.030/0.420/18.000/0.080/0.100/60.000/1.200/0.250）"
-                    + "同样为内联字面量，未纳入覆盖。"));
+            "TomatoDecisionPolicy：规则层阈值（29.0/27.0/32.0/33.0/75.0/80.0/88.0/30.0/900.0/18.0/280.0/650.0）"
+                    + "仍为内联字面量；设备资源定额已统一引用 ResourceRates，"
+                    + "规则阈值未纳入覆盖。"));
 
     /** 一个参数类的默认出处。 */
     private static final class ClassSpec {
@@ -117,6 +118,9 @@ public class ParameterRegistry {
             "褚屿等《番茄对氮磷钾及中微量元素的吸收规律研究》，《中国土壤与肥料》2021(1)";
 
     private static final List<ClassSpec> CLASSES = Collections.unmodifiableList(Arrays.asList(
+            new ClassSpec(HortiM3Profile.class, "M3", "Horti-M3 场景",
+                    ParameterProvenance.Status.PLACEHOLDER,
+                    "模拟场景配置；未校准。已公开几何/栽培事实另有逐项出处覆盖", null),
             new ClassSpec(SoilParameters.class, "SOIL", "土壤水肥参数（模型 1）",
                     ParameterProvenance.Status.UNVERIFIED_LITERATURE,
                     "三类文献族（FAO-56 番茄作物系数 / 国内设施番茄栽培 / 水肥一体化）；"
@@ -138,7 +142,7 @@ public class ParameterRegistry {
             new ClassSpec(TomatoSimulationEngine.class, "ENG", "温室微气候参数",
                     ParameterProvenance.Status.UNVERIFIED_LITERATURE,
                     "交换系数为未校准假设（docs/tomato-greenhouse-agent.md「仿真依据与参数边界」已点名）；"
-                            + "棚体几何为演示设计尺寸，非实地测绘", null)));
+                            + "棚体几何参考 M3 公开尺寸；空气体积、根区体积仍含剖面/根深假设", null)));
 
     /** key = "简单类名.字段名"。 */
     private static final Map<String, FieldSpec> OVERRIDES = buildOverrides();
@@ -163,11 +167,51 @@ public class ParameterRegistry {
                 ParameterProvenance.Status.UNVERIFIED_LITERATURE, "未校准假设", null);
         add(map, "ENG", "IRRIGATION_L_PER_TICK", "单步滴灌水量", "L",
                 ParameterProvenance.Status.PLACEHOLDER, "演示参数；与规则层声明及孪生运行时保持一致", null);
-        add(map, "ENG", "BED_ROOT_VOLUME_L", "四条种植床根区体积", "L",
+        add(map, "ENG", "BED_ROOT_VOLUME_L", "试验区假设根区体积", "L",
                 ParameterProvenance.Status.UNVERIFIED_LITERATURE,
                 "由假设有效根深 0.25 m 与种植床尺寸折算，非实测", null);
         add(map, "ENG", "GREENHOUSE_AIR_VOLUME_M3", "棚内空气体积", "m³",
-                ParameterProvenance.Status.UNVERIFIED_LITERATURE, "按演示棚体尺寸近似", null);
+                ParameterProvenance.Status.UNVERIFIED_LITERATURE, "按 M3 公开尺寸与假设的拱形剖面近似", null);
+        add(map, "M3", "GREENHOUSE_LENGTH_M", "棚长", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "GREENHOUSE_WIDTH_M", "棚宽", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "GREENHOUSE_FOOTPRINT_M2", "全棚占地面积", "m²", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "EAVE_HEIGHT_M", "檐高", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "RIDGE_HEIGHT_M", "脊高", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "EXPERIMENT_PLOT_COUNT", "试验小区总数", "个", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "TREATMENT_COUNT", "处理总数", "个", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "REPLICATE_COUNT", "每处理重复数", "次", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "PLOT_AREA_M2", "单小区面积", "m²", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "TOTAL_EXPERIMENT_AREA_M2", "全试验区面积", "m²", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "PLANTS_PER_PLOT", "每小区株数", "株", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "TOTAL_EXPERIMENT_PLANTS", "全试验区株数", "株", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "RIDGES_PER_PLOT", "每小区栽培行数", "行", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "IN_ROW_SPACING_M", "株距", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "BETWEEN_ROW_SPACING_M", "行距", "m", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "TOPPING_AFTER_TRUSS", "整枝穗数", "穗", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "M3", "SENSOR_INTERVAL_MINUTES", "环境采样间隔", "min", ParameterProvenance.Status.VERIFIED,
+                "Horti-M3-Tomato 公开试验设计；场地/栽培事实，不代表模型已校准", HortiM3Profile.PAPER_URL);
+        add(map, "ENG", "GREENHOUSE_FOOTPRINT_M2", "M3 全棚面积", "m²", ParameterProvenance.Status.VERIFIED,
+                "M3 论文公开棚体 40×40 m", HortiM3Profile.PAPER_URL);
+        add(map, "SOIL", "BED_AREA_M2", "M3 全试验区面积", "m²", ParameterProvenance.Status.VERIFIED,
+                "14 个试验小区 ×18 m²；非 CK 单处理面积", HortiM3Profile.PAPER_URL);
+        add(map, "SOIL", "LATITUDE_DEGREES", "场地城市近似纬度", "degree", ParameterProvenance.Status.PLACEHOLDER,
+                "哈尔滨城市近似值；非 M3 论文精确坐标", null);
         // 以下三项来自设施番茄水氮论文，是登记表里少数**带可解析 DOI 出处**的参数。
         add(map, "SOIL", "IRRIGATION_TRIGGER_FRACTION_OF_FC", "灌水下限（田间持水量的比例）", null,
                 ParameterProvenance.Status.VERIFIED,

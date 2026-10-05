@@ -1,0 +1,27 @@
+{
+  "source": {
+    "sourceCode": "paper-feedback-maree-2025",
+    "sourceName": "Maree等：Autonomous Greenhouse Cultivation of Dwarf Tomato（Sensors, 2025）",
+    "sourceType": "B",
+    "authorityLevel": 2,
+    "sourceUrl": "https://www.mdpi.com/1424-8220/25/14/4321",
+    "licenseNote": "仅整理核对后的条件和机制摘要，不复制全文；原文版权及许可见链接。",
+    "sourceVersion": "2025; doi:10.3390/s25144321; reviewed-2026-10-02",
+    "crop": "番茄",
+    "sourceTable": "paper_feedback_maree_2025"
+  },
+  "entries": [
+    {
+      "id": 1,
+      "topic": "番茄温室多传感器反馈控制",
+      "fieldType": "ENVIRONMENT",
+      "text": "WUR矮生番茄研究评估六组智能算法，利用环境与作物等监测反馈调整气候和灌溉。可借鉴读取状态、设定目标、执行后观察的循环；该研究不是大语言模型自动控制的验证。"
+    },
+    {
+      "id": 2,
+      "topic": "目标、设备执行与作物结果的区别",
+      "fieldType": "ENVIRONMENT",
+      "text": "研究中气候设定点经控制系统转换为设备动作，部分作物管理还需工作人员执行。仿真也应分别记录建议、已应用开关、环境反馈及未解决风险，不能把生成方案当作作物恢复。"
+    }
+  ]
+}

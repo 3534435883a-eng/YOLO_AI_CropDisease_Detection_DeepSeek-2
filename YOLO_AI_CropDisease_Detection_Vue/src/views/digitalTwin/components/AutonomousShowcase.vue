@@ -1,0 +1,57 @@
+<template>
+ <section class="autonomous-hud" aria-label="大棚自动接管展示">
+  <aside class="conditions sheet">
+   <p class="caption">自主运行 · 番茄温室</p>
+   <div class="clock"><strong>{{ run?.current.at.replace('T',' ') || '准备接入' }}</strong><span><i :class="{on:playing}"/>{{ starting?'正在接管':s?.pending?'等待 AI 返回':playing?'自动推进':run?.finished?'本季完成':'时钟已暂停' }}</span></div>
+   <dl class="readings"><div><dt>棚内温度</dt><dd>{{ fmt(s?.environment.temperatureC,1) }}<small>°C</small></dd></div><div><dt>空气湿度</dt><dd>{{ fmt(s?.environment.airHumidityPct,0) }}<small>%</small></dd></div><div><dt>温湿度推算 VPD</dt><dd>{{ fmt(s?.risk.vpdKpa,2) }}<small>kPa</small></dd></div><div><dt>运行设备</dt><dd>{{ s ? activeDevices : '—' }}<small>项</small></dd></div></dl>
+   <div class="risk-line" :class="{high:s?.risk.riskLevel==='HIGH'}"><span>当前环境</span><b>{{ s?.risk.riskLevel==='HIGH'?'风险偏高':s?.risk.riskLevel==='LOW'?'未触发高风险':'持续观察' }}</b></div>
+   <section class="growth-note"><p class="caption">观测与模型</p><strong>{{ fmt(s?.growth.plantHeightCm ?? run?.current.correctedHeightCm,1) }}<small>cm · 场景株高</small></strong><p>{{ run?.updateCount ? '已收到 '+run.updateCount+' 次逐株观测更新' : '首日观测建立初态，后续持续预测' }}</p><button @click="$emit('calibration')">查看校准过程 →</button></section>
+   <p class="origin">M3 历史数据驱动 · 天气与设备为仿真</p>
+  </aside>
+  <aside class="decision sheet" aria-label="自动处置过程">
+   <header><div><p class="caption">事件 → 处置 → 复核</p><h2>{{ eventTitle }}</h2></div><span class="status" :class="{busy:s?.pending}">{{ statusLabel }}</span></header>
+   <p v-if="s?.weather" class="event-facts">{{ fmt(s.environment.rainMmH,1) }} mm/h 降雨 · {{ fmt(s.environment.windMps,1) }} m/s 风速</p>
+   <p v-else class="event-facts">按模拟时间随机发生事件，AI 自动读取并处置。</p>
+   <p v-if="error || s?.decision.error" class="failure" role="status">{{ error || s?.decision.error }}</p>
+   <p v-if="s?.pending" class="pending-copy">AI 正在核对环境、设备和参考资料。模拟时钟等待返回，三维画面保留当前状态。</p>
+   <template v-else-if="s?.decision.plan"><p class="caption">最近 AI 处置{{ s.decision.executedAt ? ' · '+s.decision.executedAt.slice(5,16).replace('T',' ') : '' }}</p><p class="summary">{{ s.decision.plan.summary }}</p></template>
+   <p v-else class="summary">一键启动后，自动接入环境记录。天气变化触发风险提示，再由 AI 制定仿真方案。</p>
+   <ul v-if="s?.decision.plan" class="action-list"><li v-for="a in s.decision.plan.actions.slice(0,4)" :key="a.device"><span>{{ deviceName(a.device) }}</span><b>{{ a.duty ? Math.round(a.duty*100)+'%' : '关闭' }}</b><small>{{ a.durationSteps/2 }} h</small></li></ul>
+   <p v-if="s?.decision.constraints?.length" class="failure">{{ s.decision.constraints.join('；') }}</p>
+   <section class="feedback"><div class="feedback-title"><h3>{{ s?.decision.feedback?'最近处置反馈':'效果复核' }}</h3><small>同事件 · 未干预对照</small></div>
+    <svg v-if="trendPoints.length>1" viewBox="0 0 290 80" role="img" aria-label="当前处理和未干预对照的模拟温度趋势"><path :d="curve('shadowTemperatureC')" class="shadow-line"/><path :d="curve('temperatureC')" class="treated-line"/><text x="0" y="12">{{ fmt(trendRange.max,1) }}°C</text><text x="0" y="74">{{ fmt(trendRange.min,1) }}°C</text></svg>
+    <div v-if="s?.decision.feedback" class="effect"><span>温度差<strong>{{ signed(s.decision.feedback.temperatureDifferenceC) }}<small>°C</small></strong></span><span>湿度差<strong>{{ signed(s.decision.feedback.humidityDifferencePct) }}<small>个百分点</small></strong></span></div>
+    <p class="feedback-note">{{ s?.decision.feedback ? '差值为处理 − 未干预；AI 会依据结果继续调整。风险未解决会如实保留。' : '设备应用后至少推进两个半小时时段，观察环境变化并判断风险。' }}</p>
+   </section>
+   <details v-if="s?.decision.plan"><summary>完整方案与参考来源</summary><p>{{ s.decision.plan.reason }}</p><p>{{ s.decision.plan.expected }}</p><ul><li v-for="a in s.decision.plan.actions" :key="a.device">{{ deviceName(a.device) }} · {{ Math.round(a.duty*100) }}% · {{ a.durationSteps/2 }} h</li></ul><p v-for="r in s.decision.plan.references" :key="r.number">[{{ r.number }}] {{ r.title }}</p></details>
+   <button class="discuss" :disabled="!run" @click="$emit('chat')">与决策助手讨论 →</button>
+  </aside>
+  <footer class="flow-strip sheet">
+   <ol><li v-for="(item,i) in phases" :key="item" :class="{current:i===phase,passed:i<phase}"><span>{{ String(i+1).padStart(2,'0') }}</span><b>{{ item }}</b></li></ol>
+   <div class="controls"><button class="primary" :disabled="starting" @click="$emit(playing?'pause':'resume')">{{ starting?'接管中…':playing?'暂停接管':'继续接管' }}</button><button :disabled="starting" @click="$emit('exit')">退出展示</button></div>
+  </footer>
+ </section>
+</template>
+<script setup lang="ts">
+import {computed} from 'vue';
+import {formatM3Number as fmt} from '/@/api/m3';
+import type {M3LiveRun} from '/@/api/m3/live';
+const props=defineProps<{run:M3LiveRun|null;playing:boolean;starting:boolean;error:string}>();
+defineEmits<{(e:'pause'|'resume'|'exit'|'chat'|'calibration'):void}>();
+const s=computed(()=>props.run?.current.scenario);
+const phases=['随机事件','AI 判断','设备调整','效果复核'];
+const phase=computed(()=>s.value?.pending?1:['OBSERVING','PROPOSED'].includes(s.value?.decision.status||'')?2:s.value?.decision.feedback?3:0);
+const eventTitle=computed(()=>s.value?.weather?.title || (s.value&&Object.values(s.value.deviceHealth).some(v=>!v)?'设备故障':'日常环境巡视'));
+const statusLabel=computed(()=>({IDLE:'监测中',NEEDS_DECISION:'待分析',ANALYZING:'AI 分析中',OBSERVING:'已应用 · 观察中',PROPOSED:'方案未执行',MITIGATED:'环境风险已缓解',UNRESOLVED:'风险仍存在',BLOCKED:'方案被约束拦截',FAILED:'请求失败',STALE:'方案过期'} as Record<string,string>)[s.value?.decision.status||'IDLE']);
+const names:Record<string,string>={HEATING:'加热',IRRIGATION:'滴灌',VENTILATION:'侧窗',SUPPLEMENTAL_LIGHT:'补光',SHADE:'遮阳',CO2_SUPPLY:'CO₂施用',ROOF_VENT:'屋窗',EXHAUST_FAN:'排风',COOLING_PAD:'湿帘',CIRCULATION_FAN:'环流风机'};
+const deviceName=(code:string)=>names[code]||code;
+const activeDevices=computed(()=>Object.values(s.value?.devices||{}).filter(Boolean).length);
+const signed=(v:number)=>(v>0?'+':'')+fmt(v,1);
+const trendPoints=computed(()=>s.value?.trends.slice(-24)||[]);
+const trendRange=computed(()=>{const values=trendPoints.value.flatMap(p=>[p.temperatureC,p.shadowTemperatureC]);return {min:values.length?Math.min(...values)-.5:0,max:values.length?Math.max(...values)+.5:1};});
+function curve(key:'temperatureC'|'shadowTemperatureC') {const rows=trendPoints.value,{min,max}=trendRange.value;return rows.map((p,i)=>(i?'L':'M')+(45+i/Math.max(1,rows.length-1)*240).toFixed(1)+','+(12+(max-p[key])/(max-min)*58).toFixed(1)).join(' ');}
+</script>
+<style scoped>
+.autonomous-hud{position:absolute;inset:0;z-index:10;pointer-events:none;color:#3e4a38}.sheet{pointer-events:auto;background:rgba(252,251,242,.97);box-shadow:0 8px 28px #23331e16;border:1px solid #e0e1d2}.conditions{position:absolute;top:112px;left:20px;width:224px;padding:22px}.caption{font-size:11px;color:#8b9879;letter-spacing:1.1px;margin:0 0 12px}.clock strong{display:block;font-size:15px;font-weight:500;font-variant-numeric:tabular-nums}.clock span{display:flex;align-items:center;gap:6px;font-size:12px;color:#8e987d;margin-top:9px}.clock i{width:5px;height:5px;background:#b0b49c;border-radius:50%}.clock i.on{background:#678a54}.readings{display:grid;grid-template-columns:1fr 1fr;gap:19px 13px;margin:23px 0}.readings dt{font-size:11px;color:#8a927e}.readings dd{font-size:29px;font-weight:400;font-variant-numeric:tabular-nums;margin:7px 0 0;letter-spacing:-1px}.readings small{font-size:11px;letter-spacing:0;margin-left:4px;color:#849076}.risk-line{display:flex;justify-content:space-between;border-top:1px solid #dee2d1;padding:14px 0;font-size:12px;color:#8b947e}.risk-line b{font-weight:500;color:#5b7950}.risk-line.high b{color:#a7774b}.growth-note{padding:15px 0 0;border-top:1px solid #dee2d1}.growth-note strong{font-size:23px;font-weight:400}.growth-note small{font-size:11px;margin-left:6px;color:#8b947e}.growth-note p:not(.caption),.origin{font-size:11px;color:#90987f;line-height:1.8}.growth-note button{padding:6px 0;background:none;border:0;color:#5f7a4f;font-size:12px;cursor:pointer}.origin{border-top:1px solid #e3e6d8;margin:14px 0 0;padding-top:12px}.decision{position:absolute;top:112px;right:20px;width:316px;max-height:calc(100% - 230px);overflow:auto;padding:22px;scrollbar-width:thin}.decision header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.decision h2{font-size:25px;font-weight:500;margin:0;letter-spacing:-.5px}.status{font-size:11px;color:#789466;white-space:nowrap;padding-top:2px}.status.busy{animation:pulse 1.5s infinite}.event-facts{font-size:11px;color:#909b7f;margin:12px 0 19px;line-height:1.8}.summary,.pending-copy{font-size:14px;line-height:1.9;margin:0 0 13px}.pending-copy{color:#839573}.failure{background:#f3e8dd;color:#a27351;padding:10px;font-size:12px;line-height:1.8}.action-list{list-style:none;padding:0;margin:10px 0 17px}.action-list li{display:grid;grid-template-columns:1fr auto 40px;gap:12px;padding:8px 0;border-bottom:1px solid #e4e7d8;font-size:12px}.action-list b{font-weight:500;color:#597b48}.action-list small{font-size:11px;text-align:right;color:#95a083}.feedback{border-top:1px solid #dbe1cf;padding-top:17px}.feedback-title{display:flex;align-items:center;justify-content:space-between;gap:9px}.feedback-title h3{font-size:14px;font-weight:500;margin:0}.feedback-title small{font-size:10px;color:#95a081}.feedback svg{width:100%;height:83px;display:block;margin-top:12px}.feedback svg path{fill:none;stroke-width:2}.treated-line{stroke:#638a51}.shadow-line{stroke:#aea58b;stroke-dasharray:5 3}.feedback svg text{fill:#a1a68f;font-size:9px}.effect{display:flex;gap:27px;margin:14px 0 0}.effect>span{font-size:11px;color:#949e82}.effect strong{display:block;font-size:23px;font-weight:400;color:#536b43;margin:6px 0;font-variant-numeric:tabular-nums}.effect small{font-size:10px;margin-left:3px;color:#949e82}.feedback-note{font-size:11px;line-height:1.8;color:#96a084;margin-bottom:0}.decision details{border-top:1px solid #e0e5d4;margin-top:16px;padding-top:12px;font-size:11px;line-height:1.9;color:#839574}.decision summary{cursor:pointer}.discuss{border:0;background:none;color:#637f50;padding:15px 0 0;font-size:12px;cursor:pointer}.flow-strip{position:absolute;left:20px;right:20px;bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 20px}.flow-strip ol{display:flex;gap:27px;list-style:none;padding:0;margin:0;flex:1}.flow-strip li{display:flex;align-items:center;gap:9px;font-size:12px;color:#a1a890}.flow-strip li span{font-size:11px;font-variant-numeric:tabular-nums}.flow-strip li b{font-weight:500}.flow-strip li.current{color:#4f7440}.flow-strip li.passed{color:#849b72}.flow-strip li.current span{border-bottom:2px solid #769260;padding-bottom:3px}.controls{display:flex;gap:9px}.controls button{font:inherit;font-size:12px;border:1px solid #dbe1cf;padding:8px 13px;color:#879779;background:#f7f8ee;cursor:pointer}.controls .primary{background:#5d794e;border-color:#5d794e;color:#fff}button:focus-visible,summary:focus-visible{outline:2px solid #72945c;outline-offset:3px}button:disabled{opacity:.5;cursor:default}@keyframes pulse{50%{opacity:.4}}@media(prefers-reduced-motion:reduce){.status.busy{animation:none}}@media(max-width:1150px){.conditions{width:200px;padding:18px}.decision{width:290px;padding:18px}.flow-strip ol{gap:17px}.flow-strip{padding:12px 15px}.controls button{padding:7px 9px}}@media(max-width:900px){.conditions{width:175px;left:12px}.decision{width:255px;right:12px}.flow-strip{left:12px;right:12px;gap:12px}.flow-strip ol{gap:10px}.flow-strip li{gap:4px;font-size:11px}.controls{gap:4px}}
+.conditions{max-height:calc(100% - 230px);overflow:auto;scrollbar-width:thin}
+</style>

@@ -1,6 +1,7 @@
 <template>
 	<div class="system-role-dialog-container">
-		<el-dialog :title="state.dialog.title" v-model="state.dialog.isShowDialog" width="900px" class="dia">
+		<el-dialog :title="state.dialog.title" v-model="state.dialog.isShowDialog" width="min(900px, calc(100vw - 48px))" class="dia">
+			<el-alert title="温室档案字段" description="温度、湿度、CO₂、土壤和光照值用于档案登记，不代表实时传感器读数。" type="info" :closable="false" show-icon class="dialog-source-note" />
 			<el-form ref="greenhouseDialogFormRef" :model="state.form" size="default" label-width="100px" :rules="state.rules">
 				<el-row :gutter="20">
 					<el-col :xs="24" :sm="12" :md="12" :lg="12" :xl="12" class="mb15">
@@ -268,6 +269,25 @@ defineExpose({
 .el-form {
 	width: 100%;
 	margin: 0;
+}
+
+.dialog-source-note { margin-bottom: 18px; }
+
+:deep(.dia .el-dialog) {
+	border: 1px solid #ded5c7;
+	border-radius: 4px;
+	background: #fffdf8;
+	box-shadow: 0 18px 60px rgba(50, 41, 27, 0.18);
+}
+
+:deep(.dia .el-dialog__header) {
+	border-bottom: 1px solid #e8e0d4;
+}
+
+:deep(.dia .el-dialog__title) {
+	color: #352f27;
+	font-family: Georgia, 'Noto Serif SC', serif;
+	font-size: 19px;
 }
 
 .mb15 {
