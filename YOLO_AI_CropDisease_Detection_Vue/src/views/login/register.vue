@@ -101,7 +101,7 @@ const submitForm = (formEl: FormInstance | undefined) => {
 	align-items: center;
 	justify-content: center;
 	/* background: linear-gradient(135deg, #56ccf2 0%, #2f80ed 100%); */
-	background-image: url('/bg1.jpg');
+	background-image: url('/bg1.png');
 	background-size: cover;
 	padding: 20px;
 }

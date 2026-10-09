@@ -22,12 +22,14 @@ export interface M3LiveFrame extends M3Frame {
    riskLevel:string;alerts:M3LiveAlert[]};
 }
 export interface M3LiveRun {
+ playback:{playing:boolean;stepCount:number;waitingForAi:boolean;restored:boolean;persistenceError?:string;checkpointIntervalSeconds?:number};
  runId:string;year:number;cursor:number;totalSlots:number;finished:boolean;source:string;
  parameterVersion:string;observationsSha256:string;updateCount:number;failure?:string;
  current:M3LiveFrame;frames:M3LiveFrame[];events:M3LiveEvent[];assumptions:string[];
  scores:Record<'openLoop'|'prior'|'posterior',M3Score>;parameters:Record<string,unknown>;
 }
 const client=axios.create({baseURL:'/api/m3/live',timeout:45000});
+client.interceptors.response.use(response=>response,error=>Promise.reject(new Error(error.response?.status===401?'登录状态已失效，请重新登录。':'大棚运行服务暂不可用，请稍后重新连接。')));
 async function call<T>(url:string,method:'get'|'post'|'delete',data?:unknown):Promise<T>{
  const r=await client.request({url,method,data,headers:Session.get('token')?{Authorization:Session.get('token')}:{}});
  if(String(r.data.code)!=='0')throw new Error(r.data.msg||'在线运行不可用');
@@ -35,9 +37,21 @@ async function call<T>(url:string,method:'get'|'post'|'delete',data?:unknown):Pr
 }
 export const startM3Live=(year:number)=>call<M3LiveRun>('/start','post',{year});
 export const stepM3Live=(runId:string,expectedCursor:number,stepCount:number)=>call<M3LiveRun>('/'+runId+'/step','post',{expectedCursor,stepCount});
-export const getM3Live=(runId:string,compact=false)=>call<M3LiveRun>('/'+runId+(compact?'?compact=true':''),'get');
+export const getM3Live=(runId:string,compact=false,afterCursor?:number)=>{
+ const query=compact?'?compact=true':typeof afterCursor==='number'&&afterCursor>=0?'?afterCursor='+Math.floor(afterCursor):'';
+ return call<M3LiveRun>('/'+runId+query,'get');
+};
 export const deleteM3Live=(runId:string)=>call<null>('/'+runId,'delete');
+export const setM3Playback=(runId:string,playing:boolean,stepCount=1)=>call<M3LiveRun>('/'+runId+'/playback','post',{playing,stepCount});
+export interface M3Agronomy {
+ soilMoistureVwcPct:number;waterStressFactor:number;waterUsedL:number;drainageL:number;
+ evapotranspirationL:number;wetExposureMinutes:number;diseaseConditions:Array<{code:string;title:string;level:string;continuousExposureMinutes:number;cumulativeExposureMinutes:number;condition:string;review:string;origin:string;validatedProbability:false}>;
+ dryExposureMinutes:number;continuousWetMinutes:number;continuousDryMinutes:number;canopyWetnessProxy:number;canopyWetMinutes:number;rootCondition:string;diseaseConditionLevel:string;riskLevel:string;
+ [key:string]:unknown;
+}
 export interface M3Scenario {
+ farmTaskId?:string;
+ agronomy?:M3Agronomy;shadowAgronomy?:M3Agronomy;resources?:Record<string,unknown>;effects?:Array<Record<string,unknown>>;
  runId:string;version:number;seed:number;tick:number;at:string;source:string;autoEvents:boolean;autoActuation:boolean;pending:boolean;
  environment:M3LiveFrame['environment']&{ppfd:number;windMps:number;rainMmH:number;absoluteHumidityGm3:number};
  withoutIntervention:M3Scenario['environment'];risk:M3LiveFrame['risk'];shadowRisk:M3LiveFrame['risk'];

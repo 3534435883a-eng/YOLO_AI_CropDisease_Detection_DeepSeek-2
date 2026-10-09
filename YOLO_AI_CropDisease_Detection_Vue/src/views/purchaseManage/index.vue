@@ -14,7 +14,7 @@
 					<span>{{ agentResourceSummary }}</span>
 					<small>虚拟耗材流水与旧采购记录隔离，不会写入本页采购数据。</small>
 				</div>
-				<el-button link type="primary" @click="router.push('/agentCenter')">查看指挥中心</el-button>
+				<el-button link type="primary" @click="router.push({path:'/digitalTwin',query:greenhouse.linkedQuery()})">查看同一大棚</el-button>
 			</div>
 			<div class="system-user-search mb15">
 				<div class="filter-fields">
@@ -78,10 +78,12 @@ import { computed, defineAsyncComponent, reactive, onMounted, ref } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 import request from '/@/utils/request';
-import { useAgentRunStore } from '/@/stores/agentRun';
+import { useGreenhouseStore } from '/@/stores/greenhouse';
+import {onBeforeUnmount} from 'vue';
 
 const router = useRouter();
-const agentStore = useAgentRunStore();
+const greenhouse=useGreenhouseStore();
+const unsubscribe=greenhouse.subscribe();onBeforeUnmount(unsubscribe);
 
 const asResourceItems = (value: unknown): Record<string, unknown>[] => {
 	if (Array.isArray(value)) return value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object'));
@@ -92,15 +94,12 @@ const asResourceItems = (value: unknown): Record<string, unknown>[] => {
 	});
 };
 
-const agentResourceSummary = computed(() => {
-	if (!agentStore.hasActiveRun) return '8号温室番茄模拟尚未创建';
-	const resources = asResourceItems(agentStore.summary?.resources);
-	if (!resources.length) return '资源账本等待首个虚拟步';
-	return resources.slice(0, 3).map((resource) => {
-		const name = String(resource.name || resource.label || resource.code || '资源');
-		const value = resource.value ?? resource.availableQuantity ?? '--';
-		return `${name} ${value}${resource.unit || ''}`;
-	}).join(' · ');
+const agentResourceSummary=computed(()=>{
+ const resources=greenhouse.run?.current.scenario?.resources;
+ if(!greenhouse.run)return '尚未接入当前M3大棚';
+ if(!resources)return '当前运行尚无虚拟耗量记录';
+ const water=resources.totalWaterL,energy=resources.electricityKwh;
+ return `本轮虚拟耗量 · 用水 ${typeof water==='number'?water.toFixed(1):'—'} L · 用电 ${typeof energy==='number'?energy.toFixed(2):'—'} kWh（不扣减实际库存）`;
 });
 
 // 引入组件
@@ -204,7 +203,7 @@ const onHandleCurrentChange = (val: number) => {
 // 页面加载时
 onMounted(() => {
 	getTableData();
-	if (!agentStore.loading) agentStore.loadActiveRun();
+	void greenhouse.refreshRun();
 });
 </script>
 

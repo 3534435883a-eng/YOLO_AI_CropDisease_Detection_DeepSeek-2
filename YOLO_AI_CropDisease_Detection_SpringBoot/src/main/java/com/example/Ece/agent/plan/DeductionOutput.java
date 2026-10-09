@@ -55,6 +55,10 @@ public class DeductionOutput {
      * @param raw 模型原始输出
      */
     public static DeductionOutput parse(String raw) {
+        return parse(raw, true);
+    }
+
+    public static DeductionOutput parse(String raw, boolean prependBanner) {
         String text = raw == null ? "" : raw.trim();
 
         // 声明可能出现在开头，也可能根本没写。先剥掉，再统一放到最前面——
@@ -83,8 +87,8 @@ public class DeductionOutput {
         // 去掉可能残留的孤立围栏标记
         body = body.replace(DeductionPrompts.JSON_FENCE, "").trim();
 
-        String markdown = DeductionPrompts.SIMULATION_BANNER + "\n\n" + body;
-        return new DeductionOutput(markdown.trim(), !hadBanner, structured, collectSections(body));
+        String markdown = prependBanner ? DeductionPrompts.SIMULATION_BANNER + "\n\n" + body : body;
+        return new DeductionOutput(markdown.trim(), prependBanner && !hadBanner, structured, collectSections(body));
     }
 
     /** 取 ```json 围栏里的内容。用花括号配对而不是"找下一个 ```"，避免正文里出现围栏时截错。 */

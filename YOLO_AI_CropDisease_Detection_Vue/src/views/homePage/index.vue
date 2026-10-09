@@ -9,21 +9,21 @@
 			<el-button class="refresh-button" :icon="Refresh" :loading="refreshing" @click="refresh">刷新状态</el-button>
 		</header>
 
-		<section class="run-band" aria-label="当前规则仿真运行">
+		<section class="run-band" aria-label="当前M3大棚运行">
 			<div class="run-copy">
-				<div class="run-kicker"><span class="section-index">A</span><span>当前推演记录</span><span class="source-pill">规则仿真 · 非实测</span></div>
+				<div class="run-kicker"><span class="section-index">A</span><span>当前推演记录</span><span class="source-pill">M3回放 · 虚拟干预</span></div>
 				<div class="run-heading"><h2>{{ runTitle }}</h2><el-tag :type="statusTone" effect="plain">{{ statusLabel }}</el-tag></div>
-				<p v-if="!agentStore.serviceAvailable" class="service-error">推演服务未连接，运行状态暂时无法读取。</p>
+				<p v-if="!!greenhouse.error" class="service-error">推演服务未连接，运行状态暂时无法读取。</p>
 				<p v-else class="run-meta">{{ runMeta }}</p>
 			</div>
 			<div class="run-actions">
-				<el-button type="primary" :icon="Operation" @click="go('/agentCenter')">{{ agentStore.hasActiveRun ? '进入推演' : '创建推演' }}</el-button>
-				<el-button :icon="View" @click="go('/digitalTwin?mode=agent')">查看三维场景</el-button>
+				<el-button type="primary" :icon="Operation" @click="go('/digitalTwin')">{{ !!greenhouse.run ? '进入推演' : '创建推演' }}</el-button>
+				<el-button :icon="View" @click="go('/digitalTwin')">查看三维场景</el-button>
 			</div>
 		</section>
 
 		<section class="workflow-section" aria-label="农业工作流程">
-			<div class="workflow-heading"><span class="section-index">B</span><div><span class="eyebrow">FROM OBSERVATION TO REVIEW</span><h2>工作流程</h2></div><span class="workflow-caption">四步连贯记录 · 两种 AI 通道各自标明依据</span></div>
+			<div class="workflow-heading"><span class="section-index">B</span><div><span class="eyebrow">FROM OBSERVATION TO REVIEW</span><h2>工作流程</h2></div><span class="workflow-caption">四步连贯记录 · 同一任务 · 识别、决策与效果相连</span></div>
 			<nav class="workflow" aria-label="观察、研判、方案和复盘">
 				<button type="button" class="workflow-step" @click="go('/imgPredict')">
 					<span class="step-top"><span class="step-number">01</span><el-icon><Picture /></el-icon></span>
@@ -35,29 +35,29 @@
 				</button>
 				<button type="button" class="workflow-step" @click="go('/agentSimulation')">
 					<span class="step-top"><span class="step-number">03</span><el-icon><EditPen /></el-icon></span>
-					<strong>方案</strong><small>农情解析与独立规划</small><span class="step-link">农事规划 <el-icon><ArrowRight /></el-icon></span>
+					<strong>方案</strong><small>农情解析与同任务规划</small><span class="step-link">农事规划 <el-icon><ArrowRight /></el-icon></span>
 				</button>
-				<button type="button" class="workflow-step" @click="go('/agentCenter')">
+				<button type="button" class="workflow-step" @click="go('/digitalTwin')">
 					<span class="step-top"><span class="step-number">04</span><el-icon><DataAnalysis /></el-icon></span>
-					<strong>复盘</strong><small>规则推演、孪生回放与报告</small><span class="step-link">温室推演 <el-icon><ArrowRight /></el-icon></span>
+					<strong>复盘</strong><small>同任务处置反馈与管理报告</small><span class="step-link">温室推演 <el-icon><ArrowRight /></el-icon></span>
 				</button>
 			</nav>
 		</section>
 
 		<div class="content-grid">
 			<section class="data-section greenhouse-section">
-				<div class="section-head"><div><span class="section-index">C</span><h2>温室状态</h2></div><span class="data-origin">{{ agentStore.hasActiveRun ? '规则仿真快照' : '等待推演数据' }}</span></div>
-				<div v-if="agentStore.hasActiveRun && stateMetrics.length" class="metric-grid">
+				<div class="section-head"><div><span class="section-index">C</span><h2>温室状态</h2></div><span class="data-origin">{{ !!greenhouse.run ? '当前M3场景快照' : '等待推演数据' }}</span></div>
+				<div v-if="!!greenhouse.run && stateMetrics.length" class="metric-grid">
 					<div v-for="item in stateMetrics" :key="item.label" class="metric"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><small>{{ item.source }}</small></div>
 				</div>
-				<p v-else class="empty">{{ agentStore.loading ? '正在读取运行状态…' : '暂无运行数据。创建规则推演后显示环境状态。' }}</p>
+				<p v-else class="empty">{{ greenhouse.busy ? '正在读取运行状态…' : '暂无运行数据。进入大棚接入后显示当前环境状态。' }}</p>
 			</section>
 			<section class="data-section attention-section">
 				<div class="section-head"><div><span class="section-index">D</span><h2>待关注事项</h2></div><span class="data-origin">{{ alerts.length }} 项</span></div>
 				<div v-if="alerts.length" class="alert-list">
-					<div v-for="alert in alerts.slice(0, 4)" :key="String(alert.id || alert.message || alert.title)" class="alert-row"><el-tag size="small" :type="alertTone(alert.severity || alert.level)">{{ alertLabel(alert.severity || alert.level) }}</el-tag><span>{{ alert.message || alert.description || alert.title }}</span></div>
+					<div v-for="alert in alerts.slice(0, 4)" :key="alert.code" class="alert-row"><el-tag size="small" :type="alertTone(alert.level)">{{ alertLabel(alert.level) }}</el-tag><span>{{ alert.title }}</span></div>
 				</div>
-				<p v-else class="empty">{{ agentStore.hasActiveRun ? '当前运行没有待关注告警。' : '暂无运行告警。' }}</p>
+				<p v-else class="empty">{{ !!greenhouse.run ? '当前运行没有待关注告警。' : '暂无运行告警。' }}</p>
 			</section>
 		</div>
 
@@ -65,7 +65,7 @@
 			<div class="section-head"><div><span class="section-index">E</span><h2>最近识别信号</h2></div><el-button link type="primary" @click="go('/imgRecord')">查看识别记录</el-button></div>
 			<div v-if="latestVision" class="vision-row">
 				<div class="vision-main"><strong>{{ latestVision.detectedLabel || '类别未提供' }}</strong><span>{{ latestVision.cropType || '作物未提供' }} · {{ latestVision.observedAt || '时间未提供' }}</span></div>
-				<el-tag :type="latestVision.explainable ? 'success' : 'warning'" effect="plain">{{ latestVision.explainable ? '知识库可核对' : '暂无对应条目' }}</el-tag>
+				<el-tag :type="latestVision.explainable ? 'success' : 'warning'" effect="plain">候选证据 · 待核验</el-tag>
 				<el-button :icon="ChatLineRound" @click="goVisionChat">到决策助手</el-button>
 			</div>
 			<p v-else class="empty">{{ visionLoading ? '正在读取识别信号…' : '当前运行尚无导入的识别信号。' }}</p>
@@ -74,74 +74,31 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight, ChatLineRound, DataAnalysis, EditPen, Operation, Picture, Refresh, View } from '@element-plus/icons-vue';
-import { AgentAlert, AgentVisionEvent, getAgentVisionEvents } from '/@/api/agent';
-import { useAgentRunStore } from '/@/stores/agentRun';
-
-const router = useRouter();
-const agentStore = useAgentRunStore();
-const refreshing = ref(false);
-const visionLoading = ref(false);
-const latestVision = ref<AgentVisionEvent | null>(null);
-const go = (path: string) => router.push(path);
-const currentState = computed<Record<string, unknown>>(() => agentStore.summary?.currentState || agentStore.summary?.state || {});
-const status = computed(() => String(agentStore.activeRun?.status || 'READY').toUpperCase());
-const statusLabel = computed(() => agentStore.serviceAvailable
-	? ({ RUNNING: '运行中', PAUSED: '已暂停', COMPLETED: '已完成', DRAFT: '待启动', READY: '未创建' }[status.value] || status.value)
-	: '服务未连接');
-const statusTone = computed<'success' | 'warning' | 'info'>(() => status.value === 'RUNNING' ? 'success' : status.value === 'PAUSED' ? 'warning' : 'info');
-const runTitle = computed(() => !agentStore.serviceAvailable ? '推演服务未连接' : agentStore.hasActiveRun ? '番茄温室规则推演' : '尚未创建推演');
-const runMeta = computed(() => agentStore.hasActiveRun
-	? `运行 ${agentStore.activeRun?.runCode || agentStore.runId} · 第 ${agentStore.activeRun?.currentStep ?? 0} 步 · 仿真数据，非实测`
-	: '创建运行后可查看规则结论、虚拟设备和同期策略对比。');
-const goVisionChat = () => {
-	const recordId = latestVision.value?.sourceRecordId;
-	void router.push(recordId === undefined || recordId === null
-		? '/agentChat'
-		: { path: '/agentChat', query: { recordId: String(recordId) } });
-};
-const alerts = computed<AgentAlert[]>(() => Array.isArray(agentStore.summary?.alerts) ? agentStore.summary.alerts : []);
-const alertTone = (severity: unknown): 'danger' | 'warning' | 'info' => {
-	const value = String(severity || '').toUpperCase();
-	return value === 'HIGH' || value === 'CRITICAL' ? 'danger' : value === 'MEDIUM' ? 'warning' : 'info';
-};
-const alertLabel = (severity: unknown) => ({ HIGH: '高风险', CRITICAL: '紧急', MEDIUM: '需关注', LOW: '提示' }[String(severity || '').toUpperCase()] || '提示');
-const metric = (label: string, keys: string[], unit: string, digits: number, source: string) => {
-	const value = keys.map((key) => currentState.value[key]).find((item) => item !== null && item !== undefined && item !== '');
-	const number = Number(value);
-	return { label, value: value === undefined || !Number.isFinite(number) ? '--' : `${number.toFixed(digits)} ${unit}`, source };
-};
-const stateMetrics = computed(() => agentStore.summary ? [
-	metric('室内温度', ['temperatureC', 'temperature_c', 'temperature'], '°C', 1, '规则仿真'),
-	metric('空气湿度', ['airHumidityPct', 'air_humidity_pct', 'airHumidity'], '%', 1, '规则仿真'),
-	metric('VPD', ['vpdKpa', 'vpd_kpa'], 'kPa', 2, '模型计算'),
-	metric('环境风险', ['environmentRisk', 'environment_risk'], '%', 0, '规则计算'),
-] : []);
-
-async function refresh() {
-	refreshing.value = true;
-	try {
-		await agentStore.loadActiveRun();
-		latestVision.value = null;
-		if (agentStore.runId !== null) {
-			visionLoading.value = true;
-			try {
-				const events = await getAgentVisionEvents(agentStore.runId, 1);
-				latestVision.value = events[0] || null;
-			} catch {
-				latestVision.value = null;
-			} finally {
-				visionLoading.value = false;
-			}
-		}
-	} finally {
-		refreshing.value = false;
-	}
-}
-
-onMounted(() => { void refresh(); });
+import { useGreenhouseStore } from '/@/stores/greenhouse';
+const router=useRouter(),greenhouse=useGreenhouseStore(),refreshing=ref(false),visionLoading=ref(false);
+const unsubscribe=greenhouse.subscribe();onBeforeUnmount(unsubscribe);
+const go=(path:string)=>router.push({path,query:greenhouse.linkedQuery()});
+const status=computed(()=>greenhouse.run?.finished?'COMPLETED':greenhouse.run?.playback?.waitingForAi?'WAITING':greenhouse.run?.playback?.playing?'RUNNING':greenhouse.run?'PAUSED':'READY');
+const statusLabel=computed(()=>greenhouse.error?'读取失败':({RUNNING:'回放中',WAITING:'AI处置中',PAUSED:'已暂停',COMPLETED:'已完成',READY:'未接入'}[status.value]||status.value));
+const statusTone=computed<'success'|'warning'|'info'>(()=>status.value==='RUNNING'?'success':status.value==='WAITING'?'warning':'info');
+const runTitle=computed(()=>greenhouse.task?.title||(greenhouse.run?'番茄温室当前推演':'尚未接入大棚'));
+const runMeta=computed(()=>greenhouse.run?`运行 ${greenhouse.run.runId.slice(0,8)} · ${greenhouse.run.current.at.replace('T',' ')} · ${greenhouse.run.cursor}/${greenhouse.run.totalSlots} 个时段`:'进入大棚后，识别、问答、规划和报告可沿用同一农情任务。');
+const current=computed(()=>greenhouse.run?.current);
+const alerts=computed(()=>current.value?.scenario?.risk.alerts||current.value?.risk.alerts||[]);
+const alertTone=(severity:unknown):'danger'|'warning'|'info'=>String(severity)==='HIGH'?'danger':String(severity)==='MEDIUM'?'warning':'info';
+const alertLabel=(severity:unknown)=>String(severity)==='HIGH'?'高风险':String(severity)==='MEDIUM'?'需关注':'提示';
+const fmt=(value:unknown,unit:string,digits=1)=>typeof value==='number'&&Number.isFinite(value)?value.toFixed(digits)+' '+unit:'—';
+const stateMetrics=computed(()=>{const env=current.value?.scenario?.environment||current.value?.environment;return current.value?[
+ {label:'室内温度',value:fmt(env?.temperatureC,'°C'),source:current.value.scenario?'虚拟干预推演':'历史观测回放'},
+ {label:'空气湿度',value:fmt(env?.airHumidityPct,'%'),source:current.value.scenario?'虚拟干预推演':'历史观测回放'},
+ {label:'VPD',value:fmt((current.value.scenario?.risk||current.value.risk).vpdKpa,'kPa',2),source:'温湿度计算'},
+ {label:'根区含水率',value:fmt(current.value.scenario?.agronomy?.soilMoistureVwcPct,'%'),source:'根区模型估计'}]:[];});
+const latestVision=computed(()=>{const evidence=[...(greenhouse.task?.evidence||[])].reverse().find(e=>e.type==='IMAGE');return evidence?{detectedLabel:evidence.label,cropType:greenhouse.task?.crop,observedAt:evidence.createdAt,explainable:false}:null;});
+const goVisionChat=()=>go('/agentChat');
+async function refresh(){refreshing.value=true;try{await greenhouse.refreshRun(true);await greenhouse.refreshTask();}finally{refreshing.value=false;}}
 </script>
 
 <style scoped lang="scss">

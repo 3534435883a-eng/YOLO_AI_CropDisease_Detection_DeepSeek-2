@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @RestController
 @RequestMapping("/ai/agent")
 public class AgentChatController {
+    private static final MediaType JSON_UTF8 = new MediaType(MediaType.APPLICATION_JSON, java.nio.charset.StandardCharsets.UTF_8);
 
     @Resource
     private AgentOrchestrator agentOrchestrator;
@@ -36,7 +37,7 @@ public class AgentChatController {
                 ? UUID.randomUUID().toString() : actual.getSessionId();
         final String question = actual.getQuestion() == null ? "" : actual.getQuestion();
         final String crop = actual.getCrop();
-        final SseEmitter emitter = new SseEmitter(Long.valueOf(AgentOrchestrator.TOTAL_TIMEOUT_MS + 5000L));
+        final SseEmitter emitter = new Utf8SseEmitter(Long.valueOf(AgentOrchestrator.TOTAL_TIMEOUT_MS + 5000L));
         final AtomicBoolean cancelled = new AtomicBoolean();
         final AtomicReference<Thread> workerThread = new AtomicReference<>();
         Runnable cancel = () -> {cancelled.set(true);Thread t=workerThread.get();if(t!=null)t.interrupt();};
@@ -53,7 +54,7 @@ public class AgentChatController {
                             try {
                                 emitter.send(SseEmitter.event()
                                         .name(event.getType())
-                                        .data(mapper.writeValueAsString(toPayload(event)), MediaType.APPLICATION_JSON));
+                                        .data(mapper.writeValueAsString(toPayload(event)), JSON_UTF8));
                             } catch (Exception ignored) {
                                 // 停止后不再提交后续工具；已经提交的仿真动作仍按大棚状态显示。
                                 cancel.run();
@@ -61,16 +62,18 @@ public class AgentChatController {
                         }
                     };
                     agentOrchestrator.run(sessionId, question, crop, actual.getSimulationRunId(), actual.getRunId(),
+                            actual.getTaskId(), actual.getRequestId(),
                             !Boolean.FALSE.equals(actual.getAllowSimulationActions()), cancelled::get, sink);
                     emitter.complete();
                 } catch (Exception error) {
                     try {
                         emitter.send(SseEmitter.event().name("error")
-                                .data("{\"message\":\"智能体会话异常中断\"}", MediaType.APPLICATION_JSON));
+                                .data(mapper.writeValueAsString(java.util.Collections.singletonMap("message", error instanceof IllegalArgumentException ? error.getMessage() : "智能体会话异常中断")), JSON_UTF8));
                     } catch (Exception ignored) {
                         // 已断开
                     }
-                    emitter.completeWithError(error);
+                    // The error is already a formatted SSE frame; JSON exception advice cannot write to this stream.
+                    emitter.complete();
                 }
             }
         };

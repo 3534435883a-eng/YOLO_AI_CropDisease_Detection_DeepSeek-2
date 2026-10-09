@@ -58,12 +58,11 @@ class GuardrailServiceTest {
      * 曾与"已自动开启"同等对待，导致整段有依据的回答（21 秒生成、5 条引用）被丢弃成拒答。
      */
     @Test
-    void keepsAdvisoryWordingButStripsExecutionSense() {
+    void preservesAdvisoryWordingWithoutClaimingNewExecution() {
         GuardrailCheck check = guard.check("棚内湿度偏高，建议自动开启通风排湿。[1]", Arrays.asList(citation()), false);
         assertTrue(check.isAllowed(), "建议语气不应被判为越权声明");
-        assertFalse(check.getRewrittenAnswer().contains("自动开启"), "完成态动作词应被改写成建议语气");
-        assertTrue(check.getRewrittenAnswer().contains("建议开启通风排湿"));
-        assertTrue(check.getRewrittenAnswer().contains("不直接执行设备动作"), "改写后必须披露本系统不执行设备动作");
+        assertTrue(check.getRewrittenAnswer().contains("建议自动开启通风排湿"), "建议自动运行不等于宣称已经执行");
+        assertFalse(check.getRewrittenAnswer().contains("已自动"));
     }
 
     /** "已开启/已执行"这类完成态表述即使不含"自动"，也必须被改写成建议语气并加声明。 */
@@ -73,7 +72,8 @@ class GuardrailServiceTest {
         assertTrue(check.isAllowed());
         assertFalse(check.getRewrittenAnswer().contains("已开启"));
         assertTrue(check.getRewrittenAnswer().contains("建议开启补光"));
-        assertTrue(check.getRewrittenAnswer().contains("不直接执行设备动作"));
+        assertTrue(check.getRewrittenAnswer().contains("尚未应用新的设备方案"));
+        assertTrue(check.getRewrittenAnswer().contains("大棚面板"));
     }
 
     /** 真正"替你做了"的完成态声明仍然必须整段拒绝。 */

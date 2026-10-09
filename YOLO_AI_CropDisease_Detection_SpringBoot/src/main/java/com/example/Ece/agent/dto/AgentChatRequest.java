@@ -9,6 +9,12 @@ public class AgentChatRequest {
     private Long runId;
     private String simulationRunId;
     private Boolean allowSimulationActions;
+    private String taskId;
+    private String requestId;
+    public String getTaskId() { return taskId; }
+    public void setTaskId(String value) { taskId = value; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String value) { requestId = value; }
     public Boolean getAllowSimulationActions(){return allowSimulationActions;}
     public void setAllowSimulationActions(Boolean value){allowSimulationActions=value;}
     public String getSimulationRunId(){return simulationRunId;}

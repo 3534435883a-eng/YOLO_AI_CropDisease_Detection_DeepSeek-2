@@ -64,6 +64,16 @@ public class DeepSeekLlmClient implements LlmClient {
         if (copy.isEmpty()) {
             return copy;
         }
+        // Old turns are optional context; keep the system instruction and current task/tool observations.
+        while (copy.size() > 30) copy.remove(1);
+        for (int i = 0; i < copy.size(); i++) {
+            String content = String.valueOf(copy.get(i).get("content"));
+            if (content.length() > 11500) {
+                Map<String, Object> shortened = new LinkedHashMap<String, Object>(copy.get(i));
+                shortened.put("content", content.substring(0, 11300) + "\n（较长消息已摘要省略，未显示内容不可推测。）");
+                copy.set(i, shortened);
+            }
+        }
         int lastIndex = copy.size() - 1;
         Map<String, Object> last = copy.get(lastIndex);
         Map<String, Object> hinted = new LinkedHashMap<String, Object>(last);

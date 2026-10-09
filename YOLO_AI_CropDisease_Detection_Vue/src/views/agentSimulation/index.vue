@@ -1,7 +1,7 @@
 <template>
 	<div class="plan-page">
 		<header class="plan-header">
-			<div class="plan-title"><p class="eyebrow">INDEPENDENT MODEL CHANNEL / FARM PLAN</p><h1>农事规划推演</h1><p>依据人工录入、文本解析或 CSV 农情生成方案，并与 Horti-M3 2025 / CK / 广辉201 场景基线对照（默认 56 天；模型未校准）。</p></div>
+			<div class="plan-title"><p class="eyebrow">{{ linkedMode ? 'CONNECTED GREENHOUSE / FARM PLAN' : 'FARM PLAN' }}</p><h1>农事规划推演</h1><p>沿用当前农情任务、识别证据和大棚状态，结合人工补充或 CSV 农情生成方案。执行与复查分别记录。</p></div>
 			<div class="flow-rail" aria-label="规划流程">
 				<div class="flow-step" :class="{ 'is-current': !draft && !running && !final, 'is-ready': !!draft || !!final }"><span>01</span><b>输入农情</b></div><i></i>
 				<div class="flow-step" :class="{ 'is-current': !!draft && !running && !final, 'is-ready': running || !!final }"><span>02</span><b>核对内容</b></div><i></i>
@@ -9,6 +9,7 @@
 				<div class="flow-step" :class="{ 'is-current': !!final }"><span>04</span><b>查看方案</b></div>
 			</div>
 		</header>
+		<GreenhouseContext class="plan-context" />
 		<!-- ============ 左：农情录入（三通道） ============ -->
 		<section class="panel entry-panel">
 			<header class="panel-head">
@@ -16,6 +17,7 @@
 				<el-button link type="primary" @click="loadHistory">刷新历史</el-button>
 			</header>
 			<p class="input-source-note">输入来源：人工填写、文本解析或 CSV 文件。解析与导入内容均为待核对农情，不是传感器实测。</p>
+			<p v-for="(note, index) in restoredSourceNotes" :key="index" class="restored-source-note">{{ note }}</p>
 
 			<el-tabs v-model="entryTab" stretch>
 				<el-tab-pane label="表单填写" name="form">
@@ -34,7 +36,9 @@
 										:placeholder="f.unit ? `单位 ${f.unit}` : ''"
 										:class="{ 'is-missing': isMissing(f.key) }"
 										clearable
+										@update:model-value="markFieldEdited(f.key)"
 									/>
+									<span v-if="fieldSources[f.key]" class="field-source">{{ fieldSources[f.key].manualAdjusted ? '人工调整；原始来源：' : '沿用任务 · ' }}{{ fieldSources[f.key].evidenceSource }} · {{ sourceLabel(fieldSources[f.key].fieldSource) }}</span>
 								</el-form-item>
 							</el-form>
 						</el-collapse-item>
@@ -66,6 +70,7 @@
 						type="textarea"
 						:rows="6"
 						placeholder="例：我这棚番茄定植两个月了，白天棚温 27 度左右，湿度 82%，下位叶开始发黄，最近阴天多。"
+						@update:model-value="nlEdited = true"
 					/>
 					<el-button
 						type="primary"
@@ -95,6 +100,7 @@
 						<span class="draft-value">{{ item.value }}{{ item.unit ? ' ' + item.unit : '' }}</span>
 						<span v-if="item.rawText" class="draft-evidence">依据：「{{ item.rawText }}」</span>
 						<span v-else class="draft-evidence muted">来自表单/表格</span>
+						<span class="draft-evidence muted">来源：{{ sourceLabel(item.source) }}</span>
 					</li>
 				</ul>
 				<el-alert
@@ -131,9 +137,10 @@
 					type="textarea"
 					:rows="2"
 					placeholder="你这次想解决什么？（可空）例：接下来两周我该怎么管？"
+					@update:model-value="questionEdited = true"
 				/>
 				<div class="demand-row">
-					<span class="demand-label">基线天数</span>
+					<span class="demand-label">{{ linkedMode ? '规划天数' : '基线天数' }}</span>
 					<el-input-number v-model="days" :min="1" :max="365" size="small" />
 					<el-button link type="primary" @click="startDeduction" :loading="running">
 						{{ running ? '推演中…' : '开始推演' }}
@@ -157,7 +164,7 @@
 
 		<!-- ============ 右：推演与结果 ============ -->
 		<section class="panel main-panel">
-			<header class="result-heading"><div><p class="section-kicker">03–04 / DEDUCTION & REVIEW</p><h3>方案推演与结果</h3></div><span class="channel-chip">独立模型推演</span></header>
+			<header class="result-heading"><div><p class="section-kicker">03–04 / DEDUCTION & REVIEW</p><h3>方案推演与结果</h3></div><span class="channel-chip">{{ linkedMode ? '当前农情方案' : '独立农情规划' }}</span></header>
 			<div v-if="fatal" class="fatal">{{ fatal }}</div>
 
 			<div class="stage-bar">
@@ -172,7 +179,7 @@
 				</el-tag>
 			</div>
 
-			<div class="answer-banner">模型推演，非实测、非知识库依据，请结合当地实际复核</div>
+            <div class="answer-banner">{{ linkedMode ? '结合当前大棚与农情记录，安排管理措施和复查事项。' : '模型推演，非实测、非知识库依据，请结合当地实际复核' }}</div>
 
 			<div v-if="reasoning" class="reasoning">
 				<p class="reasoning-head" @click="showReasoning = !showReasoning">
@@ -215,13 +222,13 @@
 				</template>
 			</div>
 			<div v-else-if="!running" class="empty">
-				录入农情后点「开始推演」。推演会先算出机理模型参考基线，再让模型结合你的棚况给方案。
+				{{ linkedMode ? '核对已带入的农情后点「开始推演」，结合本任务证据与当前大棚状态，生成行动清单和复查安排。' : '录入农情后点「开始推演」。推演会先算出机理模型参考基线，再让模型结合你的棚况给方案。' }}
 			</div>
 
 			<!-- 结果区：基线对照 + 结构化方案 -->
 			<div v-if="final" class="results">
 				<div class="baseline-card">
-					<h4>机理模型参考基线</h4>
+					<h4>{{ final.baseline.available ? '机理模型参考基线' : '本次规划依据' }}</h4>
 					<p class="scope">{{ final.baseline.scopeNote }}</p>
 					<div v-if="final.baseline.available" class="metrics">
 						<div class="metric">
@@ -251,7 +258,7 @@
 						show-icon
 						class="window-note"
 					/>
-					<p class="recompute">
+					<p v-if="final.baseline.available" class="recompute">
 						批次 {{ final.baseline.batchId }} · 种子 {{ final.baseline.seed }} ·
 						{{ final.baseline.days }} 天，可逐值复算
 					</p>
@@ -263,8 +270,8 @@
 						{{ structured.conclusion }}
 					</p>
 					<template v-if="structured && structured.actions && structured.actions.length">
-						<p class="group-title">动作清单（可勾选）</p>
-						<el-checkbox-group v-model="checkedActions">
+						<p class="group-title">人工行动清单（完成后登记）</p>
+						<el-checkbox-group v-model="checkedActions" :disabled="actionSaving || running" @change="saveActionChecks">
 							<div v-for="(a, i) in structured.actions" :key="i" class="action">
 								<el-checkbox :label="i">
 									<span class="action-main">
@@ -319,7 +326,17 @@
 
 <script setup lang="ts" name="agentSimulation">
 import { HORTI_M3_PROFILE } from '/@/views/digitalTwin/hortiM3Profile';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue';
+import {useRoute} from 'vue-router';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+import GreenhouseContext from '/@/components/GreenhouseContext.vue';
+import {restoreTaskSituation, type TaskFieldSource} from '/@/utils/agent/taskSituation';
+const route=useRoute(),greenhouse=useGreenhouseStore();
+const linkedMode=computed(()=>!!greenhouse.activeRunId);
+let pageActive=true;
+const unsubscribe=greenhouse.subscribe();onBeforeUnmount(()=>{pageActive=false;unsubscribe();controller?.abort();});
+const planRequestId=ref('');
+
 import { ElMessage } from 'element-plus';
 import {
 	fetchPlanHistory,
@@ -340,6 +357,13 @@ import {
 
 const fields = ref<SituationFieldSpec[]>([]);
 const formValues = reactive<Record<string, unknown>>({});
+const editedFields = new Set<string>();
+const manuallyEditedFields = new Set<string>();
+const fieldSources = reactive<Record<string, TaskFieldSource>>({});
+const restoredSourceNotes = ref<string[]>([]);
+const questionEdited=ref(false),nlEdited=ref(false);
+const markFieldEdited=(key:string)=>{editedFields.add(key);manuallyEditedFields.add(key);if(fieldSources[key])fieldSources[key].manualAdjusted=true;};
+const sourceLabel=(source:string)=>({USER:'用户填写',PARSED:'文本解析',USER_EDITED:'人工调整'} as Record<string,string>)[source]||source;
 const entryTab = ref('form');
 const nlText = ref('');
 const parsing = ref(false);
@@ -376,6 +400,7 @@ const applyDraft = (result: SituationDraft) => {
 	draft.value = result;
 	for (const item of result.fields) {
 		formValues[item.key] = item.value === null || item.value === undefined ? '' : item.value;
+		editedFields.add(item.key);manuallyEditedFields.delete(item.key);delete fieldSources[item.key];
 	}
 };
 
@@ -430,6 +455,23 @@ const recordId = ref<number | null>(null);
 const checkedActions = ref<number[]>([]);
 let controller: AbortController | null = null;
 
+const actionSaving=ref(false);
+async function saveActionChecks(values:number[]){
+ if(actionSaving.value)return;actionSaving.value=true;
+ try{
+  await greenhouse.refreshTask();
+  for(let index=0;index<(structured.value?.actions?.length||0);index++){
+   const id=planRequestId.value+':action:'+index;
+   const action=greenhouse.task?.actions.find(a=>a.id===id);
+   if(!action)throw new Error('行动记录尚未保存，请稍后重试');
+   const status=values.includes(index)?'DONE':'PENDING';
+   if(action.status!==status)await greenhouse.setActionStatus(id,status);
+  }
+ }catch(e){
+  checkedActions.value=(structured.value?.actions||[]).map((_,i)=>i).filter(i=>greenhouse.task?.actions.some(a=>a.id===planRequestId.value+':action:'+i&&['DONE','REVIEWED'].includes(a.status)));
+  ElMessage.error(e instanceof Error?e.message:'行动状态保存失败');
+ }finally{actionSaving.value=false;}
+}
 const elapsedText = computed(() => {
 	const ms = final.value?.elapsedMillis ?? 0;
 	return ms >= 1000 ? `${(ms / 1000).toFixed(1)} 秒` : `${ms} 毫秒`;
@@ -445,13 +487,24 @@ const collectSituation = (): Record<string, unknown> => {
 	return payload;
 };
 
+const collectFieldEvidence=(situation:Record<string,unknown>)=>fields.value.filter(field=>Object.prototype.hasOwnProperty.call(situation,field.key)).map(field=>{
+ const original=draft.value?.fields.find(value=>value.key===field.key);
+ return {key:field.key,label:field.label,unit:field.unit,value:situation[field.key],source:manuallyEditedFields.has(field.key)?'USER_EDITED':fieldSources[field.key]?.fieldSource||original?.source||'USER',rawText:original?.rawText||null};
+});
+
 const startDeduction = async () => {
 	const situation = collectSituation();
 	if (!Object.keys(situation).length && !question.value.trim()) {
 		ElMessage.warning('至少填一项农情，或写一句诉求');
 		return;
 	}
-	running.value = true;
+    let taskId:string;
+    planRequestId.value=crypto.randomUUID();
+    try{
+        taskId=(await greenhouse.ensureTask(question.value.trim())).id;
+        if(Object.keys(situation).length)await greenhouse.addEvidence({id:planRequestId.value+':input',type:'AGRI_INPUT',label:'本次已核对的农情输入',source:entryTab.value==='nl'?'用户文本解析 / 已核对，非传感器实测':'用户表单或CSV / 已核对，非传感器实测',details:{situation,fields:collectFieldEvidence(situation),fieldProvenance:{...fieldSources},missing:draft.value?.missing||[],sensorMeasured:false}});
+    }catch(e){ElMessage.error(e instanceof Error?e.message:'农情任务保存失败');return;}
+    running.value = true;
 	fatal.value = '';
 	content.value = '';
 	reasoning.value = '';
@@ -463,13 +516,14 @@ const startDeduction = async () => {
 
 	try {
 		await streamPlanDeduction(
-			{ situation, question: question.value.trim(), days: days.value },
+			{ situation, question: question.value.trim(), days: days.value, taskId, requestId:planRequestId.value, simulationRunId:greenhouse.activeRunId||undefined },
 			{
+                onWarning:message=>ElMessage.warning(message),
 				onStage: (_phase, message) => {
 					stageMessage.value = message;
 				},
-				onBaseline: () => {
-					stageMessage.value = '参考基线已算出，模型推演中…';
+				onBaseline: (baseline) => {
+					stageMessage.value = baseline.available ? '参考基线已算出，模型推演中…' : linkedMode.value ? '已读取关联任务与大棚，方案推演中…' : '参考基线不可用，正结合所填农情规划…';
 				},
 				onDelta: (text, isReasoning) => {
 					if (isReasoning) reasoning.value += text;
@@ -493,6 +547,7 @@ const startDeduction = async () => {
 					fatal.value = message;
 				},
 				onClosed: () => {
+                    void greenhouse.refreshTask().catch(e=>ElMessage.error(String(e)));
 					running.value = false;
 					stageMessage.value = '';
 				},
@@ -643,13 +698,29 @@ const fmt = (value: number | undefined, digits: number) => {
 };
 
 onMounted(async () => {
-	try {
-		fields.value = await fetchSituationFields();
-		// 默认展开前两组（基本情况、环境读数）——它们决定推演的最小可用输入。
-		expandedGroups.value = groupedFields.value.slice(0, 2).map((g) => g.name);
-	} catch {
-		ElMessage.error('农情字段定义加载失败，请确认后端已启动');
-	}
+ const results=await Promise.allSettled([
+  (async()=>{
+   const definitions=await fetchSituationFields();if(!pageActive)return;
+   fields.value=definitions;expandedGroups.value=groupedFields.value.slice(0,2).map(group=>group.name);
+  })(),
+  (async()=>{
+   if(typeof route.query.liveRun==='string')await greenhouse.attachRun(route.query.liveRun);
+   if(typeof route.query.taskId==='string')return greenhouse.attachTask(route.query.taskId);
+   return greenhouse.refreshTask();
+  })(),
+ ] as const);
+ if(!pageActive)return;
+ if(results[0].status==='rejected')ElMessage.error('农情字段定义加载失败，请确认后端已启动');
+ if(results[1].status==='rejected')ElMessage.error(String(results[1].reason));
+ const saved=results[1].status==='fulfilled'?results[1].value:null;
+ if(saved&&greenhouse.task?.id===saved.id){
+  if(!questionEdited.value&&!question.value.trim())question.value=saved.question||'';
+  if(!nlEdited.value&&!nlText.value.trim())nlText.value=saved.question||'';
+  const restored=restoreTaskSituation(saved.evidence,fields.value,formValues,editedFields);
+  Object.assign(formValues,restored.patch);Object.assign(fieldSources,restored.sources);
+  restoredSourceNotes.value=restored.sourceNotes;
+  if(restored.draft.fields.length&&!draft.value)draft.value=restored.draft;
+ }
 	loadHistory();
 });
 </script>
@@ -658,13 +729,13 @@ onMounted(async () => {
 .plan-page {
 	display: grid;
 	grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
-	grid-template-rows: auto minmax(0, 1fr);
+	grid-template-rows: auto auto minmax(0, 1fr);
 	gap: 14px;
 	padding: 20px 24px 24px;
 	height: calc(100vh - 90px);
 	box-sizing: border-box;
 }
-.plan-header { grid-column:1 / -1; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:2px 0 15px; border-bottom:1px solid #e3d8c9; }
+.plan-context{grid-column:1 / -1;margin:0!important}.plan-header { grid-column:1 / -1; display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:2px 0 15px; border-bottom:1px solid #e3d8c9; }
 .plan-title .eyebrow,.section-kicker { margin:0 0 5px; color:#8a7665; font-size:10px; font-weight:700; letter-spacing:.12em; }
 .plan-title h1 { margin:0; color:#382b25; font:600 27px/1.25 Georgia,'Songti SC',serif; }
 .plan-title p:last-child { margin:6px 0 0; color:#756b62; font-size:13px; line-height:1.6; }
@@ -689,6 +760,7 @@ onMounted(async () => {
 .section-kicker { margin-bottom:4px; }
 .channel-chip { padding:5px 8px; border:1px solid #ead9c9; background:#f8efe5; color:#84533a; font-size:11px; }
 .input-source-note { margin:0 0 12px; padding:9px 10px; border-left:2px solid #a56b4d; background:#f8f4ed; color:#75675b; font-size:11px; line-height:1.55; }
+.restored-source-note{margin:0 0 9px;color:#58744e;font-size:11px;line-height:1.65}.field-source{display:block;width:100%;margin-top:3px;color:#849078;font-size:10px;line-height:1.4}
 .draft-step { margin:0 0 7px; color:#8a674e; font-size:10px; font-weight:700; letter-spacing:.1em; }
 
 .panel-head {

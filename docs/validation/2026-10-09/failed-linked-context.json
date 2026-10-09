@@ -1,0 +1,1167 @@
+{
+  "task": {
+    "id": "880bb12c-444e-4180-83e2-8c52e88bdf80",
+    "title": "番茄农情管理",
+    "crop": "番茄",
+    "question": "本任务番茄连续阴雨、叶片有斑，已上传病叶图和农情表格。按本任务实际识别候选和新增复查记录给出今天管理建议，最多4点，区分用户输入与模拟读数，暂不执行设备。",
+    "simulationRunId": "0d01c93d-9794-4dc4-b875-073778913055",
+    "evidence": [
+      {
+        "id": "fca4ad2f-8135-4205-976b-360b61754e4e",
+        "type": "CSV",
+        "label": "农情表格",
+        "source": "用户上传，已核对",
+        "detailsSummary": "{\"fields\":[{\"key\":\"crop\",\"label\":\"作物\",\"unit\":null,\"value\":\"番茄\",\"source\":\"USER\",\"rawText\":null},{\"key\":\"growthStage\",\"label\":\"当前生育期\",\"unit\":null,\"value\":\"结果初期\",\"source\":\"USER\",\"rawText\":null},{\"key\":\"temperatureC\",\"label\":\"温度\",\"unit\":\"℃\",\"value\":22,\"source\":\"USER\",\"rawText\":null},{\"key\":\"humidityPct\",\"label\":\"空气湿度\",\"unit\":\"%\",\"value\":92,\"source\":\"USER\",\"rawText\":null},{\"key\":\"co2Ppm\",\"label\":\"CO₂ 浓…（其余内容在任务档案）"
+      }
+    ],
+    "actions": [
+      {
+        "id": "c06a76fb-147f-4e8a-96b1-9d35a09b269c",
+        "type": "HUMAN",
+        "source": "人工新增",
+        "title": "流程验证：检查病叶正反面与新增病斑，实际执行前核对温湿度测点",
+        "status": "PROPOSED"
+      }
+    ],
+    "observations": [
+      {
+        "id": "cb1fd1e8-9672-4e94-9a72-9a675bb819ef",
+        "source": "HUMAN_RECORDED",
+        "note": "流程验证记录，非现场巡查：模拟时刻2025-04-19 17:00，处理分支29.2°C、95%RH；相比未干预温度高1.3°C、湿度高6.1个百分点，用电3.36kWh。不能把本次方案称为已改善，需继续评估除湿与冠层湿润条件。病斑扩展、叶背和根区真实情况尚未人工核查，图像仅为早疫病候选。",
+        "recordedAt": "2026-10-08T20:06:02.72+08:00"
+      }
+    ],
+    "turnsOmittedCount": 1,
+    "contextTruncated": true,
+    "archiveRecordReferences": {
+      "turns": [
+        "3b302088-023a-413b-b158-0b8cd7ed2181:assistant"
+      ],
+      "evidence": [
+        "fca4ad2f-8135-4205-976b-360b61754e4e"
+      ],
+      "actions": [
+        "c06a76fb-147f-4e8a-96b1-9d35a09b269c"
+      ],
+      "observations": [
+        "cb1fd1e8-9672-4e94-9a72-9a675bb819ef"
+      ]
+    },
+    "fullTextInTaskArchive": true
+  },
+  "simulationRunId": "0d01c93d-9794-4dc4-b875-073778913055",
+  "year": 2025,
+  "parameterVersion": "m3-cross-year-2026-10-02T12-01-49.808-a1e148ee",
+  "observationsSha256": "49423e611242cf219186c6d1196c81eaaf21116afd3536238b6b6c15b00d2dd7",
+  "cursor": 10,
+  "finished": false,
+  "playback": {
+    "playing": false,
+    "stepCount": 1,
+    "waitingForAi": false,
+    "restored": true,
+    "checkpointIntervalSeconds": 5
+  },
+  "current": {
+    "at": "2025-04-19T17:00",
+    "date": "2025-04-19",
+    "cursor": 10,
+    "receivedAt": "2026-10-08T20:04:05.179+08:00[Asia/Shanghai]",
+    "gdd": 4.7143745416666665,
+    "split": "online",
+    "environment": {
+      "at": "2025-04-19T16:30:00",
+      "temperatureC": 30.149998,
+      "airHumidityPct": 19.82,
+      "co2Ppm": 438.0,
+      "lightRaw": 7.85,
+      "soilMoistureVwcPct": 54.399999,
+      "estimated": false,
+      "origin": "ck-back",
+      "observedAt": "2025-04-19T16:01:33+08:00",
+      "source": {
+        "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+        "sheet": "2025-04-19",
+        "row": 34,
+        "columns": {
+          "temperatureC": "空气温度（对照2）后",
+          "airHumidityPct": "相对湿度（对照2）后",
+          "co2Ppm": "二氧化碳（对照2）后",
+          "lightRaw": "光照（对照2）后",
+          "soilMoistureVwcPct": "土壤水分（对照2）"
+        }
+      }
+    },
+    "risk": {
+      "vpdKpa": 3.4314693249588593,
+      "dewPointC": 4.5997606668636815,
+      "dewPointMarginC": 25.55023733313632,
+      "highTemperatureMinutes24h": 300.0,
+      "highHumidityMinutes24h": 0.0,
+      "highVpdMinutes24h": 300.0,
+      "heatDegreeHours24h": 18.144989000000002,
+      "windowMinutes": 300,
+      "alerts": [
+        {
+          "code": "HEAT",
+          "title": "高温暴露",
+          "level": "HIGH",
+          "value": 30.149998,
+          "threshold": 29.0,
+          "unit": "°C",
+          "durationMinutes": 300,
+          "advice": "检查通风和遮阳，复核冠层温度",
+          "basis": "项目工程阈值，非广辉201标定值",
+          "estimatedInput": false,
+          "origin": "ck-back"
+        },
+        {
+          "code": "VPD_HIGH",
+          "title": "VPD偏高",
+          "level": "HIGH",
+          "value": 3.4314693249588593,
+          "threshold": 2.0,
+          "unit": "kPa",
+          "durationMinutes": 300,
+          "advice": "检查温湿度和根区水分，综合评估蒸腾压力",
+          "basis": "由空气温湿度计算，工程阈值",
+          "estimatedInput": false,
+          "origin": "ck-back"
+        }
+      ],
+      "changes": [],
+      "riskLevel": "HIGH",
+      "validatedProbability": false
+    },
+    "originalHeightCm": 48.70875293432962,
+    "correctedHeightCm": 48.70875293432962,
+    "predictedHeightCm": 48.70875293432962,
+    "linearHeightCm": 0,
+    "measurementCount": 0,
+    "observedHeightCm": null,
+    "leafReference": {
+      "laiRaw": null,
+      "ldwRaw": null,
+      "assimilated": false,
+      "unitStatus": "INSTRUMENT_BASIS_NOT_ALIGNED"
+    },
+    "growth": {
+      "lai": 1.3025122918505312,
+      "wTotal": 156.793400383748,
+      "wFruit": 0.0,
+      "fruitSetRate": 0.0025693446017803845,
+      "fruitCount": 0,
+      "singleFruitWeightG": 0.0,
+      "stage": "SEEDLING",
+      "temperatureFactor": 0.6928574285714286,
+      "co2Factor": 1.03325,
+      "waterFactor": 1.0,
+      "plantHeightCm": 48.70875293432962,
+      "fieldValidated": false,
+      "soilStressNeutralAssumption": true,
+      "lightUnitAssumption": "raw klux -> lux x1000 -> PPFD x0.0185"
+    },
+    "scenario": {
+      "runId": "0d01c93d-9794-4dc4-b875-073778913055",
+      "version": 16,
+      "seed": -224638248181033054,
+      "tick": 10,
+      "at": "2025-04-19T17:00",
+      "source": "SIMULATED",
+      "autoEvents": false,
+      "autoActuation": true,
+      "pending": false,
+      "farmTaskId": "880bb12c-444e-4180-83e2-8c52e88bdf80",
+      "environment": {
+        "at": "2025-04-19T16:30:00",
+        "temperatureC": 29.21597957913973,
+        "airHumidityPct": 94.939444254516,
+        "co2Ppm": 438.0,
+        "lightRaw": 1.5875141359212792,
+        "soilMoistureVwcPct": 29.863797934398633,
+        "estimated": true,
+        "origin": "SIMULATED_M3_ANCHORED",
+        "observedAt": "2025-04-19T16:01:33+08:00",
+        "source": {
+          "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+          "sheet": "2025-04-19",
+          "row": 34,
+          "columns": {
+            "temperatureC": "空气温度（对照2）后",
+            "airHumidityPct": "相对湿度（对照2）后",
+            "co2Ppm": "二氧化碳（对照2）后",
+            "lightRaw": "光照（对照2）后",
+            "soilMoistureVwcPct": "土壤水分（对照2）"
+          }
+        },
+        "ppfd": 29.369011514543665,
+        "absoluteHumidityGm3": 27.597188348746943,
+        "windMps": 0.0,
+        "rainMmH": 7.751077417745473,
+        "simulatedBoundaryTemperatureC": 30.149998,
+        "simulatedBoundaryHumidityPct": 90.19055982194152,
+        "waterStressNeutral": false,
+        "rootWaterOrigin": "SIMULATED_ROOT_WATER_BALANCE",
+        "rootWaterStressFactor": 1.0,
+        "outsideBoundaryMeasured": false
+      },
+      "withoutIntervention": {
+        "at": "2025-04-19T16:30:00",
+        "temperatureC": 27.91338314374783,
+        "airHumidityPct": 88.83859482209112,
+        "co2Ppm": 438.0,
+        "lightRaw": 2.1896746702362475,
+        "soilMoistureVwcPct": 29.8284731736539,
+        "estimated": true,
+        "origin": "SIMULATED_M3_ANCHORED",
+        "observedAt": "2025-04-19T16:01:33+08:00",
+        "source": {
+          "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+          "sheet": "2025-04-19",
+          "row": 34,
+          "columns": {
+            "temperatureC": "空气温度（对照2）后",
+            "airHumidityPct": "相对湿度（对照2）后",
+            "co2Ppm": "二氧化碳（对照2）后",
+            "lightRaw": "光照（对照2）后",
+            "soilMoistureVwcPct": "土壤水分（对照2）"
+          }
+        },
+        "ppfd": 40.508981399370576,
+        "absoluteHumidityGm3": 24.04891263299941,
+        "windMps": 0.0,
+        "rainMmH": 7.751077417745473,
+        "simulatedBoundaryTemperatureC": 30.149998,
+        "simulatedBoundaryHumidityPct": 90.19055982194152,
+        "waterStressNeutral": false,
+        "rootWaterOrigin": "SIMULATED_ROOT_WATER_BALANCE",
+        "rootWaterStressFactor": 1.0,
+        "outsideBoundaryMeasured": false
+      },
+      "risk": {
+        "vpdKpa": 0.2052534093837146,
+        "dewPointC": 28.31892624356055,
+        "dewPointMarginC": 0.8970533355791801,
+        "highTemperatureMinutes24h": 270.0,
+        "highHumidityMinutes24h": 120.0,
+        "highVpdMinutes24h": 90.0,
+        "heatDegreeHours24h": 11.070181717305555,
+        "windowMinutes": 300,
+        "alerts": [
+          {
+            "code": "HEAT",
+            "title": "高温暴露",
+            "level": "MEDIUM",
+            "value": 29.21597957913973,
+            "threshold": 29.0,
+            "unit": "°C",
+            "durationMinutes": 30,
+            "advice": "检查通风和遮阳，复核冠层温度",
+            "basis": "项目工程阈值，非广辉201标定值",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          },
+          {
+            "code": "HUMID",
+            "title": "高湿病害环境",
+            "level": "MEDIUM",
+            "value": 94.939444254516,
+            "threshold": 85.0,
+            "unit": "%",
+            "durationMinutes": 120,
+            "advice": "检查通风排湿与叶面湿润，必要时拍照进行病害识别",
+            "basis": "高湿为环境条件提示，缺少叶面湿润和病原观测",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          },
+          {
+            "code": "VPD_LOW",
+            "title": "VPD偏低",
+            "level": "MEDIUM",
+            "value": 0.2052534093837146,
+            "threshold": 0.3,
+            "unit": "kPa",
+            "durationMinutes": 60,
+            "advice": "检查空气流通和高湿持续时间",
+            "basis": "不使用叶温，不能判断实际叶面结露",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          },
+          {
+            "code": "ESTIMATED",
+            "title": "环境输入含补值",
+            "level": "INFO",
+            "value": 0.0,
+            "threshold": 0.0,
+            "unit": "",
+            "durationMinutes": 300,
+            "advice": "复核原始测点与补值来源",
+            "basis": "数据质量提示，不是作物风险",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          },
+          {
+            "code": "WARM_LEAF_WET",
+            "title": "叶斑类病害湿润条件提示",
+            "level": "MEDIUM",
+            "durationMinutes": 37.0,
+            "advice": "复查病斑是否扩展；病叶处置和病因判断需要人工登记",
+            "basis": "20–30°C且冠层湿润代理≥0.55；未标定条件规则，不能诊断病害",
+            "origin": "SIMULATED_CONDITION_RULE",
+            "estimatedInput": true
+          }
+        ],
+        "changes": [
+          {
+            "code": "HEAT",
+            "title": "高温暴露",
+            "level": "MEDIUM",
+            "value": 29.21597957913973,
+            "threshold": 29.0,
+            "unit": "°C",
+            "durationMinutes": 30,
+            "advice": "检查通风和遮阳，复核冠层温度",
+            "basis": "项目工程阈值，非广辉201标定值",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          }
+        ],
+        "riskLevel": "MEDIUM",
+        "validatedProbability": false
+      },
+      "shadowRisk": {
+        "vpdKpa": 0.41977025810137397,
+        "dewPointC": 25.897562768346937,
+        "dewPointMarginC": 2.0158203754008923,
+        "highTemperatureMinutes24h": 240.0,
+        "highHumidityMinutes24h": 60.0,
+        "highVpdMinutes24h": 150.0,
+        "heatDegreeHours24h": 9.423909018599687,
+        "windowMinutes": 300,
+        "alerts": [
+          {
+            "code": "HUMID",
+            "title": "高湿病害环境",
+            "level": "MEDIUM",
+            "value": 88.83859482209112,
+            "threshold": 85.0,
+            "unit": "%",
+            "durationMinutes": 60,
+            "advice": "检查通风排湿与叶面湿润，必要时拍照进行病害识别",
+            "basis": "高湿为环境条件提示，缺少叶面湿润和病原观测",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          },
+          {
+            "code": "ESTIMATED",
+            "title": "环境输入含补值",
+            "level": "INFO",
+            "value": 0.0,
+            "threshold": 0.0,
+            "unit": "",
+            "durationMinutes": 300,
+            "advice": "复核原始测点与补值来源",
+            "basis": "数据质量提示，不是作物风险",
+            "estimatedInput": true,
+            "origin": "SIMULATED_M3_ANCHORED"
+          }
+        ],
+        "changes": [],
+        "riskLevel": "MEDIUM",
+        "validatedProbability": false
+      },
+      "weather": {
+        "id": "0d01c93d-9794-4dc4-b875-073778913055-event-1",
+        "type": "OVERCAST",
+        "title": "连续阴雨",
+        "startTick": 0,
+        "startedAt": "2025-04-19T12:00",
+        "temperatureOffsetC": 0.0,
+        "humidityBoundaryPct": 90.19055982194153,
+        "lightMultiplier": 0.2789394484377385,
+        "windMps": 0.0,
+        "rainMmH": 7.751077417745473,
+        "endTick": 30,
+        "endsAt": "2025-04-20T03:00",
+        "source": "SIMULATED"
+      },
+      "decision": {
+        "feedback": {
+          "at": "2025-04-19T15:00",
+          "environment": {
+            "at": "2025-04-19T14:30:00",
+            "temperatureC": 31.068319660987765,
+            "airHumidityPct": 81.1140257716912,
+            "co2Ppm": 468.0,
+            "lightRaw": 5.749430176336556,
+            "soilMoistureVwcPct": 29.887230217834297,
+            "estimated": true,
+            "origin": "SIMULATED_M3_ANCHORED",
+            "observedAt": "2025-04-19T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-04-19",
+              "row": 30,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            },
+            "ppfd": 106.3644582622263,
+            "absoluteHumidityGm3": 26.05885138924744,
+            "windMps": 0.0,
+            "rainMmH": 7.751077417745473,
+            "simulatedBoundaryTemperatureC": 32.939998,
+            "simulatedBoundaryHumidityPct": 90.19055982194153,
+            "waterStressNeutral": false,
+            "rootWaterOrigin": "SIMULATED_ROOT_WATER_BALANCE",
+            "rootWaterStressFactor": 1.0,
+            "outsideBoundaryMeasured": false
+          },
+          "risk": {
+            "vpdKpa": 0.8517755259300829,
+            "dewPointC": 27.439554235180953,
+            "dewPointMarginC": 3.6287654258068116,
+            "highTemperatureMinutes24h": 180.0,
+            "highHumidityMinutes24h": 0.0,
+            "highVpdMinutes24h": 90.0,
+            "heatDegreeHours24h": 9.1189129694082,
+            "windowMinutes": 180,
+            "alerts": [
+              {
+                "code": "HEAT",
+                "title": "高温暴露",
+                "level": "HIGH",
+                "value": 31.068319660987765,
+                "threshold": 29.0,
+                "unit": "°C",
+                "durationMinutes": 180,
+                "advice": "检查通风和遮阳，复核冠层温度",
+                "basis": "项目工程阈值，非广辉201标定值",
+                "estimatedInput": true,
+                "origin": "SIMULATED_M3_ANCHORED"
+              },
+              {
+                "code": "ESTIMATED",
+                "title": "环境输入含补值",
+                "level": "INFO",
+                "value": 0.0,
+                "threshold": 0.0,
+                "unit": "",
+                "durationMinutes": 180,
+                "advice": "复核原始测点与补值来源",
+                "basis": "数据质量提示，不是作物风险",
+                "estimatedInput": true,
+                "origin": "SIMULATED_M3_ANCHORED"
+              }
+            ],
+            "changes": [],
+            "riskLevel": "HIGH",
+            "validatedProbability": false
+          },
+          "withoutIntervention": {
+            "at": "2025-04-19T14:30:00",
+            "temperatureC": 30.381975120151736,
+            "airHumidityPct": 64.19875014723516,
+            "co2Ppm": 468.0,
+            "lightRaw": 7.930248519084906,
+            "soilMoistureVwcPct": 29.864866962359105,
+            "estimated": true,
+            "origin": "SIMULATED_M3_ANCHORED",
+            "observedAt": "2025-04-19T14:01:33+08:00",
+            "source": {
+              "file": "2025/2025/202504/raw_data/sensor_data/sensor1.xlsx",
+              "sheet": "2025-04-19",
+              "row": 30,
+              "columns": {
+                "temperatureC": "空气温度（对照2）后",
+                "airHumidityPct": "相对湿度（对照2）后",
+                "co2Ppm": "二氧化碳（对照2）后",
+                "lightRaw": "光照（对照2）后",
+                "soilMoistureVwcPct": "土壤水分（对照2）"
+              }
+            },
+            "ppfd": 146.70959760307076,
+            "absoluteHumidityGm3": 19.87752049470312,
+            "windMps": 0.0,
+            "rainMmH": 7.751077417745473,
+            "simulatedBoundaryTemperatureC": 32.939998,
+            "simulatedBoundaryHumidityPct": 90.19055982194153,
+            "waterStressNeutral": false,
+            "rootWaterOrigin": "SIMULATED_ROOT_WATER_BALANCE",
+            "rootWaterStressFactor": 1.0,
+            "outsideBoundaryMeasured": false
+          },
+          "temperatureDifferenceC": 0.6863445408360285,
+          "humidityDifferencePct": 16.915275624456044,
+          "agronomy": {
+            "modelVersion": "root-water-condition-proxy-20261008-v2",
+            "origin": "SIMULATED_ROOT_WATER_BALANCE",
+            "calibrated": false,
+            "measured": false,
+            "soilMoistureUnit": "%vol",
+            "soilMoistureVwcPct": 29.887230217834297,
+            "rootWaterL": 18828.95503723561,
+            "rootVolumeL": 63000.0,
+            "areaM2": 252.0,
+            "rootDepthM": 0.25,
+            "rootDepthMeaning": "虚拟有效储水层厚度，非番茄最大根深",
+            "integrationMinutes": 1,
+            "vpdKpa": 0.8517755259300829,
+            "fieldCapacityVwcPct": 34.0,
+            "saturationVwcPct": 46.0,
+            "dryThresholdVwcPct": 24.0,
+            "wetThresholdVwcPct": 36.0,
+            "waterStressFactor": 1.0,
+            "waterUsedL": 0.0,
+            "drainageL": 0.0,
+            "evapotranspirationL": 71.04496276438131,
+            "wetExposureMinutes": 0.0,
+            "dryExposureMinutes": 0.0,
+            "continuousWetMinutes": 0.0,
+            "continuousDryMinutes": 0.0,
+            "canopyWetnessProxy": 0.0,
+            "canopyWetMinutes": 0.0,
+            "evapotranspirationRateMmDay": 1.2982918157655199,
+            "elapsedMinutes": 180,
+            "waterBalanceResidualL": 7.275957614183426E-12,
+            "rootCondition": "SUITABLE",
+            "diseaseConditions": [
+              {
+                "code": "COOL_WET",
+                "title": "灰霉病适生环境提示",
+                "level": "LOW",
+                "continuousExposureMinutes": 0.0,
+                "cumulativeExposureMinutes": 0.0,
+                "condition": "15–25°C且冠层湿润代理≥0.55",
+                "review": "观察花、叶、果是否有灰色霉层；有症状时补拍照片并人工确认",
+                "origin": "SIMULATED_CONDITION_RULE",
+                "validatedProbability": false,
+                "diagnosis": false,
+                "calibrated": false,
+                "alertAfterMinutes": 360,
+                "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+                "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/gray-mold-of-tomatoes",
+                "referenceScope": "文献支持温湿/湿叶方向，项目代理与6小时提醒未作病原感染验证"
+              },
+              {
+                "code": "WARM_LEAF_WET",
+                "title": "叶斑类病害湿润条件提示",
+                "level": "LOW",
+                "continuousExposureMinutes": 0.0,
+                "cumulativeExposureMinutes": 0.0,
+                "condition": "20–30°C且冠层湿润代理≥0.55",
+                "review": "复查病斑是否扩展；病叶处置和病因判断需要人工登记",
+                "origin": "SIMULATED_CONDITION_RULE",
+                "validatedProbability": false,
+                "diagnosis": false,
+                "calibrated": false,
+                "alertAfterMinutes": 240,
+                "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+                "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/early-blight-in-tomato-and-potato",
+                "referenceScope": "文献仅支持暖湿环境相关性；4小时为项目复查窗口，不是叶斑病原统一感染阈值"
+              }
+            ],
+            "diseaseConditionLevel": "LOW",
+            "riskLevel": "LOW"
+          },
+          "shadowAgronomy": {
+            "modelVersion": "root-water-condition-proxy-20261008-v2",
+            "origin": "SIMULATED_ROOT_WATER_BALANCE",
+            "calibrated": false,
+            "measured": false,
+            "soilMoistureUnit": "%vol",
+            "soilMoistureVwcPct": 29.864866962359105,
+            "rootWaterL": 18814.866186286235,
+            "rootVolumeL": 63000.0,
+            "areaM2": 252.0,
+            "rootDepthM": 0.25,
+            "rootDepthMeaning": "虚拟有效储水层厚度，非番茄最大根深",
+            "integrationMinutes": 1,
+            "vpdKpa": 1.552670715329109,
+            "fieldCapacityVwcPct": 34.0,
+            "saturationVwcPct": 46.0,
+            "dryThresholdVwcPct": 24.0,
+            "wetThresholdVwcPct": 36.0,
+            "waterStressFactor": 1.0,
+            "waterUsedL": 0.0,
+            "drainageL": 0.0,
+            "evapotranspirationL": 85.1338137136915,
+            "wetExposureMinutes": 0.0,
+            "dryExposureMinutes": 0.0,
+            "continuousWetMinutes": 0.0,
+            "continuousDryMinutes": 0.0,
+            "canopyWetnessProxy": 0.0,
+            "canopyWetMinutes": 0.0,
+            "evapotranspirationRateMmDay": 1.9603852905434271,
+            "elapsedMinutes": 180,
+            "waterBalanceResidualL": 7.275957614183426E-11,
+            "rootCondition": "SUITABLE",
+            "diseaseConditions": [
+              {
+                "code": "COOL_WET",
+                "title": "灰霉病适生环境提示",
+                "level": "LOW",
+                "continuousExposureMinutes": 0.0,
+                "cumulativeExposureMinutes": 0.0,
+                "condition": "15–25°C且冠层湿润代理≥0.55",
+                "review": "观察花、叶、果是否有灰色霉层；有症状时补拍照片并人工确认",
+                "origin": "SIMULATED_CONDITION_RULE",
+                "validatedProbability": false,
+                "diagnosis": false,
+                "calibrated": false,
+                "alertAfterMinutes": 360,
+                "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+                "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/gray-mold-of-tomatoes",
+                "referenceScope": "文献支持温湿/湿叶方向，项目代理与6小时提醒未作病原感染验证"
+              },
+              {
+                "code": "WARM_LEAF_WET",
+                "title": "叶斑类病害湿润条件提示",
+                "level": "LOW",
+                "continuousExposureMinutes": 0.0,
+                "cumulativeExposureMinutes": 0.0,
+                "condition": "20–30°C且冠层湿润代理≥0.55",
+                "review": "复查病斑是否扩展；病叶处置和病因判断需要人工登记",
+                "origin": "SIMULATED_CONDITION_RULE",
+                "validatedProbability": false,
+                "diagnosis": false,
+                "calibrated": false,
+                "alertAfterMinutes": 240,
+                "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+                "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/early-blight-in-tomato-and-potato",
+                "referenceScope": "文献仅支持暖湿环境相关性；4小时为项目复查窗口，不是叶斑病原统一感染阈值"
+              }
+            ],
+            "diseaseConditionLevel": "LOW",
+            "riskLevel": "LOW"
+          },
+          "resources": {
+            "origin": "SIMULATED_DEVICE_ACCOUNTING",
+            "calibrated": false,
+            "irrigationWaterL": 0.0,
+            "coolingWaterL": 0.0,
+            "totalWaterL": 0.0,
+            "electricityKwh": 1.5605,
+            "co2Kg": 0.0,
+            "waterUsedL": 0.0,
+            "energyKwh": 1.5605,
+            "deviceDutyMinutes": {
+              "HEATING": 0.0,
+              "IRRIGATION": 0.0,
+              "VENTILATION": 0.0,
+              "SUPPLEMENTAL_LIGHT": 0.0,
+              "SHADE": 96.0,
+              "CO2_SUPPLY": 0.0,
+              "ROOF_VENT": 57.0,
+              "EXHAUST_FAN": 54.0,
+              "COOLING_PAD": 0.0,
+              "CIRCULATION_FAN": 84.0
+            },
+            "lastStep": {
+              "irrigationWaterL": 0.0,
+              "drainageL": 0.0,
+              "evapotranspirationL": 6.816032032768975,
+              "coolingWaterL": 0.0,
+              "electricityKwh": 0.449,
+              "co2Kg": 0.0
+            },
+            "note": "按设备出力×模拟分钟与假设容量计量；不是电表、水表或费用实测。"
+          },
+          "effects": [
+            {
+              "device": "HEATING",
+              "title": "加热保温",
+              "observed": "组合方案相较未干预分支：温度+0.7°C，湿度+16.9个百分点",
+              "status": "APPLIED_STOP",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "IRRIGATION",
+              "title": "分时滴灌",
+              "observed": "根区体积含水率相较对照+0.02个百分点；累计滴灌0.0L；本段0.0L",
+              "status": "IDLE",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "VENTILATION",
+              "title": "侧窗换气",
+              "observed": "组合方案相较未干预分支：温度+0.7°C，湿度+16.9个百分点",
+              "status": "IDLE",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "SUPPLEMENTAL_LIGHT",
+              "title": "补光",
+              "observed": "组合方案相较对照：PPFD-40µmol/m²/s；虚拟总干重-0.095g/m²",
+              "status": "IDLE",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "SHADE",
+              "title": "遮阳",
+              "observed": "组合方案相较对照：PPFD-40µmol/m²/s，温度+0.7°C",
+              "status": "APPLIED",
+              "duty": 0.5,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "CO2_SUPPLY",
+              "title": "CO₂补充",
+              "observed": "组合方案相较对照：CO₂+0ppm；累计CO₂代理用量0.000kg",
+              "status": "IDLE",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "ROOF_VENT",
+              "title": "屋窗换气",
+              "observed": "组合方案相较未干预分支：温度+0.7°C，湿度+16.9个百分点",
+              "status": "APPLIED",
+              "duty": 0.6,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "EXHAUST_FAN",
+              "title": "排风换气",
+              "observed": "组合方案相较未干预分支：温度+0.7°C，湿度+16.9个百分点",
+              "status": "APPLIED",
+              "duty": 0.6,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "COOLING_PAD",
+              "title": "湿帘降温",
+              "observed": "组合方案相较未干预分支：温度+0.7°C，湿度+16.9个百分点",
+              "status": "IDLE",
+              "duty": 0.0,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            },
+            {
+              "device": "CIRCULATION_FAN",
+              "title": "冠层环流",
+              "observed": "冠层湿润代理相较对照+0.000（0–1）；湿润累计0分钟",
+              "status": "APPLIED",
+              "duty": 0.5,
+              "origin": "SIMULATED_RESPONSE",
+              "fieldValidated": false
+            }
+          ],
+          "soilMoistureDifferenceVwcPct": 0.02236325547519158,
+          "applicationStatus": "APPLIED_TO_SIMULATION",
+          "source": "MODEL_COMPARISON",
+          "fieldValidated": false
+        },
+        "status": "UNRESOLVED",
+        "requestId": "bcccd143-dd15-43cb-940b-d569b05aff22",
+        "question": "请结合当前农情、根区与设备健康处理事件，观察改善与代价",
+        "version": 9,
+        "applyRequested": true,
+        "startedAt": "2025-04-19T14:00",
+        "plan": {
+          "summary": "当前正处连续阴雨的高温时段：棚内31.9°C、湿度62%，根区29.9%vol尚属适宜，但高温已持续约2小时，是现在最主要的矛盾。早疫病只是已保存的检测候选，褐斑属于人工报告症状，不能当作确诊或病原量。",
+          "reason": "棚内温度31.9°C已越过项目29°C高温保护线，所以不能开加热；湿度不高、VPD约1.8kPa，蒸发降温条件尚可，但阴雨下外界空气湿度达90%，湿帘效力会明显打折，不能指望它给固定降温幅度。根区含水率29.9%vol在24–36%适宜区间，蒸散已在扣水，暂时没有缺水或过湿暴露，盲目滴灌反而抬高湿度和根区过湿风险。通风换气以降温排湿为主，遮阳降辐射热，但弱光下不宜过度遮挡。",
+          "expected": "在保持通风换气的条件下压低棚内温度、缓解持续高温暴露，同时避免根区过湿和叶面长时间润湿；阴雨高湿下湿帘降温幅度有限。",
+          "citationNumbers": [
+            2,
+            3,
+            4
+          ],
+          "check": "两步后（约30分钟后）复查棚温是否回落、湿度与叶面是否结露、根区含水率变化；4小时湿润窗口内人工复查已报告褐斑和早疫病候选叶片是否扩展、有无新斑，病斑面积与病因需人工登记，不能因环境改善判定症状消失。",
+          "actions": [
+            {
+              "duty": 0.6,
+              "durationSteps": 6,
+              "device": "ROOF_VENT"
+            },
+            {
+              "duty": 0.6,
+              "durationSteps": 6,
+              "device": "EXHAUST_FAN"
+            },
+            {
+              "duty": 0.5,
+              "durationSteps": 6,
+              "device": "SHADE"
+            },
+            {
+              "duty": 0.5,
+              "durationSteps": 6,
+              "device": "CIRCULATION_FAN"
+            },
+            {
+              "duty": 0.0,
+              "durationSteps": 2,
+              "device": "HEATING"
+            }
+          ],
+          "references": [
+            {
+              "number": 2,
+              "sourceCode": "guidance-humidity-ut-w017",
+              "title": "University of Tennessee Extension：Controlling the Environment in Greenhouses Used for Tomato Production（W017）",
+              "url": "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W017.pdf",
+              "topic": "温室高湿、结露与加热排湿",
+              "text": "W017讨论塑料覆盖番茄温室的温湿调节。加热降低相对湿度，但没有直接排走水汽；通风和气流分布参与湿度管理。叶片实际是否结露还需叶温或湿润测量，空气RH只能提示条件。"
+            },
+            {
+              "number": 3,
+              "sourceCode": "guidance-humidity-ut-w017",
+              "title": "University of Tennessee Extension：Controlling the Environment in Greenhouses Used for Tomato Production（W017）",
+              "url": "https://utia.tennessee.edu/publications/wp-content/uploads/sites/269/2023/10/W017.pdf",
+              "topic": "湿帘蒸发降温在高湿下的限制",
+              "text": "W017说明空气湿度越高，可蒸发水量和降温效果越低。暴雨高湿时不能假定开启湿帘就有固定降温幅度；需要结合外界空气、风机和温室条件。该旧版推广资料的数值不取代本地标准。"
+            },
+            {
+              "number": 4,
+              "sourceCode": "std-nyt5449-2026",
+              "title": "NY/T 5449—2026 设施番茄生产全程质量控制技术规范（中华人民共和国农业行业标准，农业农村部发布）",
+              "url": "http://www.aqsc.agri.cn/zlbz/bzgg/lzjlfj/202608/P020260806425781589430.pdf",
+              "topic": "水肥管理",
+              "text": "5.3.6 水肥管理：5.3.6.1 根据番茄栽培品种、种植模式、土壤肥力与肥料利用率，制订平衡施肥方案并组织实施。基肥以有机肥为主，追肥宜采用水肥一体化方式，控制氮素化肥，增施钾肥、钙肥、微量元素肥料，实现平衡施肥。肥料施用应符合NY/T 496的要求，有机肥施用应符合NY/T 1868的要求。5.3.6.2 宜采用膜下滴灌方式补水，补水宜在上午补足，其他时间必要时少量补水。定植后浇足定根水，缓苗后至开花期严格控制补水，坐果后根据土壤墒情适时补水。天气预报若有雨涝灾害，提前清沟预防，灾后及时清沟理墒，排除积水。"
+            }
+          ],
+          "modelReturned": true,
+          "taskId": "880bb12c-444e-4180-83e2-8c52e88bdf80",
+          "taskEvidenceIds": [
+            "fca4ad2f-8135-4205-976b-360b61754e4e"
+          ]
+        },
+        "provider": "DeepSeek",
+        "constraints": [],
+        "executedAt": "2025-04-19T14:00",
+        "executedDevices": {
+          "HEATING": 0.0,
+          "IRRIGATION": 0.0,
+          "VENTILATION": 0.0,
+          "SUPPLEMENTAL_LIGHT": 0.0,
+          "SHADE": 0.5,
+          "CO2_SUPPLY": 0.0,
+          "ROOF_VENT": 0.6,
+          "EXHAUST_FAN": 0.6,
+          "COOLING_PAD": 0.0,
+          "CIRCULATION_FAN": 0.5
+        },
+        "snapshotReference": {
+          "sha256": "d3455829dee0aaa4d4d55f7b03b95518e3adaf6f2d68acfe097e6fb998d7dd6f",
+          "at": "2025-04-19T15:00",
+          "fullFeedbackRetained": true,
+          "catalogKey": "decisionSnapshots.d3455829dee0aaa4d4d55f7b03b95518e3adaf6f2d68acfe097e6fb998d7dd6f"
+        }
+      },
+      "responseModelVersion": "m3-scenario-agronomy-20261008-v4",
+      "agronomy": {
+        "modelVersion": "root-water-condition-proxy-20261008-v2",
+        "origin": "SIMULATED_ROOT_WATER_BALANCE",
+        "calibrated": false,
+        "measured": false,
+        "soilMoistureUnit": "%vol",
+        "soilMoistureVwcPct": 29.863797934398633,
+        "rootWaterL": 18814.19269867114,
+        "rootVolumeL": 63000.0,
+        "areaM2": 252.0,
+        "rootDepthM": 0.25,
+        "rootDepthMeaning": "虚拟有效储水层厚度，非番茄最大根深",
+        "integrationMinutes": 1,
+        "vpdKpa": 0.2052534093837146,
+        "fieldCapacityVwcPct": 34.0,
+        "saturationVwcPct": 46.0,
+        "dryThresholdVwcPct": 24.0,
+        "wetThresholdVwcPct": 36.0,
+        "waterStressFactor": 1.0,
+        "waterUsedL": 0.0,
+        "drainageL": 0.0,
+        "evapotranspirationL": 85.80730132885013,
+        "wetExposureMinutes": 0.0,
+        "dryExposureMinutes": 0.0,
+        "continuousWetMinutes": 0.0,
+        "continuousDryMinutes": 0.0,
+        "canopyWetnessProxy": 0.6406703062140847,
+        "canopyWetMinutes": 37.0,
+        "evapotranspirationRateMmDay": 0.5184956855054108,
+        "elapsedMinutes": 300,
+        "waterBalanceResidualL": 1.0913936421275139E-11,
+        "rootCondition": "SUITABLE",
+        "diseaseConditions": [
+          {
+            "code": "COOL_WET",
+            "title": "灰霉病适生环境提示",
+            "level": "LOW",
+            "continuousExposureMinutes": 0.0,
+            "cumulativeExposureMinutes": 0.0,
+            "condition": "15–25°C且冠层湿润代理≥0.55",
+            "review": "观察花、叶、果是否有灰色霉层；有症状时补拍照片并人工确认",
+            "origin": "SIMULATED_CONDITION_RULE",
+            "validatedProbability": false,
+            "diagnosis": false,
+            "calibrated": false,
+            "alertAfterMinutes": 360,
+            "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+            "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/gray-mold-of-tomatoes",
+            "referenceScope": "文献支持温湿/湿叶方向，项目代理与6小时提醒未作病原感染验证"
+          },
+          {
+            "code": "WARM_LEAF_WET",
+            "title": "叶斑类病害湿润条件提示",
+            "level": "MEDIUM",
+            "continuousExposureMinutes": 37.0,
+            "cumulativeExposureMinutes": 37.0,
+            "condition": "20–30°C且冠层湿润代理≥0.55",
+            "review": "复查病斑是否扩展；病叶处置和病因判断需要人工登记",
+            "origin": "SIMULATED_CONDITION_RULE",
+            "validatedProbability": false,
+            "diagnosis": false,
+            "calibrated": false,
+            "alertAfterMinutes": 240,
+            "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+            "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/early-blight-in-tomato-and-potato",
+            "referenceScope": "文献仅支持暖湿环境相关性；4小时为项目复查窗口，不是叶斑病原统一感染阈值"
+          }
+        ],
+        "diseaseConditionLevel": "MEDIUM",
+        "riskLevel": "MEDIUM"
+      },
+      "shadowAgronomy": {
+        "modelVersion": "root-water-condition-proxy-20261008-v2",
+        "origin": "SIMULATED_ROOT_WATER_BALANCE",
+        "calibrated": false,
+        "measured": false,
+        "soilMoistureUnit": "%vol",
+        "soilMoistureVwcPct": 29.8284731736539,
+        "rootWaterL": 18791.93809940196,
+        "rootVolumeL": 63000.0,
+        "areaM2": 252.0,
+        "rootDepthM": 0.25,
+        "rootDepthMeaning": "虚拟有效储水层厚度，非番茄最大根深",
+        "integrationMinutes": 1,
+        "vpdKpa": 0.41977025810137397,
+        "fieldCapacityVwcPct": 34.0,
+        "saturationVwcPct": 46.0,
+        "dryThresholdVwcPct": 24.0,
+        "wetThresholdVwcPct": 36.0,
+        "waterStressFactor": 1.0,
+        "waterUsedL": 0.0,
+        "drainageL": 0.0,
+        "evapotranspirationL": 108.06190059796762,
+        "wetExposureMinutes": 0.0,
+        "dryExposureMinutes": 0.0,
+        "continuousWetMinutes": 0.0,
+        "continuousDryMinutes": 0.0,
+        "canopyWetnessProxy": 0.4002391780484856,
+        "canopyWetMinutes": 0.0,
+        "evapotranspirationRateMmDay": 0.7160023516182867,
+        "elapsedMinutes": 300,
+        "waterBalanceResidualL": 7.275957614183426E-11,
+        "rootCondition": "SUITABLE",
+        "diseaseConditions": [
+          {
+            "code": "COOL_WET",
+            "title": "灰霉病适生环境提示",
+            "level": "LOW",
+            "continuousExposureMinutes": 0.0,
+            "cumulativeExposureMinutes": 0.0,
+            "condition": "15–25°C且冠层湿润代理≥0.55",
+            "review": "观察花、叶、果是否有灰色霉层；有症状时补拍照片并人工确认",
+            "origin": "SIMULATED_CONDITION_RULE",
+            "validatedProbability": false,
+            "diagnosis": false,
+            "calibrated": false,
+            "alertAfterMinutes": 360,
+            "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+            "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/gray-mold-of-tomatoes",
+            "referenceScope": "文献支持温湿/湿叶方向，项目代理与6小时提醒未作病原感染验证"
+          },
+          {
+            "code": "WARM_LEAF_WET",
+            "title": "叶斑类病害湿润条件提示",
+            "level": "LOW",
+            "continuousExposureMinutes": 0.0,
+            "cumulativeExposureMinutes": 0.0,
+            "condition": "20–30°C且冠层湿润代理≥0.55",
+            "review": "复查病斑是否扩展；病叶处置和病因判断需要人工登记",
+            "origin": "SIMULATED_CONDITION_RULE",
+            "validatedProbability": false,
+            "diagnosis": false,
+            "calibrated": false,
+            "alertAfterMinutes": 240,
+            "thresholdPurpose": "CONDITION_REVIEW_WINDOW",
+            "referenceUrl": "https://extension.umn.edu/agriculture/specialty-crops/vegetable-farming/disease-management/early-blight-in-tomato-and-potato",
+            "referenceScope": "文献仅支持暖湿环境相关性；4小时为项目复查窗口，不是叶斑病原统一感染阈值"
+          }
+        ],
+        "diseaseConditionLevel": "LOW",
+        "riskLevel": "LOW"
+      },
+      "resources": {
+        "origin": "SIMULATED_DEVICE_ACCOUNTING",
+        "calibrated": false,
+        "irrigationWaterL": 0.0,
+        "coolingWaterL": 0.0,
+        "totalWaterL": 0.0,
+        "electricityKwh": 3.3564999999999996,
+        "co2Kg": 0.0,
+        "waterUsedL": 0.0,
+        "energyKwh": 3.3564999999999996,
+        "deviceDutyMinutes": {
+          "HEATING": 0.0,
+          "IRRIGATION": 0.0,
+          "VENTILATION": 0.0,
+          "SUPPLEMENTAL_LIGHT": 0.0,
+          "SHADE": 156.0,
+          "CO2_SUPPLY": 0.0,
+          "ROOF_VENT": 129.0,
+          "EXHAUST_FAN": 126.0,
+          "COOLING_PAD": 0.0,
+          "CIRCULATION_FAN": 144.0
+        },
+        "lastStep": {
+          "irrigationWaterL": 0.0,
+          "drainageL": 0.0,
+          "evapotranspirationL": 2.7221023489034075,
+          "coolingWaterL": 0.0,
+          "electricityKwh": 0.449,
+          "co2Kg": 0.0
+        },
+        "note": "按设备出力×模拟分钟与假设容量计量；不是电表、水表或费用实测。"
+      },
+      "effects": [
+        {
+          "device": "HEATING",
+          "title": "加热保温",
+          "observed": "组合方案相较未干预分支：温度+1.3°C，湿度+6.1个百分点",
+          "status": "APPLIED_STOP",
+          "duty": 0.0,
+          "origin": "SIMULATED_RESPONSE",
+          "fieldValidated": false
+        },
+        {
+          "device": "SHADE",
+          "title": "遮阳",
+          "observed": "组合方案相较对照：PPFD-11µmol/m²/s，温度+1.3°C",
+          "status": "APPLIED",
+          "duty": 0.5,
+          "origin": "SIMULATED_RESPONSE",
+          "fieldValidated": false
+        },
+        {
+          "device": "ROOF_VENT",
+          "title": "屋窗换气",
+          "observed": "组合方案相较未干预分支：温度+1.3°C，湿度+6.1个百分点",
+          "status": "APPLIED",
+          "duty": 0.6,
+          "origin": "SIMULATED_RESPONSE",
+          "fieldValidated": false
+        },
+        {
+          "device": "EXHAUST_FAN",
+          "title": "排风换气",
+          "observed": "组合方案相较未干预分支：温度+1.3°C，湿度+6.1个百分点",
+          "status": "APPLIED",
+          "duty": 0.6,
+          "origin": "SIMULATED_RESPONSE",
+          "fieldValidated": false
+        },
+        {
+          "device": "CIRCULATION_FAN",
+          "title": "冠层环流",
+          "observed": "冠层湿润代理相较对照+0.240（0–1）；湿润累计37分钟",
+          "status": "APPLIED",
+          "duty": 0.5,
+          "origin": "SIMULATED_RESPONSE",
+          "fieldValidated": false
+        },
+        {
+          "device": "HUMAN_INSPECTION",
+          "title": "复查病斑与叶面",
+          "observed": "当前仅计算病害适生条件；未计算病斑面积、病原量或治愈率",
+          "status": "MANUAL_REQUIRED",
+          "origin": "REQUIRES_HUMAN_OBSERVATION",
+          "fieldValidated": false
+        }
+      ],
+      "actionEffects": "滴灌按出力与时间加入根区水量；蒸散和排水减少存水，缺水/过湿影响虚拟生长；环流降低冠层湿润代理但不改变棚均温湿度；遮阳/补光影响PPFD及辐射热差；加热/湿帘影响温度和水汽；通风/排风与模拟边界交换温度、水汽及CO₂，效果依边界条件而变。资源来自同一设备时段计量，全部为未标定仿真。",
+      "devices": {
+        "HEATING": false,
+        "IRRIGATION": false,
+        "VENTILATION": false,
+        "SUPPLEMENTAL_LIGHT": false,
+        "SHADE": true,
+        "CO2_SUPPLY": false,
+        "ROOF_VENT": true,
+        "EXHAUST_FAN": true,
+        "COOLING_PAD": false,
+        "CIRCULATION_FAN": true
+      },
+      "deviceDuty": {
+        "HEATING": 0.0,
+        "IRRIGATION": 0.0,
+        "VENTILATION": 0.0,
+        "SUPPLEMENTAL_LIGHT": 0.0,
+        "SHADE": 0.5,
+        "CO2_SUPPLY": 0.0,
+        "ROOF_VENT": 0.6,
+        "EXHAUST_FAN": 0.6,
+        "COOLING_PAD": 0.0,
+        "CIRCULATION_FAN": 0.5
+      },
+      "deviceHealth": {
+        "HEATING": true,
+        "IRRIGATION": true,
+        "VENTILATION": true,
+        "SUPPLEMENTAL_LIGHT": true,
+        "SHADE": true,
+        "CO2_SUPPLY": true,
+        "ROOF_VENT": true,
+        "EXHAUST_FAN": true,
+        "COOLING_PAD": true,
+        "CIRCULATION_FAN": true
+      },
+      "growth": {
+        "plantHeightCm": 48.794820031258986,
+        "referenceHeightCm": 48.70875293432962,
+        "withoutInterventionHeightCm": 48.82572198968395,
+        "lai": 1.2975199832953062,
+        "wTotal": 156.2932526077846,
+        "wFruit": 0.0,
+        "stage": "SEEDLING",
+        "fieldValidated": false,
+        "rootWaterStressFactor": 1.0,
+        "shadowRootWaterStressFactor": 1.0,
+        "withoutInterventionWTotal": 156.4525200063482,
+        "withoutInterventionWFruit": 0.0,
+        "origin": "SIMULATED_RESPONSE_ANCHORED_TO_ARRIVED_REFERENCE"
+      },
+      "parameterCatalogReference": {
+        "sha256": "9297e1726e028f4603c12de9605c45ed1005999e63d0f6caa2ff324d4e229f17",
+        "catalogKey": "parameterCatalogs.9297e1726e028f4603c12de9605c45ed1005999e63d0f6caa2ff324d4e229f17",
+        "entryCount": 65,
+        "parameterVersion": "m3-cross-year-2026-10-02T12-01-49.808-a1e148ee",
+        "responseModelVersion": "m3-scenario-agronomy-20261008-v4"
+      },
+      "explanationReference": {
+        "sha256": "ad65b7d19cd889b82a3aa662b6e9988c989f5da58040e0fd24817f1ef63384cd",
+        "fullDescriptionsRetained": true,
+        "catalogKey": "decisionSnapshots.ad65b7d19cd889b82a3aa662b6e9988c989f5da58040e0fd24817f1ef63384cd"
+      },
+      "parameterValuesInCatalog": true
+    }
+  },
+  "sourceBoundary": "用户输入和人工记录为所提供证据；图像类别是候选。M3是历史观测回放；生长估计、事件、设备回执、根区与处理对照是仿真。环境、根区及病害响应参数未完成现场标定；没有未来观测或现场效果保证。",
+  "inactiveEffectDescriptionsOmitted": true
+}

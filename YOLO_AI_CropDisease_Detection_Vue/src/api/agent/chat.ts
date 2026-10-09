@@ -12,6 +12,8 @@ import { SseFrame, streamSse } from './sse';
 
 export interface AgentChatRequest {
 	question: string;
+	taskId?: string;
+	requestId?: string;
 	crop?: string;
 	sessionId?: string;
     simulationRunId?: string;

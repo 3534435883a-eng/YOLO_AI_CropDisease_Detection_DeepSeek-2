@@ -1,5 +1,5 @@
 <template>
-	<div ref="shellRef" class="twin-shell" :class="{'is-autonomous':autonomousShowcase}" :style="{ '--twin-h': shellHeight + 'px' }">
+	<div ref="shellRef" class="twin-shell" :class="{'is-autonomous':autonomousShowcase,'has-farm-workbench':m3Mode&&workbenchOpen&&showHud}" :style="{ '--twin-h': shellHeight + 'px' }">
 		<canvas ref="canvasRef" class="twin-canvas" tabindex="0"></canvas>
 		<Transition name="scene-fade">
 			<div v-if="hoverLabel" class="equipment-hover" :style="{ left: hoverLabel.x + 'px', top: hoverLabel.y + 'px' }">
@@ -38,6 +38,10 @@
 			</div>
 
 			<div class="top-right">
+				<el-button v-if="m3Mode" size="small" :type="workbenchOpen?'primary':''" @click="workbenchOpen=!workbenchOpen;showHud=true">农情与决策</el-button>
+				<el-button v-if="m3Mode&&!m3Run" size="small" :loading="greenhouse.busy" @click="beginM3Run">开始接入</el-button>
+				<el-button v-if="m3Mode&&m3Run&&!m3Run.playback?.playing" size="small" :disabled="greenhouse.busy||m3Run.current.scenario?.pending" @click="beginM3Run">新建一轮</el-button>
+				<template v-if="m3Mode&&m3Run"><select class="farm-speed" aria-label="模拟推进速度" :value="m3Run.playback?.stepCount||1" @change="changeM3Speed"><option :value="1">半小时 / 秒</option><option :value="12">6小时 / 秒</option><option :value="48">1天 / 秒</option></select><el-button size="small" :disabled="greenhouse.busy||m3Run.finished" @click="toggleM3Playback">{{ m3Run.playback?.playing?'暂停运行':'继续运行' }}</el-button></template>
 				<el-button v-if="!autonomousShowcase" class="takeover-button" size="small" type="primary" :loading="autonomyStarting" @click="startAutonomous">一键自动接管</el-button>
 				<el-button-group v-if="!m3Mode" class="workspace-modes">
 					<el-button size="small" :type="twinDataMode === 'agent' ? 'primary' : ''" @click="selectTwinMode('agent')">半小时仿真</el-button>
@@ -57,9 +61,12 @@
 			</div>
 		</header>
 
-		<M3ReplayPanel v-if="m3Mode" v-show="showHud&&!autonomousShowcase" ref="m3Replay" compact @frame="m3State = $event" @run="m3Run=$event" @playback="autonomyPlaying=$event" @error="autonomyError=$event" />
-        <ScenarioPanel v-if="m3Mode && showHud && !autonomousShowcase && m3Run?.current.scenario" :run="m3Run" @change="m3Replay?.acceptSnapshot($event)" />
-		<AutonomousShowcase v-if="autonomousShowcase" :run="m3Run" :playing="autonomyPlaying" :starting="autonomyStarting" :error="autonomyError" @resume="startAutonomous" @pause="pauseAutonomous" @exit="exitAutonomous" @chat="openAutonomousChat" @calibration="showCalibration=true" />
+		<M3ReplayPanel v-if="m3Mode" v-show="showHud&&!autonomousShowcase&&!workbenchOpen" ref="m3Replay" compact @frame="m3State = $event" @run="m3Run=$event" @playback="autonomyPlaying=$event" @error="autonomyError=$event" />
+        <ScenarioPanel v-if="m3Mode && showHud && !autonomousShowcase && !workbenchOpen && m3Run?.current.scenario" :run="m3Run" @change="acceptM3Snapshot" />
+		<AutonomousShowcase v-if="autonomousShowcase&&!workbenchOpen" :run="m3Run" :playing="autonomyPlaying" :starting="autonomyStarting" :error="autonomyError" @resume="startAutonomous" @pause="pauseAutonomous" @exit="exitAutonomous" @chat="openAutonomousChat" @calibration="showCalibration=true" />
+		<AgronomyEffects v-if="m3Mode&&workbenchOpen&&showHud" :run="m3Run" @focus="inspectEquipment" />
+		<FarmTaskWorkbench v-if="m3Mode&&workbenchOpen&&showHud" :auto-takeover="autonomousShowcase" @change="acceptM3Snapshot" />
+		<footer v-if="m3Mode&&workbenchOpen&&showHud" class="farm-flow"><ol><li v-for="(item,i) in farmPhases" :key="item" :class="{current:i===farmPhase}"><span>{{ i+1 }}</span>{{ item }}</li></ol><div><span>{{ greenhouse.task?.id?'任务 '+greenhouse.task.id.slice(0,8):'准备创建任务' }}</span><button @click="showCalibration=true">观测修正</button></div></footer>
 		<CalibrationStory v-if="showCalibration" :run="m3Run" @close="showCalibration=false" />
 		<details v-if="!m3Mode" class="m3-profile-note"><summary>M3 场景模拟 · 未校准</summary><p>默认观测窗口 2025-04-19 至 06-13（56 天），计算步长 30 分钟。棚体与小区规模参考论文；屋架跨数、布局、设备容量、天气和作物参数为示意假设。840 株为全试验区规模，不是 CK 样本量。三年原始资料已导入，观测对照请打开模型校准；当前规则/日级视图仍是原机制，未自动替换为校准参数。</p><a :href="HORTI_M3_PROFILE.paperUrl" target="_blank" rel="noopener noreferrer">查看论文依据 ↗</a></details>
 
@@ -317,7 +324,8 @@
 			<el-select v-model="shellMode" size="small" class="shell-select" @change="updateShellMode">
 				<el-option label="完整薄膜" value="solid" /><el-option label="透视薄膜" value="translucent" /><el-option label="结构剖切" value="cutaway" />
 			</el-select>
-			<el-button-group>
+			<select v-if="m3Mode&&workbenchOpen&&showHud" class="farm-speed camera-preset-select" aria-label="大棚视角" :value="preset" @change="setPreset(($event.target as HTMLSelectElement).value as CameraPreset)"><option v-for="p in presets" :key="p.v" :value="p.v">{{ p.l }}视角</option></select>
+			<el-button-group v-else>
 				<el-button v-for="p in presets" :key="p.v" size="small" :type="preset === p.v ? 'primary' : ''" @click="setPreset(p.v)">
 					{{ p.l }}
 				</el-button>
@@ -473,6 +481,9 @@ import M3ReplayPanel from '../modelCalibration/M3LiveWorkbench.vue';
 import ScenarioPanel from './components/ScenarioPanel.vue';
 import AutonomousShowcase from './components/AutonomousShowcase.vue';
 import CalibrationStory from './components/CalibrationStory.vue';
+import FarmTaskWorkbench from './components/FarmTaskWorkbench.vue';
+import AgronomyEffects from './components/AgronomyEffects.vue';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
 import type {M3LiveRun,M3LiveFrame} from '/@/api/m3/live';
 import type { M3ReplayState } from '/@/api/m3';
 import * as echarts from 'echarts';
@@ -520,7 +531,14 @@ import {
 const BASE_DAYS_PER_SEC = 1.15; // 1× 播放速度：天/秒
 const route = useRoute();
 const router = useRouter();
-const m3Mode = computed(() => route.query.mode === 'm3');
+const m3Mode = computed(() => !['agent','daily'].includes(String(route.query.mode||'')));
+const greenhouse=useGreenhouseStore(),workbenchOpen=ref(true);
+const farmPhases=['农情输入','证据研判','形成方案','设备应用','观察与复查'];
+const farmPhase=computed(()=>m3Run.value?.current.scenario?.pending?1:m3Run.value?.current.scenario?.decision.feedback?4:['OBSERVING','MITIGATED','UNRESOLVED'].includes(m3Run.value?.current.scenario?.decision.status||'')?3:m3Run.value?.current.scenario?.decision.plan?2:greenhouse.task?.evidence.length||greenhouse.task?.turns.length?1:0);
+async function beginM3Run(){try{const value=await greenhouse.start(2025);await router.replace({query:{...route.query,...greenhouse.linkedQuery()}});acceptM3Snapshot(value);}catch(e){autonomyError.value=e instanceof Error?e.message:String(e);}}
+function acceptM3Snapshot(value:M3LiveRun){if(!greenhouse.acceptRun(value))return;m3Run.value=greenhouse.run;m3Replay.value?.acceptSnapshot(value);}
+async function toggleM3Playback(){try{await greenhouse.setPlayback(!m3Run.value?.playback?.playing);}catch(e){autonomyError.value=e instanceof Error?e.message:String(e);}}
+async function changeM3Speed(event:Event){try{await greenhouse.setPlayback(!!m3Run.value?.playback?.playing,Number((event.target as HTMLSelectElement).value));}catch(e){autonomyError.value=e instanceof Error?e.message:String(e);}}
 const m3Replay = ref<InstanceType<typeof M3ReplayPanel>>();
 const m3State = ref<M3ReplayState | null>(null);
 const m3Run=ref<M3LiveRun|null>(null);
@@ -537,13 +555,13 @@ async function startAutonomous(){
  finally{autonomyStarting.value=false;}
 }
 function pauseAutonomous(){m3Replay.value?.pause();void router.replace({query:{...route.query,autonomous:'paused'}});}
-function exitAutonomous(){m3Replay.value?.pause();autonomousShowcase.value=false;showHud.value=true;const query={...route.query};delete query.autonomous;void router.replace({query});}
-function openAutonomousChat(){if(m3Run.value)router.push({path:'/agentChat',query:{liveRun:m3Run.value.runId}});}
+function exitAutonomous(){autonomousShowcase.value=false;showHud.value=true;workbenchOpen.value=true;const query={...route.query};delete query.autonomous;void router.replace({query});}
+function openAutonomousChat(){workbenchOpen.value=true;showHud.value=true;}
 watch(()=>[route.path,route.query.autonomous] as const,([path,flag])=>{
  if(path!=='/digitalTwin')return;
  if(flag==='1')void startAutonomous();
  else if(flag==='paused'){autonomousShowcase.value=true;m3Replay.value?.pause();}
- else {autonomousShowcase.value=false;m3Replay.value?.pause();}
+ else {autonomousShowcase.value=false;}
 });
 const DIURNAL_SECONDS_PER_DAY = 240;
 /** 昼夜时钟累积的模拟小时数（非响应式，避免每帧触发重渲染） */
@@ -807,6 +825,7 @@ const clockText = computed(() => {
 
 let twin: GreenhouseTwin | null = null;
 let shellResizeObserver: ResizeObserver | null = null;
+let initialResizeTimer: ReturnType<typeof setTimeout> | undefined;
 let raf = 0;
 let lastT = 0;
 let markerTick = 0;
@@ -825,7 +844,7 @@ const pushScene = () => {
             irrigation:!!devices.IRRIGATION,ventilation:!!devices.VENTILATION,supplementalLight:!!devices.SUPPLEMENTAL_LIGHT,shade:!!devices.SHADE,
             co2:!!devices.CO2_SUPPLY,circulationFan:!!devices.CIRCULATION_FAN,exhaustFan:!!devices.EXHAUST_FAN,coolingPad:!!devices.COOLING_PAD,roofVent:!!devices.ROOF_VENT,heating:!!devices.HEATING,
 			temperatureC: env.temperatureC, airHumidityPct: env.airHumidityPct, co2Ppm: env.co2Ppm,
-			soilMoisturePct: env.soilMoistureVwcPct, severity: {}, hour:hourFromSimulatedAt(frame.at,12),
+			soilMoisturePct: scenario?.agronomy?.soilMoistureVwcPct??env.soilMoistureVwcPct, severity: {}, hour:hourFromSimulatedAt(frame.at,12),
             weather:{rainMmH:scenario?.environment.rainMmH??0,windMps:scenario?.environment.windMps??0,cloud:scenario?.weather?0.65:0},
 			dayOfYear: dayOfYearFromSimulatedAt(frame.at, 109),
 		});
@@ -1427,6 +1446,9 @@ onMounted(async () => {
 	}
 
 	window.addEventListener('resize', onResize);
+	// Route entrance transforms can place the first bounds outside the viewport.
+	// Measure once after that transition as well as on subsequent layout changes.
+	initialResizeTimer=setTimeout(onResize,600);
 	document.addEventListener('fullscreenchange', syncFullscreen);
 	agentSyncTimer = setInterval(() => {
 		if (twinDataMode.value === 'agent' && agentRun.value?.status === 'RUNNING' && !agentLoading.value) {
@@ -1448,6 +1470,7 @@ onUnmounted(() => {
 	if (agentSyncTimer) clearInterval(agentSyncTimer);
 	agentSyncTimer = null;
 	shellResizeObserver?.disconnect();
+	if(initialResizeTimer)clearTimeout(initialResizeTimer);
 	shellResizeObserver = null;
 	window.removeEventListener('resize', onResize);
 	document.removeEventListener('fullscreenchange', syncFullscreen);
@@ -2877,4 +2900,8 @@ onUnmounted(() => {
 @media (max-width: 1280px) { .brand .brand-txt p { max-width: 260px; font-size: 10px; } .top-right { max-width: 630px; } .render-chip { display: none; } .hud { width: 235px; } .inspection-panel.with-hud { right: 260px; } }
 @media (max-width: 1000px) { .topbar { min-height: 98px; padding: 12px 16px; } .top-right { max-width: 410px; } .top-right > .chip { display: none; } .m3-profile-note, .demo-alert { top: 110px; } .scene-tools, .inspection-panel, .equipment-directory { top: 153px; } .hud { top: 153px; width: 218px; } .scene-tools { width: 250px; } .cam-bar.has-tools { left: 286px; } .camera-label { display: none; } }
 @media (prefers-reduced-motion: reduce) { .scene-fade-enter-active, .scene-fade-leave-active, .twin-shell button { transition: none; } }
+.has-farm-workbench .cam-bar{right:406px;flex-wrap:wrap;gap:5px;padding:8px;bottom:88px}.has-farm-workbench .camera-label{display:none}.has-farm-workbench .cam-bar :deep(.el-button){font-size:10px;padding:6px 8px}.has-farm-workbench .equipment-directory{left:286px;right:auto;width:280px}.camera-preset-select{max-width:94px}@media(max-width:1150px){.has-farm-workbench .cam-bar{right:354px;left:240px}.has-farm-workbench .equipment-directory{left:240px}}
+</style>
+<style scoped>
+.farm-speed{font:inherit;font-size:11px;padding:6px 8px;color:#5f7653;background:#f5f6e9;border:1px solid #d8dfcb;max-width:108px}.farm-flow{position:absolute;bottom:20px;left:20px;right:20px;z-index:14;display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;color:#617852;background:rgba(252,251,242,.98);border:1px solid #dddfcf;box-sizing:border-box}.farm-flow ol{display:flex;list-style:none;padding:0;margin:0;gap:22px}.farm-flow li{display:flex;align-items:center;gap:8px;font-size:12px;color:#96a287}.farm-flow li span{font-size:11px;font-variant-numeric:tabular-nums}.farm-flow li.current{color:#496d3f}.farm-flow li.current span{border-bottom:2px solid #779667;padding-bottom:3px}.farm-flow>div{display:flex;align-items:center;gap:15px}.farm-flow>div>span{font-size:10px;color:#98a18b}.farm-flow button{font:inherit;font-size:11px;padding:7px 10px;background:#f6f7eb;border:1px solid #dce3d0;color:#6c845d;cursor:pointer}.has-farm-workbench .cam-bar{left:286px}.has-farm-workbench .inspection-panel{left:286px;max-width:300px;top:142px}.has-farm-workbench .top-right{max-width:calc(100% - 300px)}.has-farm-workbench .top-right>.chip.ok{display:none}@media(max-width:1150px){.farm-flow{left:12px;right:12px;gap:10px}.farm-flow ol{gap:12px}.farm-flow li{font-size:11px}.farm-flow>div>span{display:none}.has-farm-workbench .cam-bar,.has-farm-workbench .inspection-panel{left:240px}}
 </style>

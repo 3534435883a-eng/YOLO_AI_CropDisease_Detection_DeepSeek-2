@@ -18,6 +18,7 @@ public class M3SimulationDecisionTool implements AgentTool {
         try{
             ObjectNode request=mapper.createObjectNode();request.put("question",String.valueOf(input.get("question")));
             request.put("apply",Boolean.TRUE.equals(input.get("applyAuthorized")));
+            if(input.get("taskId")!=null)request.put("taskId",String.valueOf(input.get("taskId")));
             ObjectNode result=live.scenarioCommand(id,"decide",request);Map<String,Object> out=new LinkedHashMap<>();
             out.put("scenario",result.path("current").path("scenario"));out.put("runId",id);out.put("source","SIMULATED");
             out.put("note","请求已提交，当前分析中；是否执行由后续服务端状态表示，不能现在宣称已控制设备或解决风险。");

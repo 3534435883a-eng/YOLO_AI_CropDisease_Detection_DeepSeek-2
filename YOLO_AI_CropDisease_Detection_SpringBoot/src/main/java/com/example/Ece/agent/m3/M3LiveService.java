@@ -11,6 +11,10 @@ import java.io.IOException;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.PreDestroy;
 
 /** Causal observation replay. Only consumed frames and measurements leave this service. */
 @Service
@@ -22,6 +26,10 @@ public class M3LiveService {
     @org.springframework.beans.factory.annotation.Autowired(required=false)
     private ScenarioAiService scenarioAi;
     private final Map<String,Run> runs=new ConcurrentHashMap<>();
+    private final M3RunJournal journal;
+    private final ScheduledExecutorService clock=Executors.newSingleThreadScheduledExecutor(r->{
+        Thread t=new Thread(r,"m3-model-clock");t.setDaemon(true);return t;
+    });
     private static class Plant {
         String id; double initialHeight,openAge; OnlineInternodeFilter filter;
     }
@@ -38,21 +46,33 @@ public class M3LiveService {
         M3LiveRiskEngine risk;
         LocalDateTime time;
         ScenarioSession scenario;
+        boolean playing,restored;
+        int stepCount=1;
+        long persistedAt,persistedVersion=-1;
+        int persistedCursor=-1;
+        String persistenceError;
     }
     public M3LiveService(M3ObservationService observations,M3MultiYearCalibrationService calibration,
                          TomatoCropGrowthModel crop,ObjectMapper mapper) {
         this.observations=observations;this.calibration=calibration;this.crop=crop;this.mapper=mapper;
+        this.journal=new M3RunJournal(observations.root(),mapper);
+        clock.scheduleWithFixedDelay(this::tickActiveRuns,1,1,TimeUnit.SECONDS);
     }
     public synchronized ObjectNode start(int year) throws IOException {
         long now=System.currentTimeMillis();
-        runs.entrySet().removeIf(e->{if(now-e.getValue().accessed>1800000){e.getValue().scenario.close();return true;}return false;});
-        if(runs.size()>=8)throw new IOException("在线运行达到8个，请结束旧运行或稍后重试");
-        JsonNode data=observations.read(),saved=calibration.latest(),season=null;
+        runs.entrySet().removeIf(e->{Run old=e.getValue();synchronized(old){if(!old.playing&&!old.scenario.pending()&&now-old.accessed>1800000){persist(old,true);if(old.persistenceError!=null)return false;old.scenario.close();return true;}return false;}});
+        reserveCapacity();
+        Run r=initialize(year,UUID.randomUUID().toString(),calibration.latest(),new Random().nextLong());
+        runs.put(r.id,r);persist(r,true);
+        return snapshot(r,0,0);
+    }
+    private Run initialize(int year,String id,JsonNode saved,long seed) throws IOException {
+        JsonNode data=observations.read(),season=null;
         for(JsonNode s:data.path("seasons"))if(s.path("year").asInt()==year)season=s;
         if(season==null)throw new IOException("仅支持已导入的2023/2024/2025");
-        Run r=new Run();r.id=UUID.randomUUID().toString();r.year=year;r.season=season;
+        Run r=new Run();r.id=id;r.year=year;r.season=season;
         r.parameterVersion=saved.path("version").asText();r.parameters=saved.path("parameters").deepCopy();
-        r.inputHash=data.path("observationsSha256").asText();r.accessed=now;
+        r.inputHash=data.path("observationsSha256").asText();r.accessed=System.currentTimeMillis();
         r.p=r.parameters.path("phyllochronGdd").asDouble();r.length=r.parameters.path("maxInternodeLengthCm").asDouble();
         r.linear=r.parameters.path("linearHeightCmPerGdd").asDouble();
         if(r.p<25||r.p>50||r.length<2||r.length>20)throw new IOException("冻结参数无效");
@@ -72,8 +92,8 @@ public class M3LiveService {
             r.measurements.computeIfAbsent(key,k->new HashMap<>()).put(row.path("metric").asText(),row);
         }
         double h=0;
-        for(JsonNode id:season.path("cohort").path("plantIds")) {
-            Plant plant=new Plant();plant.id=id.asText();
+        for(JsonNode plantId:season.path("cohort").path("plantIds")) {
+            Plant plant=new Plant();plant.id=plantId.asText();
             JsonNode initial=measurement(r,plant.id,"plantHeightCm");
             if(initial==null)throw new IOException("首日株高缺失:"+plant.id);
             plant.initialHeight=initial.path("value").asDouble();
@@ -86,9 +106,8 @@ public class M3LiveService {
         JsonNode env=season.path("environment").get(0);
         ObjectNode risk=r.risk.evaluate(env,0);
         r.frames.add(frame(r,env,risk,Collections.emptyList(),true));
-        r.scenario=new ScenarioSession(r.id,new Random().nextLong(),mapper,crop,r.cropState,r.linear,r.frames.get(0));
-        runs.put(r.id,r);
-        return snapshot(r,0,0);
+        r.scenario=new ScenarioSession(r.id,seed,mapper,crop,r.cropState,r.linear,r.frames.get(0));
+        return r;
     }
     private JsonNode measurement(Run r,String id,String metric) {
         Map<String,JsonNode> rows=r.measurements.get(r.time.toLocalDate()+"|"+id);
@@ -97,6 +116,7 @@ public class M3LiveService {
     public ObjectNode step(String id,int expectedCursor,int count) throws IOException {
         Run r=find(id);
         synchronized(r) {
+            if(r.playing)throw new IOException("自动运行中，请先暂停再单步推进");
             if(r.failure!=null)throw new IOException("运行计算已停止："+r.failure+"；请重新开始");
             if(r.cursor!=expectedCursor)throw new IOException("游标已变化，请刷新当前运行");
             if(count!=1&&count!=12&&count!=48)throw new IOException("步数须为1、12或48");
@@ -107,7 +127,7 @@ public class M3LiveService {
                 if(r.cursor<r.season.path("environment").size()&&r.scenario.needsDecision()&&scenarioAi!=null)scenarioAi.requestDecision(r.scenario,"请处理当前事件，结合设备健康观察并缓解风险",true);
             }}
             catch(RuntimeException e){r.failure=e.getMessage();throw new IOException("运行已停止："+r.failure+"；请重新开始",e);}
-            r.accessed=System.currentTimeMillis();
+            r.accessed=System.currentTimeMillis();persist(r,true);
             return snapshot(r,from,eventFrom);
         }
     }
@@ -185,34 +205,135 @@ public class M3LiveService {
         return f;
     }
     private Run find(String id) throws IOException {
+        M3RunJournal.validateId(id);
         Run r=runs.get(id);
-        if(r==null)throw new IOException("在线运行不存在，请重新开始");
-        if(System.currentTimeMillis()-r.accessed>1800000){runs.remove(id);r.scenario.close();throw new IOException("运行30分钟无活动已释放，请重新开始");}
+        if(r==null)synchronized(this){r=runs.get(id);if(r==null){reserveCapacity();r=restore(id);runs.put(id,r);}}
         return r;
+    }
+    private void reserveCapacity() throws IOException {
+        if(runs.size()<8)return;
+        Run candidate=null;
+        for(Run r:runs.values())synchronized(r){if(!r.playing&&!r.scenario.pending()&&(candidate==null||r.accessed<candidate.accessed))candidate=r;}
+        if(candidate==null)throw new IOException("已有8个运行正在推进或等待AI，请暂停一个后再新建");
+        synchronized(candidate){if(candidate.playing||candidate.scenario.pending())throw new IOException("运行状态已变化，请稍后再试");persist(candidate,true);if(candidate.persistenceError!=null)throw new IOException("旧运行不能存档，请恢复存储后再新建");runs.remove(candidate.id,candidate);candidate.scenario.close();}
     }
     public ObjectNode current(String id) throws IOException {
         return current(id,false);
     }
     public ObjectNode current(String id,boolean compact) throws IOException {
-        Run r=find(id);synchronized(r){r.accessed=System.currentTimeMillis();return snapshot(r,compact?r.frames.size():0,compact?r.events.size():0);}
+        return current(id,compact,-1);
     }
-    public void delete(String id){Run r=runs.remove(id);if(r!=null)synchronized(r){r.scenario.close();}}
+    public ObjectNode current(String id,boolean compact,int afterCursor) throws IOException {
+        if(afterCursor < -1)throw new IOException("历史游标无效");
+        Run r=find(id);synchronized(r){
+            r.accessed=System.currentTimeMillis();persist(r,false);
+            int from=0,eventFrom=0;
+            if(compact){from=r.frames.size();eventFrom=r.events.size();}
+            else if(afterCursor>=0){
+                if(afterCursor>r.cursor)throw new IOException("历史游标超过当前运行，请重新读取");
+                from=Math.min(afterCursor+1,r.frames.size());
+                LocalDateTime cutoff=LocalDateTime.parse(r.frames.get(afterCursor).path("at").asText());
+                while(eventFrom<r.events.size()&&!LocalDateTime.parse(r.events.get(eventFrom).path("at").asText()).isAfter(cutoff))eventFrom++;
+            }
+            return snapshot(r,from,eventFrom);
+        }
+    }
+    /** Release a run; its task-linked checkpoint remains available for review. */
+    public void delete(String id){Run r=runs.get(id);if(r!=null)synchronized(r){r.playing=false;persist(r,true);if(r.persistenceError!=null)throw new IllegalStateException("存档失败，运行仍保留："+r.persistenceError);runs.remove(id,r);r.scenario.close();}}
+    public ObjectNode playback(String id,boolean playing,int stepCount) throws IOException {
+        if(stepCount!=1&&stepCount!=12&&stepCount!=48)throw new IOException("步数须为1、12或48");
+        Run r=find(id);synchronized(r){
+            if(playing&&(r.failure!=null||r.cursor>=r.season.path("environment").size()))throw new IOException("运行已结束或失败，请新建运行");
+            if(playing&&r.persistenceError!=null){persist(r,true);if(r.persistenceError!=null)throw new IOException("存档不可用，不能开始自动运行："+r.persistenceError);}
+            r.playing=playing;r.stepCount=stepCount;r.accessed=System.currentTimeMillis();persist(r,true);
+            return snapshot(r,r.frames.size(),r.events.size());
+        }
+    }
+    private void tickActiveRuns() {
+        for(Run r:runs.values())synchronized(r){
+            if(!r.playing)continue;
+            int total=r.season.path("environment").size();
+            try {
+                for(int i=0;i<r.stepCount&&r.cursor<total;i++){
+                    if(r.scenario.pending())break;
+                    advance(r);
+                    if(r.cursor<total&&r.scenario.needsDecision()&&scenarioAi!=null)
+                        scenarioAi.requestDecision(r.scenario,"请结合当前农情、根区与设备健康处理事件，观察改善与代价",true);
+                }
+                if(r.cursor>=total)r.playing=false;
+            } catch(RuntimeException e){r.failure=e.getMessage();r.playing=false;}
+            r.accessed=System.currentTimeMillis();persist(r,!r.playing);
+            if(r.persistenceError!=null)r.playing=false;
+        }
+    }
+    @PreDestroy public void shutdownClock(){clock.shutdownNow();for(Run r:runs.values())synchronized(r){r.playing=false;persist(r,true);r.scenario.close();}}
+
+    private ObjectNode checkpoint(Run r) {
+        ObjectNode out=mapper.createObjectNode();out.put("schemaVersion",1);out.put("runId",r.id);
+        out.put("year",r.year);out.put("cursor",r.cursor);out.put("at",r.time.toString());
+        out.put("parameterVersion",r.parameterVersion);out.put("inputHash",r.inputHash);out.set("parameters",r.parameters);
+        out.put("stepCount",r.stepCount);out.put("pairs",r.pairs);out.put("updateCount",r.updateCount);
+        if(r.failure!=null)out.put("failure",r.failure);
+        out.set("errors",mapper.valueToTree(r.errors));out.set("cropState",mapper.valueToTree(r.cropState));
+        ArrayNode plants=out.putArray("plants");for(Plant p:r.plants){ObjectNode n=plants.addObject();n.put("id",p.id);n.put("initialHeight",p.initialHeight);n.put("openAge",p.openAge);n.put("age",p.filter.age());n.put("variance",p.filter.variance());}
+        out.set("frames",mapper.valueToTree(r.frames));out.set("events",mapper.valueToTree(r.events));
+        out.set("risk",r.risk.checkpoint());out.set("scenario",r.scenario.checkpoint());
+        out.put("savedAt",ZonedDateTime.now(ZoneId.of("Asia/Shanghai")).toString());return out;
+    }
+    private void persist(Run r,boolean force) {
+        try{
+            long now=System.currentTimeMillis(),version=r.scenario.snapshot().path("version").asLong();
+            if(!force&&(now-r.persistedAt<5000||r.persistedCursor==r.cursor&&r.persistedVersion==version))return;
+            journal.write(r.id,checkpoint(r));r.persistedAt=now;r.persistedCursor=r.cursor;r.persistedVersion=version;r.persistenceError=null;
+        }
+        catch(IOException|RuntimeException e){r.persistenceError=e.getMessage();r.playing=false;}
+    }
+    private Run restore(String id) throws IOException {
+        JsonNode saved=journal.read(id),latest=calibration.latest();
+        if(!latest.path("version").asText().equals(saved.path("parameterVersion").asText()))throw new IOException("参数版本已变化，存档需使用原版本审阅；请新建运行");
+        ObjectNode frozen=mapper.createObjectNode();frozen.put("version",saved.path("parameterVersion").asText());frozen.set("parameters",saved.path("parameters"));
+        Run r=initialize(saved.path("year").asInt(),id,frozen,saved.path("scenario").path("seed").asLong());
+        if(!r.inputHash.equals(saved.path("inputHash").asText()))throw new IOException("M3数据版本已变化，不能混合恢复");
+        int cursor=saved.path("cursor").asInt(-1);
+        if(cursor<0||cursor>r.season.path("environment").size()||saved.path("frames").size()!=cursor+1)throw new IOException("运行存档游标不一致");
+        try {
+            r.cursor=cursor;r.time=LocalDateTime.parse(saved.path("at").asText());r.stepCount=saved.path("stepCount").asInt(1);
+            if(r.stepCount!=1&&r.stepCount!=12&&r.stepCount!=48)throw new IOException("存档回放步长无效");
+            if(!r.time.equals(LocalDate.parse(r.season.path("startDate").asText()).atTime(12,0).plusMinutes(cursor*30L)))throw new IOException("存档模型时间与游标不一致");
+            r.pairs=saved.path("pairs").asInt();r.updateCount=saved.path("updateCount").asInt();
+            for(int i=0;i<r.errors.length;i++)r.errors[i]=saved.path("errors").path(i).asDouble();
+            for(Plant p:r.plants){JsonNode found=null;for(JsonNode row:saved.path("plants"))if(p.id.equals(row.path("id").asText()))found=row;if(found==null)throw new IOException("植株状态缺失");p.openAge=found.path("openAge").asDouble();p.filter.restore(found.path("age").asDouble(),found.path("variance").asDouble());}
+            JsonNode c=saved.path("cropState");r.cropState=new TomatoCropState(c.path("gdd").asDouble(),c.path("lai").asDouble(),c.path("plantHeightCm").asDouble(),c.path("wleaf").asDouble(c.path("wLeaf").asDouble()),c.path("wstem").asDouble(c.path("wStem").asDouble()),c.path("wroot").asDouble(c.path("wRoot").asDouble()),c.path("wfruit").asDouble(c.path("wFruit").asDouble()),c.path("wtotal").asDouble(c.path("wTotal").asDouble()),c.path("fruitSetRate").asDouble(),c.path("fruitCount").asInt(),c.path("singleFruitWeightG").asDouble(),c.path("temperatureFactor").asDouble(),c.path("co2Factor").asDouble(),c.path("waterFactor").asDouble(),CropStage.valueOf(c.path("stage").asText()),c.path("mature").asBoolean());
+            r.frames.clear();for(JsonNode f:saved.path("frames"))r.frames.add((ObjectNode)f.deepCopy());
+            r.events.clear();for(JsonNode e:saved.path("events"))r.events.add((ObjectNode)e.deepCopy());
+            r.risk.restoreCheckpoint(saved.path("risk"));r.scenario.restoreCheckpoint(saved.path("scenario"));
+            r.failure=saved.hasNonNull("failure")?saved.path("failure").asText():null;
+            r.playing=false;r.restored=true;persist(r,true);return r;
+        } catch(RuntimeException e){throw new IOException("运行存档不能恢复："+e.getMessage(),e);}
+    }
     public ObjectNode scenarioCommand(String id,String operation,JsonNode input) throws IOException {
         Run r=find(id);synchronized(r){
             if(r.cursor>=r.season.path("environment").size())throw new IOException("该运行已结束，请重开接入");
             switch(operation){
-                case "configure":r.scenario.configure(input.path("autoEvents").asBoolean(),input.path("autoActuation").asBoolean());break;
+                case "configure":
+                    if(input.hasNonNull("taskId")){
+                        if(scenarioAi==null)throw new IOException("AI服务不可用");
+                        String taskId=input.path("taskId").asText().trim();scenarioAi.validateTask(r.scenario,taskId);r.scenario.bindTask(taskId);
+                    }
+                    r.scenario.configure(input.path("autoEvents").asBoolean(),input.path("autoActuation").asBoolean());break;
                 case "trigger":r.scenario.trigger(input.path("type").asText());break;
                 case "endWeather":r.scenario.endWeather();break;
                 case "repair":r.scenario.repair(input.path("device").asText());break;
                 case "decide":
                     if(scenarioAi==null)throw new IOException("AI服务不可用");
-                    scenarioAi.requestDecision(r.scenario,input.path("question").asText("分析当前状态"),input.path("apply").asBoolean(false));break;
+                    String question=input.path("question").asText("分析当前状态");
+                    if(question.length()>6000)throw new IllegalArgumentException("问题最多6000字");
+                    scenarioAi.requestDecision(r.scenario,question,input.path("apply").asBoolean(false),input.hasNonNull("taskId")?input.path("taskId").asText():r.scenario.snapshot().path("farmTaskId").asText(null));break;
                 default:throw new IllegalArgumentException("未知模拟操作");
             }
             if(!"decide".equals(operation)&&r.scenario.needsDecision()&&scenarioAi!=null)
                 scenarioAi.requestDecision(r.scenario,"请处理当前事件并观察反馈",true);
-            r.accessed=System.currentTimeMillis();return snapshot(r,r.frames.size(),r.events.size());
+            r.accessed=System.currentTimeMillis();persist(r,true);return snapshot(r,r.frames.size(),r.events.size());
         }
     }
     private ObjectNode snapshot(Run r,int from,int eventFrom) {
@@ -220,6 +341,8 @@ public class M3LiveService {
         out.put("totalSlots",r.season.path("environment").size());out.put("finished",r.cursor==r.season.path("environment").size());
         out.put("source","M3_HISTORICAL_STREAM");out.put("parameterVersion",r.parameterVersion);out.put("observationsSha256",r.inputHash);
         out.put("updateCount",r.updateCount);out.put("independentlyValidated",false);out.set("parameters",r.parameters);
+        ObjectNode playback=out.putObject("playback");playback.put("playing",r.playing);playback.put("stepCount",r.stepCount);playback.put("waitingForAi",r.scenario.pending());playback.put("restored",r.restored);
+        playback.put("checkpointIntervalSeconds",5);if(r.persistenceError!=null)playback.put("persistenceError",r.persistenceError);
         if(r.failure!=null)out.put("failure",r.failure);
         ObjectNode filter=mapper.createObjectNode();filter.put("measurementVarianceCm2",25);filter.put("processVarianceCm2PerDay",4);
         filter.put("estimatedInputVarianceMultiplier",4);filter.put("algorithm","SCALAR_EKF_THERMAL_AGE_JOSEPH_V1");out.set("filter",filter);

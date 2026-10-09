@@ -2,6 +2,8 @@ package com.example.Ece.agent.engine;
 
 import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.model.SimulationState;
+import com.example.Ece.agent.profile.HortiM3Profile;
+import com.example.Ece.agent.eval.ResourceRates;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -118,7 +120,7 @@ class TomatoSimulationEngineTest {
     }
 
     @Test
-    void irrigationWaterMatchesTheFourBedRootZoneVolume() {
+    void irrigationWaterMatchesTheM3VirtualStorageVolume() {
         SimulationState state = engine.evaluate(LocalDateTime.of(2026, 9, 21, 9, 0),
                 25.0, 65.0, 45.0, 700.0, 500.0, 6.5);
         Map<String, Boolean> irrigation = new HashMap<>();
@@ -126,7 +128,8 @@ class TomatoSimulationEngineTest {
 
         SimulationState hold = engine.advance(state, new HashMap<String, Boolean>(), 15, 42L);
         SimulationState watered = engine.advance(state, irrigation, 15, 42L);
-        double expectedPercentagePoints = 100.0 * 60.0 / (4.0 * 21.0 * 1.7 * 0.25 * 1000.0);
+        double rootVolumeL = HortiM3Profile.TOTAL_EXPERIMENT_AREA_M2 * HortiM3Profile.ASSUMED_EFFECTIVE_ROOT_DEPTH_M * 1000.0;
+        double expectedPercentagePoints = 100.0 * TomatoSimulationEngine.IRRIGATION_L_PER_TICK / rootVolumeL;
         assertEquals(expectedPercentagePoints, watered.getSoilMoisturePct() - hold.getSoilMoisturePct(), 0.02);
         assertTrue(state.getSoilMoisturePct() - hold.getSoilMoisturePct() < 0.05);
     }
@@ -139,8 +142,10 @@ class TomatoSimulationEngineTest {
         injection.put(AgentDeviceCodes.CO2_SUPPLY, true);
         double addedPpm = engine.advance(state, injection, 15, 42L).getCo2Ppm()
                 - engine.advance(state, new HashMap<String, Boolean>(), 15, 42L).getCo2Ppm();
-        double greenhouseVolume = 26.0 * 13.0 * (4.0 + 1.7 * 2.0 / Math.PI);
-        double expectedPpm = 0.250 / 0.04401 * 8.314 * (25.0 + 273.15)
+        // Same documented arch approximation and M3 geometry, not the old 26x13m fixture.
+        double greenhouseVolume = HortiM3Profile.GREENHOUSE_FOOTPRINT_M2 * (HortiM3Profile.EAVE_HEIGHT_M
+                + (HortiM3Profile.RIDGE_HEIGHT_M - HortiM3Profile.EAVE_HEIGHT_M) * 2.0 / Math.PI);
+        double expectedPpm = ResourceRates.CO2_KG_PER_STEP / 0.04401 * 8.314 * (25.0 + 273.15)
                 / (101325.0 * greenhouseVolume) * 1000000.0;
 
         assertEquals(expectedPpm, addedPpm, 0.1);

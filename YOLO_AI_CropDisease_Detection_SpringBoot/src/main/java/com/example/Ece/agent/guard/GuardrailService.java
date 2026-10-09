@@ -53,7 +53,7 @@ public class GuardrailService {
             "\n（本次为降级检索：仅关键词匹配，请人工核对出处）";
     private static final String TRUNCATED_NOTE = "\n（回答过长已截断，请追问具体环节）";
     private static final String EXECUTION_DISCLAIMER =
-            "\n（以上为建议，尚未应用新的仿真设备动作；执行情况以大棚面板为准）";
+            "\n（以上为建议，尚未应用新的设备方案；执行情况以大棚面板为准）";
 
     public GuardrailCheck check(String answer, List<ScoredChunk> citations, boolean degraded) {
         return check(answer,citations,degraded,false);

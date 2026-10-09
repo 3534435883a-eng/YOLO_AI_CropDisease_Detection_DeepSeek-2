@@ -6,6 +6,7 @@ import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.model.DecisionPlan;
 import com.example.Ece.agent.model.DeviceCommand;
 import com.example.Ece.agent.model.SimulationState;
+import com.example.Ece.agent.profile.HortiM3Profile;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -55,11 +56,19 @@ class ResourceAccountingTest {
         assertTrue(irrigation.isTargetOn(), "土壤水分 40% 应触发灌溉");
         assertNotNull(irrigation.getResourceAmount(), "灌溉指令必须声明水量");
 
-        double declaredLiters = irrigation.getResourceAmount().doubleValue();
-        double accountedLiters = ResourceRates.IRRIGATION_M3_PER_STEP * 1000.0;
+        // Rule prescriptions declare m3, and the default decision lasts one
+        // M3 30-minute tick; PER_STEP rates describe 15 reference minutes.
+        double declaredLiters = irrigation.getResourceAmount().doubleValue() * 1000.0;
+        double accountedLiters = ResourceRates.IRRIGATION_M3_PER_STEP * 1000.0
+                * HortiM3Profile.AGENT_TICK_MINUTES / ResourceRates.REFERENCE_MINUTES;
         assertEquals(declaredLiters, accountedLiters, 1e-9,
                 "规则层声明的滴灌水量与评测记账不一致：声明 " + declaredLiters
                         + " L vs 记账 " + accountedLiters + " L");
+        DeviceCommand fifteenMinute = new TomatoDecisionPolicy().decide(dry, ResourceRates.REFERENCE_MINUTES).getCommands()
+                .stream().filter(c -> AgentDeviceCodes.IRRIGATION.equals(c.getDeviceCode())).findFirst().get();
+        assertEquals(TomatoSimulationEngine.IRRIGATION_L_PER_TICK,
+                fifteenMinute.getResourceAmount().doubleValue() * 1000.0, 1e-9,
+                "同一15分钟参考时段的规则声明必须与引擎实际注水量一致");
     }
 
     /**

@@ -30,7 +30,7 @@ class CitedKnowledgeReaderTest {
     private final List<KnowledgeSourceEntry> entries = new CitedKnowledgeReader().readAll();
 
     @Test
-    void readsEveryRegisteredStandard() {
+    void readsEveryRegisteredStandard() throws Exception {
         Set<String> codes = new HashSet<String>();
         for (KnowledgeSourceEntry entry : entries) {
             KnowledgeSource source = entry.getSource();
@@ -44,13 +44,28 @@ class CitedKnowledgeReaderTest {
             assertTrue(source.getUrl().startsWith("http"), "必须带可核对的出处链接");
             assertTrue(source.getVersion() != null && !source.getVersion().isEmpty());
         }
-        assertEquals(new HashSet<String>(Arrays.asList(
+        Set<String> requiredBaseline = new HashSet<String>(Arrays.asList(
                 "std-nyt5449-2026", "std-db37t1849-2026", "std-db61t1422-2021",
                 "std-db41t1350-2016", "std-db12t1044-2021", "std-db21t3417-2021",
                 "std-db14t1700-2025", "paper-chu2021-npk-uptake", "std-gbt-pesticide-vegetable-2025draft",
                 "market-ln-input-price-2026w38", "std-db41t998-2014", "std-db41t1004-2014",
                 "std-db37t4057-2020", "std-db37t1851-2026", "std-db1306t176-2021",
-                "std-db12t1357-2024")), codes);
+                "std-db12t1357-2024"));
+        assertTrue(codes.containsAll(requiredBaseline), "新增来源不能使原有基础标准丢失");
+        // Derive expected sources from the registry and raw files, independently of reader output.
+        java.lang.reflect.Field registry = CitedKnowledgeReader.class.getDeclaredField("RESOURCES");
+        registry.setAccessible(true);
+        String[] resources = (String[]) registry.get(null);
+        Set<String> registered = new HashSet<String>();
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (String resource : resources) {
+            try (java.io.InputStream stream = CitedKnowledgeReader.class.getResourceAsStream(resource)) {
+                assertNotNull(stream, "登记的来源文件必须存在：" + resource);
+                String code = mapper.readTree(stream).path("source").path("sourceCode").asText();
+                assertTrue(!code.isEmpty() && registered.add(code), "来源代码必须非空且唯一：" + resource);
+            }
+        }
+        assertEquals(registered, codes, "读取结果必须包含注册清单中的每份标准、论文和机构资料");
     }
 
     /**

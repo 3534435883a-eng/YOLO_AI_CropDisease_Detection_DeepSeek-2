@@ -1,7 +1,7 @@
 <template>
-	<div class="system-predict-container layout-padding">
+	<div class="system-predict-container layout-padding" :class="{embedded}">
 		<div class="system-predict-padding layout-padding-auto layout-padding-view">
-			<DetectionNav mode="image" view="detect" />
+			<DetectionNav v-if="!embedded" mode="image" view="detect" />
 			<div class="page-intro">
 				<div><p class="eyebrow">OBSERVE / IMAGE</p><h1>从一张叶片开始</h1><p>上传作物图像，查看模型标出的候选信号；结果需要结合知识依据与田间情况进一步核对。</p></div>
 				<div class="source-note"><span class="source-dot"></span>视觉模型候选 · 不等同于确诊</div>
@@ -27,7 +27,7 @@
 					<el-slider v-model="conf" :format-tooltip="formatTooltip" style="width: 300px;" />
 				</div>
 				<div class="button-section" style="margin-left: 20px">
-					<el-button type="primary" @click="upData" class="predict-button">开始预测</el-button>
+					<el-button type="primary" :loading="predicting" @click="upData" class="predict-button">开始预测</el-button>
 				</div>
 			</div>
 			<!-- 图片检测结果是候选信号，诊断建议统一由决策助手检索后给出。 -->
@@ -36,7 +36,7 @@
 				<el-col :xs="24" :sm="12">
 					<el-card shadow="hover" class="card">
 						<div class="image-title"><span>02 / 输入图像</span><small>{{ imageUrl ? '已载入待检测样本' : '等待上传样本' }}</small></div>
-						<el-upload v-model="state.img" ref="uploadFile" class="avatar-uploader"
+						<el-upload :disabled="predicting" v-model="state.img" ref="uploadFile" class="avatar-uploader"
 							action="http://localhost:9999/files/upload" :show-file-list="false"
 							:on-success="handleAvatarSuccessone">
 							<el-image v-if="imageUrl" :src="imageUrl" class="preview-image" fit="contain" />
@@ -117,12 +117,19 @@ import { useUserInfo } from '/@/stores/userInfo';
 import { storeToRefs } from 'pinia';
 import { formatDate } from '/@/utils/formatTime';
 import DetectionNav from '/@/components/detectionNav/index.vue';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+import {createFarmTask,addFarmEvidence,type FarmTask,type FarmEvidence} from '/@/api/agent/tasks';
+const props=withDefaults(defineProps<{embedded?:boolean}>(),{embedded:false});
+const emit=defineEmits<{(event:'evidence',task:FarmTask):void;(event:'handoff',task:FarmTask):void}>();
+const greenhouse=useGreenhouseStore();
+let evidenceSaving=false,lastEvidenceId='';
+let lastEvidenceTask:FarmTask|null=null;
 
 const router = useRouter();
-const imageUrl = ref('');
-const conf = ref('');
+const imageUrl = ref(''),predicting=ref(false);
+const conf = ref(25);
 const weight = ref('');
-const kind = ref('');
+const kind = ref(props.embedded?'tomato':'');
 const uploadFile = ref<UploadInstance>();
 const stores = useUserInfo();
 const { userInfos } = storeToRefs(stores);
@@ -189,15 +196,19 @@ const formatTooltip = (val: number) => {
 }
 
 const handleAvatarSuccessone: UploadProps['onSuccess'] = (response, uploadFile) => {
+	if(imageUrl.value.startsWith('blob:'))URL.revokeObjectURL(imageUrl.value);
+    state.predictionResult.label='';state.predictionResult.confidence='';predictedImageUrl.value='';lastEvidenceId='';lastEvidenceTask=null;
 	imageUrl.value = URL.createObjectURL(uploadFile.raw!);
 	state.img = response.data;
 };
 
 const getData = () => {
+    state.predictionResult.label='';state.predictionResult.confidence='';predictedImageUrl.value='';lastEvidenceId='';lastEvidenceTask=null;
 	request.get('/api/flask/file_names').then((res) => {
 		if (res.code == 0) {
 			res.data = JSON.parse(res.data);
 			state.weight_items = res.data.weight_items.filter(item => item.value.includes(kind.value));
+            if(!state.weight_items.some((item:{value:string})=>item.value===weight.value))weight.value=state.weight_items[0]?.value||'';
 		} else {
 			ElMessage.error(res.msg);
 		}
@@ -206,8 +217,11 @@ const getData = () => {
 
 
 const upData = () => {
+    if(predicting.value)return;
+    if(!state.img||!kind.value||!weight.value){ElMessage.info('请先选择作物和模型，并上传图像');return;}
+    predicting.value=true;
 	state.form.weight = weight.value;
-	state.form.conf = (parseFloat(conf.value) / 100);
+	state.form.conf = (Math.max(1,Math.min(100,Number(conf.value)||25)) / 100);
 	state.form.username = userInfos.value.userName;
 	state.form.inputImg = state.img;
 	state.form.kind = kind.value;
@@ -246,20 +260,36 @@ const upData = () => {
 				console.log(state.predictionResult);
 			} catch (error) {
 				console.error('解析 JSON 时出错:', error);
+                ElMessage.error('识别结果无法解析，请重试');return;
 			}
 			ElMessage.success('预测成功！');
+            lastEvidenceId='';lastEvidenceTask=null;if(props.embedded)void savePrediction(false);
 		} else {
 			ElMessage.error(res.msg);
 		}
-	});
+	}).catch(()=>undefined).finally(()=>{predicting.value=false;});
 };
-const reviewPrediction = () => {
-	const label = formatLabelArray(state.predictionResult.label).filter((item) => item && item !== '未知').slice(0, 3).join('、');
-	const crop = state.kind_items.find((item) => item.value === kind.value)?.label || '';
-	if (!label || !crop) return;
-	const score = formatConfidenceArray(state.predictionResult.confidence).slice(0, 3).join('、');
-	void router.push({ path: '/agentChat', query: { crop, detection: label, score } });
-};
+async function savePrediction(handoff=true){
+ const labels=formatLabelArray(state.predictionResult.label).filter((item:string)=>item&&item!=='未知');
+ const crop=state.kind_items.find((item:{value:string;label:string})=>item.value===kind.value)?.label||'';
+ if(!labels.length||!crop||evidenceSaving)return;
+ const independent=!!greenhouse.run&&crop!=='番茄';
+ if(independent&&props.embedded){ElMessage.warning('当前大棚为番茄，请使用图片识别页面讨论其他作物。');return;}
+ evidenceSaving=true;
+ try{
+  let task=lastEvidenceTask|| (independent?await createFarmTask({crop,title:crop+'农情管理'}):await greenhouse.ensureTask());
+  if(!independent&&!greenhouse.run&&task.crop!==crop)task=await greenhouse.updateTask({crop,title:crop+'农情管理'});
+  if(!lastEvidenceId){
+   const evidence:FarmEvidence={id:'image-'+Date.now(),type:'IMAGE',label:labels.join('、'),source:'YOLO候选识别 / 待人工核验',imageUrl:state.img,candidates:labels.map((label:string,index:number)=>({label,score:formatConfidenceArray(state.predictionResult.confidence)[index]||null})),details:{crop,originalImageUrl:state.img,annotatedImageUrl:predictedImageUrl.value,confidence:state.predictionResult.confidence,weight:state.form.weight,threshold:state.form.conf,observedAt:state.form.startTime}};
+   task=independent?await addFarmEvidence(task.id,evidence):await greenhouse.addEvidence(evidence);lastEvidenceId=evidence.id!;lastEvidenceTask=task;emit('evidence',task);
+  }
+  if(handoff){
+   emit('handoff',task);
+   if(!props.embedded)await router.push({path:'/agentChat',query:{...(independent?{taskId:task.id}:greenhouse.linkedQuery()),crop,detection:labels.slice(0,3).join('、'),score:formatConfidenceArray(state.predictionResult.confidence).slice(0,3).join('、')}});
+  }
+ }catch(e){ElMessage.error(e instanceof Error?e.message:'识别证据保存失败，请重试交接');}finally{evidenceSaving=false;}
+}
+const reviewPrediction=()=>savePrediction(true);
 
 // 格式化函数
 const formatLabelArray = (label: any) => {
@@ -545,4 +575,5 @@ onMounted(() => {
 .result-section .bottom .result-column .result-title { color:#75665a; }
 .result-section .bottom .result-column .result-value { color:#88523a; }
 @media (max-width: 900px) { .page-intro { align-items:flex-start; flex-direction:column; }.control-caption { width:100%; padding:0 0 10px; border-right:0; border-bottom:1px solid #e5dbcf; } }
+.embedded{height:auto!important;max-height:72vh;overflow:auto;padding:0!important}.embedded .system-predict-padding{min-height:0!important;padding:0!important}.embedded .image-display .preview-image,.embedded .image-display .avatar-uploader,.embedded .image-display .placeholder{height:260px}.embedded .header{flex-wrap:wrap;gap:10px}.embedded .source-note{display:none}
 </style>

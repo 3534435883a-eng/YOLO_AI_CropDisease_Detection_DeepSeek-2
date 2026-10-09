@@ -38,6 +38,8 @@ class AgentToolRegistryWiringTest {
         assertTrue(names.contains(PrescriptionDraftTool.NAME), "缺少处方拟制工具：智能体将给不出方案");
         assertTrue(names.contains(ProductionReportTool.NAME), "缺少生产规划报告工具：智能体将出不了报告");
         assertTrue(names.contains(LocalEnvironmentTool.NAME), "缺少当地农情工具：智能体将答不出棚外条件");
+        assertTrue(names.contains("simulation.snapshot"), "缺少当前M3场景状态工具");
+        assertTrue(names.contains("simulation.decide"), "缺少M3虚拟设备方案工具");
     }
 
     /**
@@ -84,6 +86,22 @@ class AgentToolRegistryWiringTest {
         assertTrue(used.contains(ToolPermission.DRAFT), "应有草案级工具（处方拟制、报告生成）");
         assertTrue(!used.contains(ToolPermission.WRITE_REQUIRES_APPROVAL),
                 "当前不应存在写工具；引入写权限须是明确决策并配套人工确认流程");
-        assertEquals(6, registry.all().size(), "工具数量变化时应显式更新本测试，避免漏注册或误删");
+        Set<String> expected = new HashSet<String>(java.util.Arrays.asList(KnowledgeSearchTool.NAME, VisionExplainTool.NAME,
+                GreenhouseStateTool.NAME, PrescriptionDraftTool.NAME, ProductionReportTool.NAME, LocalEnvironmentTool.NAME,
+                "simulation.snapshot", "simulation.decide"));
+        Set<String> actual = new HashSet<String>();
+        for (AgentTool tool : registry.all()) actual.add(tool.name());
+        assertEquals(expected, actual, "应按明确的工具目录检查漏注册或误删");
+        assertEquals(expected.size(), registry.all().size());
+    }
+
+    @Test
+    void independentChatCatalogDoesNotExposeGreenhouseOrSimulationTools() {
+        String catalog = registry.catalogJson(false, false);
+        assertTrue(!catalog.contains("simulation.snapshot"));
+        assertTrue(!catalog.contains("simulation.decide"));
+        assertTrue(!catalog.contains(GreenhouseStateTool.NAME));
+        assertTrue(catalog.contains(KnowledgeSearchTool.NAME));
+        assertTrue(catalog.contains(VisionExplainTool.NAME));
     }
 }

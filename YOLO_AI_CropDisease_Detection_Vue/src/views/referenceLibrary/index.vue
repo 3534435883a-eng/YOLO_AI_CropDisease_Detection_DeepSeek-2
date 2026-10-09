@@ -20,8 +20,8 @@
 		</header>
 
         <section class="m3-reference" aria-label="模型模拟参考数据集">
-            <div><p class="eyebrow">SIMULATION REFERENCE / HORTI-M3</p><h2>番茄多模态试验数据</h2><p>2023–2025 环境、表型与农事记录。平台默认采用 2025 / 广辉201 / CK 参数参考场景，56 天窗口、半小时步长。</p><small>已适配公开场地与栽培规模；原始数据尚未导入，当前为未校准模拟。</small></div>
-            <div class="m3-reference-links"><a href="https://www.nature.com/articles/s41597-026-07074-w" target="_blank" rel="noopener noreferrer">研究论文 ↗</a><a href="https://doi.org/10.5281/zenodo.17217565" target="_blank" rel="noopener noreferrer">公开数据 ↗</a><router-link to="/digitalTwin">查看 M3 推演 →</router-link></div>
+            <div><p class="eyebrow">SIMULATION REFERENCE / HORTI-M3</p><h2>番茄多模态试验数据</h2><p>2023–2025 环境、表型与农事记录。平台默认采用 2025 / 广辉201 / CK 参数参考场景，56 天窗口、半小时步长。</p><small>已适配公开场地与栽培规模；原始数据已导入；历史观测逐时回放并修正株高。设备干预和根区状态仍为未标定推演。</small></div>
+            <div class="m3-reference-links"><a href="https://www.nature.com/articles/s41597-026-07074-w" target="_blank" rel="noopener noreferrer">研究论文 ↗</a><a href="https://doi.org/10.5281/zenodo.17217565" target="_blank" rel="noopener noreferrer">公开数据 ↗</a><router-link :to="{path:'/digitalTwin',query:greenhouse.linkedQuery()}">查看 M3 推演 →</router-link></div>
         </section>
 
 		<section class="library-panel">
@@ -191,6 +191,8 @@
 </template>
 
 <script setup lang="ts">
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+const greenhouse=useGreenhouseStore();
 import { computed, onMounted, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';

@@ -1,12 +1,17 @@
 <template>
 	<div class="layout-navbars-container">
-		<div class="header-row"><BreadcrumbIndex /><div class="scene-context"><span>模拟场景</span><strong>Horti-M3 · 番茄</strong></div></div>
+		<div class="header-row"><BreadcrumbIndex /><div class="scene-context"><span>{{ independent ? '独立问答' : greenhouse.run ? '当前大棚' : '农业平台' }}</span><strong>{{ independent ? '不读取大棚状态' : greenhouse.run ? 'M3 · 番茄 · '+greenhouse.run.current.at.slice(5,16).replace('T',' ') : '请选择农情任务' }}</strong></div></div>
 		<TagsView v-if="setShowTagsView" />
 	</div>
 </template>
 
 <script setup lang="ts" name="layoutNavBars">
-import { defineAsyncComponent, computed } from 'vue';
+import { defineAsyncComponent, computed, onBeforeUnmount } from 'vue';
+import {useRoute} from 'vue-router';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+const route=useRoute(),greenhouse=useGreenhouseStore();
+const unsubscribe=greenhouse.subscribe();onBeforeUnmount(unsubscribe);
+const independent=computed(()=>route.path==='/agentChat'&&!route.query.liveRun);
 import { storeToRefs } from 'pinia';
 import { useThemeConfig } from '/@/stores/themeConfig';
 

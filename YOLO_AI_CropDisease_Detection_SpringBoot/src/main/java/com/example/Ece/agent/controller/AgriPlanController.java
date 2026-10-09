@@ -111,7 +111,7 @@ public class AgriPlanController {
     @PostMapping(value = "/deduce", produces = "text/event-stream;charset=UTF-8")
     public SseEmitter deduce(@RequestBody(required = false) AgriPlanRequest request) {
         final AgriPlanRequest actual = request == null ? new AgriPlanRequest() : request;
-        final SseEmitter emitter = new SseEmitter(Long.valueOf(properties.getTimeoutMs()));
+        final SseEmitter emitter = new Utf8SseEmitter(Long.valueOf(properties.getTimeoutMs()));
         final AtomicBoolean closed = new AtomicBoolean(false);
         // 客户端断开的三条路径都要认，否则 closed 只在一部分情况下生效。
         emitter.onCompletion(new Runnable() {
@@ -215,6 +215,7 @@ public class AgriPlanController {
         try {
             DeductionResult result = deductionService.deduce(situation, request.getQuestion(),
                     request.getSeed(), request.getDays(),
+                    request.getTaskId(), request.getSimulationRunId(), request.getRequestId(),
                     event -> {
                         // 已断开时不再往下发。**上游的中止靠 closed 传进 service 完成**——
                         // 只在这里 return 是不够的，那样上游会继续生成、继续计费。
@@ -244,7 +245,7 @@ public class AgriPlanController {
         } catch (RuntimeException error) {
             log.warn("推演执行失败：{}", error.toString());
             sendQuietly(emitter, DeductionEvent.TYPE_ERROR,
-                    payloadOf("message", "推演执行失败，请稍后重试"));
+                    payloadOf("message", error instanceof IllegalArgumentException ? error.getMessage() : "推演执行失败，请稍后重试"));
             emitter.complete();
         }
     }
@@ -329,7 +330,7 @@ public class AgriPlanController {
         try {
             emitter.send(SseEmitter.event()
                     .name(eventName)
-                    .data(JSON.toJSONString(payload), MediaType.APPLICATION_JSON));
+                    .data(JSON.toJSONString(payload), new MediaType(MediaType.APPLICATION_JSON, java.nio.charset.StandardCharsets.UTF_8)));
         } catch (Exception error) {
             // 客户端断开时 send 会抛。这里不能上抛：推演的终态仍要落库供审计。
             log.debug("推演事件下发失败（客户端可能已断开）：{}", error.toString());

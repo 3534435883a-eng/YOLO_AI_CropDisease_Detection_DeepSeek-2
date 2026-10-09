@@ -19,6 +19,16 @@ public class AgriPlanRequest {
     /** 参考基线天数；空或非正数用配置默认值。 */
     private Integer days;
 
+    private String taskId;
+    private String simulationRunId;
+    private String requestId;
+    public String getTaskId() { return taskId; }
+    public void setTaskId(String value) { taskId = value; }
+    public String getSimulationRunId() { return simulationRunId; }
+    public void setSimulationRunId(String value) { simulationRunId = value; }
+    public String getRequestId() { return requestId; }
+    public void setRequestId(String value) { requestId = value; }
+
     public Map<String, Object> getSituation() { return situation; }
 
     public void setSituation(Map<String, Object> situation) { this.situation = situation; }

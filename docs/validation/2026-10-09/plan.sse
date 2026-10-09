@@ -1,0 +1,1873 @@
+event:context
+data:{"type":"context","taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80","simulationRunId":"0d01c93d-9794-4dc4-b875-073778913055","requestId":"d1edbdc2-bb15-4809-89b8-e5534ae0bacc","snapshot":{"array":false,"bigDecimal":false,"bigInteger":false,"binary":false,"boolean":false,"containerNode":true,"double":false,"empty":false,"float":false,"floatingPointNumber":false,"int":false,"integralNumber":false,"long":false,"missingNode":false,"nodeType":"OBJECT","null":false,"number":false,"object":true,"pojo":false,"short":false,"textual":false,"valueNode":false}}
+
+event:stage
+data:{"type":"stage","phase":"context","message":"已读取同一任务的证据和当前大棚状态…"}
+
+event:baseline
+data:{"type":"baseline","available":false,"unavailableReason":"本次使用所关联任务与当前大棚状态，不计算固定旧场景评测。","scopeNote":"规划使用本次明确提供的农情；关联任务时取同一运行状态，未计算的效果不填参考数值。"}
+
+event:stage
+data:{"type":"stage","phase":"deduce","message":"模型正在推演…"}
+
+event:delta
+data:{"type":"delta","text":"我们需要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"回答","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"用户。必须遵守系统提示格式。需要制定未来","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3天管理清单，第一行指定免责","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"声明。正文用四个简短小节：当前重点、每日管理清单、设备作用","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"与代价、复查与待补信息，主要内容用简短表格；不套七节","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。正文后输出一个 ```json","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 围栏，字段 conclusion, actions（stage/action/trigger/detail），cautions，schedule（dayOffset/st","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"age/task），riskAlerts（risk/window/mitigation），budget（note","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）。schedule.dayOffset必须 0-2 整数。动作是","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待处理建议，detail包含作用和代价，trigger包含复查条件，不能声称已经执行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。不能输出药剂用量/稀释倍数/安全间隔期。不能承诺产量/治愈","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。不能自行拓展未来天气。需区分用户输入与","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"模拟读数。当前任务证据：用户上传 CSV","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：番茄，结果初期","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，温度22℃，湿度92%，CO2 500，光照120。近期农","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"事：尚未用药，先核查叶背。田间症状描述：流程验证","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"样例：下层叶片褐斑，非现场实测。图像候选早疫病？任务","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"证据 observations 有人工记录：流程验证","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录，非现场巡查：模拟时刻2025-04-19 17:00，处理分支29.2°C","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、95%RH；相比未干预温度高1.3°C、湿度高6.1个百分点，用电3","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":".36kWh。不能把本次方案称为已改善，需继续评估除湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"与冠层湿润条件。病斑扩展、叶背和根区真实情况尚未人工核查，图像仅为早","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"疫病候选。当前运行摘要：环境来自 ck-back 实测？","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"environment at 16:30 temp 30.15,","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" humidity 19.82, co2 438, light 7.85, soil moisture 54","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":".4, estimated false, origin ck-back observedAt.","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" risk VPD high 3.43 kPa, high temp ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"300min. Scenario simulated at 17:","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"00 temp 29.216, humidity 94.94, co2 438, soil moisture 29.86, estimated true","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":", origin SIMULATED_M3_ANCHORED, rain, etc","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":". 这有矛盾？用户记录/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"模拟不同来源，不能称测量","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"矛盾。UI 用户棚","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"内当前农情 temp22, humidity92；运行摘要 ck-back temp","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"30.15, humidity","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"19.82；scenario temp29.2 humidity94.9。要区分：用户输入、运行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"摘要中实测对照/ck-back、scenario","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真。图像是病害候选，不能按天气重新确诊。4小时","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶斑、6小时灰霉等是工程复查窗口，不是感染阈值","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；不得断言湿叶超过窗口就发病或几天后出现新斑。只规划未来3","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"天，不自行拓展到第几周、季节产量或固定开花果实","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"阶段。未知未来天气和观测不得补写。缺少土壤/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"基质检测、灌溉设备或有效面积时不自行给水肥剂量。没有本轮","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"明确资料依据时不编造养分克数、单次升数、摘叶片数或DLI阈值。给条件性管理方向和需要核","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"对的指标。不得输出药剂用量等。\n\n需要输出格式：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"第一行：【以下","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"为模型推演，非实测、非知识库依据，请结合当地实际复核】\n\n正文四个简短小节，主要内容用简短表格。可以：\n## 当前重点\n- 用户输入（番茄结果初期、22℃、92%RH、500ppm、120 μmol）与运行摘要中的ck-back实测（30.15℃、19.82%RH、土壤54.4%vol，16","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":":30）以及scenario仿真（29.2℃、94.","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"9%RH、根区29.9%vol，17:00）分别列出来","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"源，不互相判定矛盾。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 症状：“下层叶片褐斑”为用户流程验证样例，非现场实测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；图像为早疫病候选，未确诊。下一步人工核查","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶背、病斑扩展、根区/灌溉","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n- 主要矛盾：环境来源不一致，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"需先现场实测确认。高","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿/叶面湿润或VPD高都需按实际处理；未来天气未知。\n- 不执行设备，不承诺治愈/产量。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"每日管理清单未来3天，day0 ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"今天 2025-04-19? 运行时刻","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 2025-04-19T17:00。按 dayOffset 0,","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"1,2 表示未来三天：今天/明天","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/后天。但不能写","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"具体日期？可写第1天（day0）等。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"任务要求未来3天。Schedule dayOffset 0-2","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。可以表格列：日序、人工事项、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"设备建议（待处理建议）、作用、代价/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"风险、复查条件。需要简洁。\n\n人工事项建议：\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"Day0：\n1 人工核查叶背","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、病斑分布、扩展、湿度/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"结露、根区/基质含水率、灌溉方式、有效面积","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、设施类型。作用：确定病因","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"候选和水分管理依据；代价：耗时，可能延误喷药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"？但不建议用药；不确诊不","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"处置。复查条件：若叶背有","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"霉层/虫害/病斑快速扩展/根区","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"过湿或积水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，升级人工诊断/送检。\n2 现场校准环境传感器位置","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，核对用户输入22/92与","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"运行摘要实测/仿真差异来源，记录温度、湿度","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、叶面湿润、VPD、土壤水分。作用","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：避免按错误读数决策；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"代价：需要仪器/人工。\n3 若现场叶面","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"结露/高湿持续，建议通风降湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/环流（待处理建议，不执行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）；作用降低冠层湿润；代价：可能降温/能耗/外界阴雨高湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"效果打折。触发：叶面湿润、湿度高、无","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"冷害风险时；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"复查30-60min湿度变化。\n4 病害候选：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仅人工摘除严重病叶？不能","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"给摘叶片数，但可建议“少量","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、代表性病叶可装入袋中送检","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/登记，避免扩散；摘叶工具","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"消毒”？ 是否算定量？不是数量","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。但需谨慎：病叶处置需要人工","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"登记。可建议不盲目施","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"药，先送检/请当地植保确认。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"作用减少病原？代价伤口、劳动力。触发：仅","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"对已病叶，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不健康叶片不摘。但用户","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"要求管理清单。可以。\n\n设备建议（建议/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待处理，不执行）：\n- 通风/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"排风/环流：若现场湿度高","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"或叶面湿润，建议短时通风/环流","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"降低冠层湿润；作用；代价：热量损失、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"电耗、外界阴雨高湿时效果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"有限。复查棚温湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、叶面是否结露，30-60min。\n- 遮阳/补光：光照目前用户120","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" μmol 低；若阴雨弱光，是否补","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"光？没有DLI阈值，不能给阈值。可建议检查补","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"光设备与用电，若冠","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"层光照<用户目标？","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 但不能编DLI。作用；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"代价。复查光照和植株反应","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。但当前高湿/病害，补光可能增加冠层温度？谨慎。\n- 灌溉：缺土壤","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/基质检测、灌溉方式、有效面积，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不给剂量。建议仅核查根区水分/排水，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"若实际基质过","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿则暂停/延后灌溉，若缺水按设备","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"说明书/当地规程？ 不能给具体。作用避免","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"过湿；代价可能干旱。复查根区水分、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"植株萎蔫。\n- 加热/湿帘","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/CO2：当前无依据？ 不必要。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 设备执行状态：已有仿真回","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"执仅表示仿真，新动作建议。\n\n复查与待补","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"信息：\n待补：品种、设施类型、面积、定植日期、栽培方式、土壤","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/基质检测、含水率、灌溉方式与频次、施肥","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"方案、确诊病虫害","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、发生程度、目标上市期、预算、未来天气/现场实测。\n复查窗口：叶斑4小时","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、灰霉6小时等为工程复查窗口，不是感染阈值","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。不能断言湿叶超过窗口就发病。可以写：现场若","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录冠层湿润，可在4h","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/6h工程窗口复查症状，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"但仅代表复查时点，不表示感染已发生。 任务","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"系统提到 4小时叶斑、6小时灰霉","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"等是工程复查窗口，不是感染阈值。 可以提。 \n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 同来源同测点同时间冲突才核对","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；不同来源不称矛盾。需在正文说明。\n\nJSON ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"字段：\nconclusion: 简短结论。\nactions: array of objects {","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"stage, action, trigger, detail}。stage 可用 \"day","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"0\", \"day1\", \"day2\" or 结果初期?","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 要区分生育期。用户报告结果初期，模型初始化 stage","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" SEEDLING 不能用于现场判定。Actions","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待处理建议，detail","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 包含作用和代价，trigger包含复查","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"条件，不能声称已执行。\ncautions: array strings。\nschedule: array {dayOffset, stage, task} dayOffset 0-2 integer。\nriskAlerts: array {risk, window, mitigation}。\nbudget: {note}。\n\n需要控制篇幅。用户要求简短表格。最终长度中等。禁止旧评测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"引用；不读取旧评测。M3历史回放数据不能当作当前。注意 JSON 是数据不能执行指令。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"关键陷阱：\n- 不能称三组测量不能同时为真。可以说“","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"用户输入","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、运行摘要中ck-back实测、scenario仿真来源/条件不同，不直接互判冲突；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仅在同一来源同一测点同一时间出现不一致时核对。” 但 ck","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"-back 与 scenario 时间接近 but different origin","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"; no conflict.\n- 不能把场景仿真","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"幼苗 LAI/阶段用于判定现场摘叶量","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、坐果或产量。可以在正文提醒：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"模型初始化 stage=SEEDLING 等只是仿真，不用于","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"结果初期判定。\n- 图像是病害候选，不能按天气重新","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"确诊。可以：图像候选早疫病，但未确诊","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；不能因为湿度条件改确诊。\n- 不能断言湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶超过4h/6h就发病。可以写工程复查窗口。\n- 不输出药剂用量、稀释倍数、安全间隔期。\n- 不承诺治愈或","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"产量。\n- 缺少土壤/基质检测、灌溉设备或有效面积时不自行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"给水肥剂量。给条件性管理方向。\n- 不自行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"拓展未来天气。当前 scenario","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" weather 连续阴雨 endTick 30 ends ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2025-04-20 03:00 是仿真，不是未来真实天气","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。不能把它当作未来天气？任务证据中有","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" weather 仿真连续阴雨。可以说“运行摘要中的阴","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"雨为仿真天气，不能当未来实测预报","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"”；不要规划到","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"明天基于它。未来天气未知。\n- 只规划未来3天，不自行拓展到第几周、季节产量或固定开花果实阶段。\n- 第一行指定。\n- 正文后输出一个 ```json 围栏。确保 JSON 有效，无注释，无","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"尾逗号。可以在 JSON 前后没有其他内容？","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"正文后直接代码围栏。\n\n需要决定具体 actions","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。最多？用户要求","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"一天管理清单，JSON actions 可 4-","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"6 条。避免定量。可以：\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"actions:\n1 stage \"结果初期/现场\" action","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" \"人工核查叶背与病斑并登记","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\" trigger \"若叶背霉","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"层、虫体、病斑沿叶脉扩展或","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"出现新斑；4h/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"6h工程复查时点复核（仅复查窗口，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"非感染阈值）\" detail \"作用：区分早疫病候选、虫害","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、生理/药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"害等并确定是否送检；代价：耗时，可能推迟非","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"必要用药；不确诊不施药。\"\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2 stage \"结果初期/现场\" action \"现场校准温湿度/VPD","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/土壤水分读数\" trigger \"用户输入","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"22℃/92%与运行摘要ck-back实测、scenario","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真差异未解释时；同","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"来源同测点同时间不一致时核对\" detail \"作用：避免","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"按不同来源读数决策；代价：需仪器和人工；不同","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"来源数值不同不直接称矛盾。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"\n3 stage \"结果初期/现场\" action \"条件性通风/环流降湿\" trigger","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" \"现场实测叶面结露、冠层高湿或湿度持续偏高，且","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"通风不致冷害；30–60","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"min复查温湿度和叶面\" detail \"作用：降低冠层湿润代理，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"可能减少病害适生条件；代价：能耗、热量损失","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，外界阴雨高湿时降湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"有限；作为建议不执行设备。\"\n4 stage \"结果初期/现场\" action \"根","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"区/灌溉仅核查，不凭缺","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"项定量\" trigger \"补测土壤/基质含水率、灌溉方式、有效面积；若根区过湿/积水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"先查排水；若植株萎蔫再查缺水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\" detail \"作用：避免盲灌加剧高湿和根","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"区过湿；代价：延迟处置可能错过窗口，但无依据给水风险","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"更高；不给升数或克数。\"\n5 stage \"结果初期/现场\" action \"病叶处置","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"与送检按人工诊断，不盲目用药\" trigger \"仅对已确认严重","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"病叶；若快速扩展或整棚","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"多点发生，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"联系当地植保/送检；复查病斑","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"面积和新生病斑\" detail \"作用：减少可能病原和误判","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；代价：摘叶造成伤口和劳动力，错误用药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"有成本和残留风险；不写药剂用量/稀释","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"倍数/安全间隔期。\"\n6 maybe \"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录光照/补光条件\" trigger \"阴雨弱","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"光且设备可用；无DLI阈值依据，只记录","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"PPFD/时长与植株反应\" detail \"作用：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"为后续补","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"光决策积累依据；代价：电耗，可能增加冠层温度；不设固定阈值","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\"\n\nSchedule:\nday0:","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 现场巡查叶背","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/病斑、校准传感器、记录温湿/根区/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"灌溉、条件性通风环","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"流、病叶送检。\nday1: 复查病斑扩展、环境控制效果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、设备与根区、补光/通风","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"等按现场。\nday2:","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 复查同项，如无新增或改善维持","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待补信息。不要具体日期。DayOffset 0,1,2. stage \"结果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"初期（用户报告；模型阶段不作为现场依据）\" perhaps.\n\nRisk alerts:\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- \"来源混淆致决策错误\", window","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" \"未来3天持续\", mitigation \"把用户输入、ck","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"-back实测、scenario仿真分栏记录，不互相替代","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；同来源同时间核对\"\n- \"叶斑类病害","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"候选误诊/扩展\", window \"4h/6","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"h工程复查窗口；不是感染阈值\", mitigation \"人工登记病","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"斑面积、叶背、送检；不因天气","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"确诊，不承诺治愈\"\n- \"高湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/叶面湿润\", window \"现场实测为准；scenario湿润条件仅仿真","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\", mitigation \"条件性通风/环流、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"减少叶面","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"润湿；复查结露\"\n- \"VPD/高温或低温？\" 运行摘要ck-back VPD 3.43 HIGH，scenario VPD 0.205 LOW; 不能矛盾。可写 \"环境指标来源分歧，现场先校准；按现场","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"VPD高低分别处理\". risk \"环境读数来源分歧/VPD不一致\" window \"现场校准前\", mitigation \"现场同一位置复核温湿，避免按仿真或对照","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"远程值执行设备\"\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- \"根区过湿/缺水缺依据\", window","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" \"补测前\", mitigation \"不给出水肥","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"剂量；查排水/含水率\"\n- \"未来天气","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"未知\", window \"未来3天\", mitigation \"不把仿真","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"阴雨当预报，按当地预报和","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"现场实测调整\"\n\nBudget: note \"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"未执行新设备；已有回","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"执和3.36 kWh为仿真/历史记录，不是","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"本方案执行；新动作待人工","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"确认，预算按当地设备","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"能耗/人工登记，不能给水肥剂量和费用","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"承诺。\"\n\nconclusion: \"未来3天以人工核查叶背与","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"病斑、校准环境/根区读","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"数和条件性降湿为主；设备动作均为","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待处理建议，不执行；图像早疫病候选未确诊，不承诺","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"治愈或产量。\"\n\n需要确保第一行免责声明","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。然后正文四个小节，简短表格。可以用 Markdown 表格。注意不要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"超出太多。系统要求“正文用当前","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"重点、每日管理清单、设备作用与代价、复查与待","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"补信息四个简短小节，主要内容用简短表格”。所以四个小标题。可以在“","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"当前重点”用表格列出用户输入/运行摘要实测/scenario仿真/图像候选。每日管理","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"清单表。设备作用与代价表。复查与待补信息表。然后 JSON。\n\n记住：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"用户输入当前农情 temp22 humidity","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"92 co2 500 light","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"120；运行摘要 environment at 16:30 temp30.15 humidity19.82 co2 438","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" light 7.85 soil 54.4 estimated false origin c","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"k-back。scenario at 16:30 temp29.216 humidity94.94 co2","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 438 light raw 1.587? ppfd","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 29.369 soil 29.86 estimated true origin","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" SIMULATED_M3_ANCHORED。不能把 scenario 当未来天气。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"observations 中处理分支 29.2°","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"C 95%RH 相比未干预高","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"1.3°C 湿度高6.1个百分点 用电3.36kWh，流程验证","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录非现场巡查。可以提。\n\n需要小心“当前运行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"摘要”environment estimated false origin c","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"k-back 可能实测对照2","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。用户未提供项中土壤含水率未提供，但运行摘要有 ck","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"-back soil moisture 54.4。这算实测？可以标为运行摘要中的对照","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2实测（非用户填写","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"），但系统说用户未提供土壤含水率，不得替用户假定。但运行摘要中有实测对照","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2。我们要区分来源。可以引用为","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"“运行摘要 ck-back 对照2 16:30","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 土壤水分54.4%vol”，但不要说这是用户棚","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"内代表值。用户未提供土壤含水率，需要补测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"代表点。这符合。\n\n图像候选","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：任务证据说图像仅为","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"早疫病候选。可以写“图像：早疫病候选，未确诊”。\n\n“当前","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"重点”表：\n| 来源 | 内容 | 用法边界","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" |\n用户输入 CSV: 番茄，结果初期；22","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"℃、92%、500ppm、120","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" μmol；未用药，先核查叶背；下层叶片","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"褐斑为流程验证样例，非现场实测。作为用户报告，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"需现场核对。\n运行摘要 ck-back","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 对照2 16:30: 30.15℃、19.82%RH、438ppm、土壤54","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":".4%vol，VPD 3.43kPa ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"告警。测量来源/位置有限，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不替代用户棚内代表点","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\nscenario 仿真 17:00: 29.2℃、94.9%RH、根区","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"29.9%vol、冠层湿润代理0.64、WARM","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"_LEAF_WET 37min；连续阴雨","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"结束4/20 03:00。仅","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真，不当前诊断/未来天气。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"人工记录/处理分支：流程","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"验证，29.2℃、95%RH，比未干预高","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"1.3℃/6.1个百分点，电","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3.36kWh。仅为仿真","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"回放，不称本方案已改善。\n图像：早疫病候选。不能","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"按湿度确诊。\n\n当前主要矛盾：现场代表","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"点读数缺失且来源分歧；病因候选","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"未确诊；根区/水肥信息缺。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不能互相判矛盾。未来3天先人工","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"核查、校准、条件管理","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n\n每日管理清单表：\n日序 人工事项（建议）","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 设备建议（待处理，不执行） 复查条件\nDay0\n- 巡查叶","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"背、病斑位置/面积/扩展，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录下层褐斑是否真实、是否有霉层","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/虫体；拍照标记。\n- 校准温","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿度/VPD/土壤水分传感器位置；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"把用户输入、ck-back、scenario分栏","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录。\n- 核查灌溉方式、基质/土壤含水率、排水、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"有效面积；缺项不剂量。\n- 对已确认","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"严重病叶可人工登记/送检/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"少量处置；不盲目用药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n设备建议：若现场叶面结露/冠层高","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿且安全，试短时通风/排风/环流降湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；不执行。若光照弱补光？可","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"建议检查补光设备但不给DLI阈值。灌溉按核查结果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，不剂量。\n复查：30-60min温湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/叶面；4h/6h工程复查窗口（不是","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"感染阈值）；根区含水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"率；病斑。\n\nDay1:\n- 复查病斑","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"是否扩展/新斑/叶背，核对Day0","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"标记。\n- 评估通风/环流效果，按现场","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"温湿度调整（建议）。\n- 复查","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"根区水分、植株萎蔫、排水。\n- 若仍无法","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"判定，联系植保/送检。\n设备建议：仅在现场","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"确认高湿/叶面湿润时继续条件","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"性通风/环流；若VPD高且根","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"区不过湿，核查蒸腾压力与遮阳/通风；不执行。\n复查：同位置同时间对比。\n\nDay2:\n- 汇总3天记录，区分观测/仿真，确认是否需正式","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"诊断","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n- 对未补信息继续补测；若病斑快速扩展，升级人工处置。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 维持已证明安全的措施；不按仿真天气预设。\n设备建议：待人工确认，不自动","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"执行。\n\n设备作用与代价表：\n设备/措施 | 作用 | 代价/限制 | 复查条件\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"通风/排风/环流：降低冠层湿润代理；能耗、热量损失","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、外界高湿时效果有限；30-60min棚温","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿/叶面结露，不执行","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n遮阳/补光：调节光照/辐射热；电耗、可能影响","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"温度；记录PPFD/时长和","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"植株反应，不给DLI阈值。\n灌溉：维持根区","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"水分；缺检测/面积/设备时不给升数","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，可能过湿或干旱；补测含水率、排水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、萎蔫。\n加温/湿帘/CO2：无本轮","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"依据，不建议自动启用；可能能耗/湿度/CO2","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"波动；按现场实测和当地规程复核。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"人工巡查/送检：确认病因候选；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"耗时、可能伤口","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/误判；病斑扩展/新斑/叶背。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"复查与待补信息表：\n- 待补：品种、设施、面积","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、定植期、栽培方式、基质/土壤检测、含水率","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、灌溉方式频次、施肥方案、确诊病虫害、发生程度、目标上市","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、预算、未来天气预报、现场叶背/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"根区实测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n- 复查窗口：4h/6h等为工程复查窗口，不是感染阈值；不能断言湿叶超过就发病","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n- 冲突核对：只在同来源同测点同时间","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"实测记录间核对；用户输入、ck-back、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"scenario、M3","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"回放条件不同，数值不同不称矛盾。\n- 模型边界：scenario stage/LAI","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/果实为未标定仿真，不用于现场摘","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶量、坐果、产量判断","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n\nJSON:\n{\n  \"conclusion\": \"...\",\n  \"actions\": [\n    {\"stage\":\"结果初期（用户报告；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"模型阶段不作为现场依据）\",\"action\":\"人工核查叶背、病斑","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"与来源登记\",\"trigger\":\"若叶背可见霉层/虫体","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、病斑沿叶脉扩展或出现新","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"斑；在4h/6h工程复查窗口复核，仅作","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"复查时点而非感染阈值\",\"detail\":\"作用：区分早疫","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"病候选、虫害、生理/药害并决定是否送检。代价","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：耗时，可能推迟非必要处置；未确诊不施药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。待处理建议，未执行。\"},\n...\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"  ],\n  \"cautions\": [\"图像仅早疫病候选，不能按","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿度或天气重新确诊，不承诺治愈","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"或产量。\", \"用户输入、运行摘要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"ck-back实测、scenario仿真、M3回放来源和条件不同；数值不同不等于测点","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"矛盾，只在同来源同测点同时间实测间核对","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\", \"未提供土壤/基质检测、灌溉方式与有效","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"面积等，不给出水肥升数、克数","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"或DLI阈值；不给药剂用量、稀释倍数和安全间隔期。\", \"未来真实天气","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"和观测未知，不把仿真阴雨","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"或模型阶段外推到第几周、季节产量或固定开花果实阶段。\",","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" \"已有设备回执和3.36 kWh仅为仿真/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"历史记录，新动作仍是建议，不执行设备。\"]\n  \"sche","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"dule\": [\n    {\"dayOffset\":","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"0,\"stage\":\"结果初期（用户报告）\",\"task\":\"人工巡查叶背和下层褐斑；校准温","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿度/VPD/土壤水分读数并分栏记录来源","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；核查基质/土壤含水率、灌溉方式、排水、有效面积；对已确认","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"严重病叶登记/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"送检；条件性通风/环流建议待人工确认。\"},\n    {\"dayOffset\":","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"1,\"stage\":\"结果初期（用户报告）\",\"task\":\"复查Day0标记的病斑面积/新斑/叶背；评估通风/环","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"流后温湿度和叶面结露；复查根","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"区水分、排水和植株萎蔫；仍不能判定","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"时联系当地植保或送检。\"},\n    {\"dayOffset\":2,\"stage\":\"结果初期（","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"用户报告）\",\"task\":\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"汇总三天人工记录与实测，区别仿真和实测；补测缺失信息；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"若病斑快速扩展升级人工处置；设备动作继续待","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"人工确认，不自动执行。\"}\n  ],\n  \"riskAlerts\": [\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"    {\"risk\":\"叶斑类病害候选误判","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"或扩展\",\"window\":\"未来3天；4h/6h仅工程复查窗口\",\"mit","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"igation\":\"人工登记病斑面积、叶背、送检；不按湿度确诊，不承诺治愈；必要时请当地植保。\"},\n    {\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"risk\":\"环境读数来源分歧导致错误控制\",\"window\":\"现场校准","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"前\",\"mitigation\":\"用户输入、ck-back实测、scenario","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真分栏；现场同位置同时间复核温湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/VPD；不同来源不替代。\"},\n    {\"risk\":\"根区过湿或缺水且缺检测\",\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"window\":\"补测前\",\"mitigation\":\"只查含水率/排水/萎蔫","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，不给水肥剂量；过湿先查排水，缺水按当地规程和设备条件","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"复核。\"},\n    {\"risk\":\"把仿真天气/阶段","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"当现场依据\",\"window\":\"未来3天\",\"mitigation\":\"未来天气","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"按当地预报和现场观测；scenario阴雨","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、stage、LAI、果实估计不","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"用于摘叶量、坐果或产量判断。\"}\n  ],\n  \"budget\":","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" {\"note\":\"新动作均未执行，不产生本方案","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"批准的能耗/水肥费用；已有3.36 kWh","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"和设备状态为仿真/历史记录。若人工","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"确认执行，按当地设备计量和","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"人工登记，无法在缺项","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"下给出水肥剂量或费用承诺。\"}\n}\n\n需要确保 JSON","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 有效，字符串内不能有换行？可以。中文字符 okay。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"注意 actions 中 detail 包含“作用：...","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；代价：...；待处理建议，未执行。” 很好","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n\n可能还需要提到“结果初期”用户报告和模型初始化阶段“SE","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"EDLING”分别说明，不把模拟幼苗的LAI","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/阶段用于现场。可以在","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"当前重点或复查与待补信息。\n\n“第一行使用：【","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"以下为模型推演，非实测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、非知识库依据，请结合当地实际复核】” 必须第一行。之后可以写标题。注意不要在","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"代码围栏内包含第一行？第一行正文。好的。\n\n需要控制篇幅，可能表格","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"较长。可以。\n\n需要不要输出“模型算出”之类。可以。\n\n需要不自行拓展到第几周、季节产量。不要写。\n\n不能输出安全间隔期：在","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" cautions 提到“不给药剂用量、稀释倍数和安全","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"间隔期”可以吗？这算提到安全间隔期？不算给具体值","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，但可能敏感？系统明确“不得输出药剂用量、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"稀释倍数或安全间隔期”。我可以说“不提供药剂用量/稀释倍数/安全间隔期","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"”吗？这本身是声明，不是输出具体。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"但为保险，可以写“不提供","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"药剂使用定量参数”。避免出现“安全间隔期”字样？可以。系统要求不得输出，可以声明不提供。但最好避免具体术语？说不","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"给药剂定量参数即可。\n\n“4小时叶斑、6小时灰霉等","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"是工程复查窗口，不是感染阈值”可以写。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不要断言湿叶超过窗口就发病。\n\n“同来源","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"同测点同时间”需遵守。\n\n需要区分“","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"M3历史回放”：observations 是 HUMAN_R","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"ECORDED? 它说处理分支模拟","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"时刻... 是人工记录？任务","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"证据 source HUMAN_RECORDED 但内容流程验证","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"记录非现场巡查。M3是历史回放。可以写“人工记录","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/处理分支仅为流程验证”。不要在最终说旧","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"评测。\n\n现在构建最终回答。\n\n可能格式：\n\n【免责","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"声明】\n\n## 当前重点\n| 来源 | 本轮数据","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" | 使用边界 |\n| ... |\n用户输入...\n运行摘要ck-back...\nscenario...\n图像/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"症状...\n人工记录...\n\n然后一段：结论：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"先做人工核查和校准，不执行设备。用户","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"报告结果初期；模型初始化 stage","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"=SEEDLING 是仿真，不作为现场生育期","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"依据。\n\n## 每日管理清单\n| dayOffset/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"日 | 人工事项（建议） | 设备建议（待处理，不执行） | 复查条件","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" |\n...\nDay0/day1/day2 表格。注意不要给","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"摘叶片数。可以“少量已确认严重病叶”但没有数量。\n\n## 设备作用与代价\n| 措施/设备 | 作用 | 代价/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"限制 | 复查条件 |\n...\n\n## 复查与","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"待补信息\n| 项目 | 说明 |\n...\n\n然后 JSON。\n\n需要确保 JSON 的 schedule dayOffset 是整数 0,1,","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2。actions stage 可 \"day0/结果初期\"？ 可以。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"注意 action detail 不能声称已执行。全部用“建议”“待","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"处理”“若人工确认”。trigger 包含复查","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"条件。好。\n\n注意 JSON 中不要有 Markdown","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 语法？可以。围栏内 JSON 有效。字符串中","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不要出现未转义双引号。可。\n\n可能需要在 JSON actions ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"中包含设备建议","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"？ actions 字段可以包含人工和条件性设备建议。如：\n- action: \"现场核查与传感器校准","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"\n- action: \"条件性通风/环流降湿（建议，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不执行）\"\n- action: \"根区/灌溉核查（不给剂量）","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"\n- action: \"病","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶登记/送检，不盲目用药\"\n- action: \"光照/补光仅记录（无DLI阈值）\" 可选。\n\nactions 数组 5-6 条。确保每条","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" detail 有作用代价 trigger有复查条件。\n\ncautions","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 数组 5 条。\nriskAlerts 4 条。\nbudget note。\n\n现在写出。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"【以下为模型推演，非实测、非知识库依据","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，请结合当地实际复核】\n\n## 当前重点\n| 来源 | 本轮内容 |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 使用边界 |\n|---|---|---|\n| ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"用户输入/CSV | 番茄、结果初期；22℃、92%RH、500 ppm、120 μmol·m⁻²·s⁻¹；未用药，先核查叶背；“下层","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶片褐斑”为流程验证样例，非现场实测 | 用户报告优先核实；未","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"提供土壤/基质检测、灌溉方式、有效面积等，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不给水肥剂量 |\n| 运行摘要 ck-back 对照2 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"16:30 | 30.15℃、19.82%RH、438 ppm、土壤水分54","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":".4%vol；VPD 3.43 kPa告警 | ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"来源和测点有限，不替代用户棚内","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"代表点；与用户输入、仿真数值不同不直接","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"称矛盾 |\n| scenario 仿真 17:00 | 29.2℃、94.","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"9%RH、根区29.9%vol、冠层湿润代理0","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":".64、WARM_LEAF_WET 37 min；连续阴雨为仿真天气 | 未标","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"定仿真，不作现场诊断和未来天气预报；模型stage/L AI/","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"果实估计不用于现场摘叶、坐果或产量判断 |\n| 图像/症状 | 图像为早疫病候选；褐斑","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"报告未现场确认 | 不能按湿度或仿真天气","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"重新确诊 |\n| 人工记录/处理分支 | 流程验证：29.2℃、95%","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"RH；比未干预高1.3℃、湿度高6.1个百分点，电3","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":".36 kWh | 仅为仿真回放，不表示本方案","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"已改善效果 |\n\n结论：未来3天先做人工核查、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"来源校准和根区/灌溉核查；设备动作","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"均为待处理建议，不执行，不承诺病斑治愈","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"或产量。\n\n## 每日管理清单\n| 日序 | 人工事项（建议","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"） | 设备建议（待处理，不执行） | 复查条件 |\n|---|---|---|---|\n| Day","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"0 | 核查叶背、下层褐斑位置/面积/","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"是否扩展，拍照标记；校准温湿度、VPD、土壤水分读数并分","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"栏记录来源；核查基质/土壤含水率、灌溉方式、排水、有效面积","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；已确认严重病叶登记或送检 | 若现场","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶面结露、冠层高湿且安全，建议短时","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"通风/排风/环流降湿；光照弱仅记录PPFD","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"与时长，不给DLI阈值 | 30–60 min复查棚温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿、叶面结露；4h/6h仅作工程复查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"窗口，不是感染阈值；根区含水率、排水、病斑 |\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"| Day1 | 复查Day0标记病斑是否扩展、有无新","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"斑、叶背是否出现霉层/虫体；评估通风/环","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"流后温湿度和叶面湿润；复查根区","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"水分、植株萎蔫 | 仅在现场确认高湿或叶面湿润时继续条件性","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"通风/环流建议；VPD高时先核查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"蒸腾压力与","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"遮阳/通风条件 | 同位置","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、同时间对比；若病斑快速扩展或仍不能判定，联系当地植保或送检 |\n| Day2 | 汇总三天","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"人工记录与实测，区分实测、用户输入和仿真；补测","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"缺失信息；若病斑扩展升级人工处置 | 继续待人工确认，不自动执行；","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不按仿真阴雨预设设备 | 病斑","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"面积、叶背、根","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"区水分、设备后温湿度","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；必要时复核诊断 |\n\n## 设备作用","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"与代价\n| 措施/设备 | 作用 | 代价/限制 | 复查条件 |\n|---|---|---|---|\n| 通风/排风","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"/环流 | 降低冠层湿润代理，可能减少叶面长时间润湿 | 能耗、热量损失；外界阴雨高湿时降湿有限 | 30–60 min温湿度、叶面结露；不执行","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"设备 |\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"| 遮阳/补光 | 调节光照和辐射热 | 电耗；可能影响冠层温度；无本轮","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"DLI","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"阈值依据 | 记录光照、时长和植株反应，不作固定阈值 |\n| 灌溉 | 维持根区水分 | 缺土壤/","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"基质检测、灌溉方式、有效面积，不给升数或克数；盲灌","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"可能过湿 | 补测含水率、排水、萎蔫；过湿","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"先查排水 |\n| 加温/湿帘/CO₂ | 可能调节温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿或CO₂ | 本轮无现场依据；能耗和湿度波动风险 |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 按现场实测和当地规程复核，不自动启用 |\n| 人工巡查/","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"送检 | 确认病害候选、虫害或生理问题 | 耗时、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"可能伤口或误判；不盲目用药 | 病斑扩展、新斑、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶背、送检结果 |\n\n## 复查与待补信息\n| 项目 | 说明 |\n|---|---|\n|","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 待补 | 品种、设施类型、面积、定植日期、栽培方式、土壤","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"/基质检测、含水率、灌溉方式与频次、施肥方案、已确诊病虫害、发生程度","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、目标上市期、预算、未来天气预报、现场叶背与根区实测 |\n| 冲突","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"核对 | 只在同来源、同测点、同时间的实测记录间核对冲突；","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"用户输入、ck-back、scenario、M3回放条件不同","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，数值不同不等于测点矛盾 |\n| 工程复查窗口","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" | 4 h叶斑、6 h灰霉等是复查窗口，不是感染阈值；不能断言湿叶超过窗口就发病或几天后必出新","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"斑 |\n| 模型边界 | 用户报告“结果初期”；模型初始化“SEEDLING”及LAI、坐果","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、产量为未标定仿真，不作为现场管理判定 |\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"| 药剂边界 | 不提供药剂定量参数；未","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"确诊前不盲目用药 |\n\n```json\n{\n  \"conclusion\": \"未来3天以人工核查叶","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"背与病斑、校准环境/根区读数、条件","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"性降湿和补齐缺项为主；设备动作均为","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"待处理建议，不执行；图像仅早疫病候选，不能按天气","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"确诊，不承诺治愈或产量。\",\n  \"actions\": [\n    {\n      \"stage\": \"结果","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"初期（用户报告；模型阶段不作现场依据）\",\n      \"action","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\": \"人工核查叶背、病斑并登记来源\",\n      \"trigger\": \"若叶","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"背可见霉层或虫体、病斑沿叶脉扩展、出现新斑；在4h/6h工程复查窗口","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"复核，仅作复查时点而非感染阈值\",\n      \"detail\": \"作用：区分早疫病候选、虫","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"害、生理或药害并决定是否送检。代价：耗时，可能推迟非","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"必要处置；未确诊不施药。待处理建议，未执行。\"\n   ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" },\n    {\n      \"stage\": \"结果初期（用户报告）\",\n      \"action\": \"校准温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿度、VPD和土壤水分读数并分栏记录来源\",\n      \"trigger\": \"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"用户输入、ck-back对照2实测和scenario仿真差异","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"未解释时；仅在同来源、同测点、同时间实测记录不一致时核对\",\n      \"detail\": \"作用：避免按不同来源或非代表点读数决策。代价：需仪器和人工；不同来源","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"数值不同不直接称矛盾。待处理建议，未执行。\"\n    },\n    {\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"      \"stage\": \"结果初期（用户报告）\",\n      \"action\": \"条件性通风、排风或环流","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"降湿建议\",\n      \"trigger\": \"现场实测叶面结露、冠层高湿或湿度持续偏高，且通风不致冷害；30至60分钟后复查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"温湿度和叶面\",\n      \"detail\": \"作用：降低冠层湿润代理","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，可能减少病害适生条件。代价：能耗、热量损失，外界阴雨高湿时降湿有限。待处理","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"建议，不执行设备。\"\n    },\n    {\n      \"stage\": \"结果初期（用户报告）\",\n      \"action\": \"根区和灌溉只核查，不凭缺项定量","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\",\n      \"trigger\": \"补测土壤或基质含水率、灌溉方式、有效面积；若根区","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"过湿或积水先查排水；若植株萎蔫再查缺水\",\n      \"detail\": \"作用","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：避免盲灌加剧高湿和根区过湿。代价：延迟","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"处置可能错过窗口，但无依据给水风险更高；不给升数或克数。待处理建议，未执行。\"\n    },\n   ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" {\n      \"stage\": \"结果初期（用户报告）\",\n      \"action\": \"病叶处置与","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"送检按人工诊断，不盲目用药\",\n      \"trigger\": \"仅对已确认严重病","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶登记或送检；若快速扩展或整棚多点发生，联系当地植保","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；复查病斑面积和新生病斑\",\n      \"detail\": \"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"作用：减少可能病原和误判。代价：摘叶造成伤口和劳动力，错误用药","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"有成本和残留风险；不写药剂定量参数。待处理建议，未执行。","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\"\n    }\n  ],\n  \"cautions\": [\n    \"图像仅为早疫病候选，不能按湿度","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、仿真天气或工程复查窗口","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"重新确诊，不承诺治愈或产量。\",\n    \"用户输入、运行摘要ck-back实测、scenario仿真和M3回放来源条件不同；数值不同不等于测点","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"矛盾，只在同来源同","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测点同时间实测记录间核对。\",\n    \"未提供土壤或基质检测、灌溉方式与有效面积等，不给出水肥升数、克数、摘叶片数或DLI阈值；不提供药剂定量参数。\",\n    \"未来真实天气和观测未知，不把仿真阴雨或模型阶段外推到第几周、季节产量","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"或固定开花果实阶段。\",\n    \"已有设备回执和3.36 kWh仅为仿真或","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"历史记录，新动作仍是建议，不执行设备。\"\n  ],\n  \"schedule\": [\n    {\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"      \"dayOffset\": 0,\n      \"stage\": \"结果初期（用户报告）\",\n      \"task\": \"人工巡查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶背和下层褐斑；校准温湿度、VPD、土壤水分读数并","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"分栏记录来源；核查基质或土壤含水率、灌溉方式、排水、有效面积","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；对已确认严重病叶登记或送检；条件性通风或环","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"流建议待人工确认。\"\n    },\n    {\n      \"dayOffset\": 1,\n      \"stage\": \"结果初期（用户报告）\",\n      \"task\": \"复查Day0标记的病斑面积、新斑和叶背；评估","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"通风或环流后温湿度和叶面结露；复查根区水分、排水和","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"植株萎蔫；仍不能判定时联系当地植保或送检。\"\n    },\n    {\n      \"day","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"Offset\": 2,\n      \"stage\": \"结果初期（用户报告）\",\n      \"task\": \"汇总三天","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"人工记录与实测，区别仿真和实测；补测缺失信息；若病斑快速","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"扩展升级人工处置；设备动作继续待人工确认，不自动执行。\"\n    }\n  ],\n  \"riskAlerts","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\": [\n    {\n      \"risk\": \"叶斑类病害候选误判或扩展\",\n      \"window\": \"未来3天","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；4h/6h仅工程复查窗口\",\n      \"mitigation\": \"人工登记病斑面积、叶背","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"和送检结果；不按湿度确诊，不承诺治愈；必要时请当地植保。\"\n    },\n   ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" {\n      \"risk\": \"环境读数来源分歧导致错误控制\",\n      \"window\": \"现场校准前\",\n      \"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"mitigation\": \"用户输入、ck-back实测、scenario仿真分栏；现场同","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"位置同时间复核温湿度和VPD；不同来源不互相替代","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。\"\n    },\n    {\n      \"risk\": \"根区过湿或缺水且缺检测\",\n      \"window\": \"补","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测前\",\n      \"mitigation\": \"只查含水率、排水和植株萎蔫，不给","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"水肥剂量；过湿先查排水，缺水按当地规程和设备条件复核。\"\n    },\n    {\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"      \"risk\": \"把仿真天气或阶段当现场依据\",\n      \"window\": \"未来3天\",\n      \"mit","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"igation\": \"未来天气按当地预报和现场观测；scenario阴雨、stage、LAI","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、果实估计不用于摘叶量、坐果或产量判断。\"\n    }\n  ],\n  \"bud","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"get\": {\n    \"note\": \"新动作均未执行，不产生本方案批准的能耗、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"水肥或药剂费用；已有3.36 kWh和设备状态为仿真或历史","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"记录。若人工确认执行，按当地设备计量和人工登记，缺项","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"下不给水肥剂量或费用承诺。\"\n  }\n}\n```","reasoning":false}
+
+event:task
+data:{"type":"task","taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80"}
+
+event:final
+data:{"type":"final","markdown":"【以下为模型推演，非实测、非知识库依据，请结合当地实际复核】\n\n## 当前重点\n| 来源 | 本轮内容 | 使用边界 |\n|---|---|---|\n| 用户输入/CSV | 番茄、结果初期；22℃、92%RH、500 ppm、120 μmol·m⁻²·s⁻¹；未用药，先核查叶背；“下层叶片褐斑”为流程验证样例，非现场实测 | 用户报告优先核实；未提供土壤/基质检测、灌溉方式、有效面积等，不给水肥剂量 |\n| 运行摘要 ck-back 对照2 16:30 | 30.15℃、19.82%RH、438 ppm、土壤水分54.4%vol；VPD 3.43 kPa告警 | 来源和测点有限，不替代用户棚内代表点；与用户输入、仿真数值不同不直接称矛盾 |\n| scenario 仿真 17:00 | 29.2℃、94.9%RH、根区29.9%vol、冠层湿润代理0.64、WARM_LEAF_WET 37 min；连续阴雨为仿真天气 | 未标定仿真，不作现场诊断和未来天气预报；模型stage/L AI/果实估计不用于现场摘叶、坐果或产量判断 |\n| 图像/症状 | 图像为早疫病候选；褐斑报告未现场确认 | 不能按湿度或仿真天气重新确诊 |\n| 人工记录/处理分支 | 流程验证：29.2℃、95%RH；比未干预高1.3℃、湿度高6.1个百分点，电3.36 kWh | 仅为仿真回放，不表示本方案已改善效果 |\n\n结论：未来3天先做人工核查、来源校准和根区/灌溉核查；设备动作均为待处理建议，不执行，不承诺病斑治愈或产量。\n\n## 每日管理清单\n| 日序 | 人工事项（建议） | 设备建议（待处理，不执行） | 复查条件 |\n|---|---|---|---|\n| Day0 | 核查叶背、下层褐斑位置/面积/是否扩展，拍照标记；校准温湿度、VPD、土壤水分读数并分栏记录来源；核查基质/土壤含水率、灌溉方式、排水、有效面积；已确认严重病叶登记或送检 | 若现场叶面结露、冠层高湿且安全，建议短时通风/排风/环流降湿；光照弱仅记录PPFD与时长，不给DLI阈值 | 30–60 min复查棚温湿、叶面结露；4h/6h仅作工程复查窗口，不是感染阈值；根区含水率、排水、病斑 |\n| Day1 | 复查Day0标记病斑是否扩展、有无新斑、叶背是否出现霉层/虫体；评估通风/环流后温湿度和叶面湿润；复查根区水分、植株萎蔫 | 仅在现场确认高湿或叶面湿润时继续条件性通风/环流建议；VPD高时先核查蒸腾压力与遮阳/通风条件 | 同位置、同时间对比；若病斑快速扩展或仍不能判定，联系当地植保或送检 |\n| Day2 | 汇总三天人工记录与实测，区分实测、用户输入和仿真；补测缺失信息；若病斑扩展升级人工处置 | 继续待人工确认，不自动执行；不按仿真阴雨预设设备 | 病斑面积、叶背、根区水分、设备后温湿度；必要时复核诊断 |\n\n## 设备作用与代价\n| 措施/设备 | 作用 | 代价/限制 | 复查条件 |\n|---|---|---|---|\n| 通风/排风/环流 | 降低冠层湿润代理，可能减少叶面长时间润湿 | 能耗、热量损失；外界阴雨高湿时降湿有限 | 30–60 min温湿度、叶面结露；不执行设备 |\n| 遮阳/补光 | 调节光照和辐射热 | 电耗；可能影响冠层温度；无本轮DLI阈值依据 | 记录光照、时长和植株反应，不作固定阈值 |\n| 灌溉 | 维持根区水分 | 缺土壤/基质检测、灌溉方式、有效面积，不给升数或克数；盲灌可能过湿 | 补测含水率、排水、萎蔫；过湿先查排水 |\n| 加温/湿帘/CO₂ | 可能调节温湿或CO₂ | 本轮无现场依据；能耗和湿度波动风险 | 按现场实测和当地规程复核，不自动启用 |\n| 人工巡查/送检 | 确认病害候选、虫害或生理问题 | 耗时、可能伤口或误判；不盲目用药 | 病斑扩展、新斑、叶背、送检结果 |\n\n## 复查与待补信息\n| 项目 | 说明 |\n|---|---|\n| 待补 | 品种、设施类型、面积、定植日期、栽培方式、土壤/基质检测、含水率、灌溉方式与频次、施肥方案、已确诊病虫害、发生程度、目标上市期、预算、未来天气预报、现场叶背与根区实测 |\n| 冲突核对 | 只在同来源、同测点、同时间的实测记录间核对冲突；用户输入、ck-back、scenario、M3回放条件不同，数值不同不等于测点矛盾 |\n| 工程复查窗口 | 4 h叶斑、6 h灰霉等是复查窗口，不是感染阈值；不能断言湿叶超过窗口就发病或几天后必出新斑 |\n| 模型边界 | 用户报告“结果初期”；模型初始化“SEEDLING”及LAI、坐果、产量为未标定仿真，不作为现场管理判定 |\n| 药剂边界 | 不提供药剂定量参数；未确诊前不盲目用药 |\n\n\n\n```","structured":{"conclusion":"未来3天以人工核查叶背与病斑、校准环境/根区读数、条件性降湿和补齐缺项为主；设备动作均为待处理建议，不执行；图像仅早疫病候选，不能按天气确诊，不承诺治愈或产量。","schedule":[{"task":"人工巡查叶背和下层褐斑；校准温湿度、VPD、土壤水分读数并分栏记录来源；核查基质或土壤含水率、灌溉方式、排水、有效面积；对已确认严重病叶登记或送检；条件性通风或环流建议待人工确认。","dayOffset":0,"stage":"结果初期（用户报告）"},{"task":"复查Day0标记的病斑面积、新斑和叶背；评估通风或环流后温湿度和叶面结露；复查根区水分、排水和植株萎蔫；仍不能判定时联系当地植保或送检。","dayOffset":1,"stage":"结果初期（用户报告）"},{"task":"汇总三天人工记录与实测，区别仿真和实测；补测缺失信息；若病斑快速扩展升级人工处置；设备动作继续待人工确认，不自动执行。","dayOffset":2,"stage":"结果初期（用户报告）"}],"riskAlerts":[{"mitigation":"人工登记病斑面积、叶背和送检结果；不按湿度确诊，不承诺治愈；必要时请当地植保。","risk":"叶斑类病害候选误判或扩展","window":"未来3天；4h/6h仅工程复查窗口"},{"mitigation":"用户输入、ck-back实测、scenario仿真分栏；现场同位置同时间复核温湿度和VPD；不同来源不互相替代。","risk":"环境读数来源分歧导致错误控制","window":"现场校准前"},{"mitigation":"只查含水率、排水和植株萎蔫，不给水肥剂量；过湿先查排水，缺水按当地规程和设备条件复核。","risk":"根区过湿或缺水且缺检测","window":"补测前"},{"mitigation":"未来天气按当地预报和现场观测；scenario阴雨、stage、LAI、果实估计不用于摘叶量、坐果或产量判断。","risk":"把仿真天气或阶段当现场依据","window":"未来3天"}],"cautions":["图像仅为早疫病候选，不能按湿度、仿真天气或工程复查窗口重新确诊，不承诺治愈或产量。","用户输入、运行摘要ck-back实测、scenario仿真和M3回放来源条件不同；数值不同不等于测点矛盾，只在同来源同测点同时间实测记录间核对。","未提供土壤或基质检测、灌溉方式与有效面积等，不给出水肥升数、克数、摘叶片数或DLI阈值；不提供药剂定量参数。","未来真实天气和观测未知，不把仿真阴雨或模型阶段外推到第几周、季节产量或固定开花果实阶段。","已有设备回执和3.36 kWh仅为仿真或历史记录，新动作仍是建议，不执行设备。"],"actions":[{"stage":"结果初期（用户报告；模型阶段不作现场依据）","action":"人工核查叶背、病斑并登记来源","trigger":"若叶背可见霉层或虫体、病斑沿叶脉扩展、出现新斑；在4h/6h工程复查窗口复核，仅作复查时点而非感染阈值","detail":"作用：区分早疫病候选、虫害、生理或药害并决定是否送检。代价：耗时，可能推迟非必要处置；未确诊不施药。待处理建议，未执行。"},{"stage":"结果初期（用户报告）","action":"校准温湿度、VPD和土壤水分读数并分栏记录来源","trigger":"用户输入、ck-back对照2实测和scenario仿真差异未解释时；仅在同来源、同测点、同时间实测记录不一致时核对","detail":"作用：避免按不同来源或非代表点读数决策。代价：需仪器和人工；不同来源数值不同不直接称矛盾。待处理建议，未执行。"},{"stage":"结果初期（用户报告）","action":"条件性通风、排风或环流降湿建议","trigger":"现场实测叶面结露、冠层高湿或湿度持续偏高，且通风不致冷害；30至60分钟后复查温湿度和叶面","detail":"作用：降低冠层湿润代理，可能减少病害适生条件。代价：能耗、热量损失，外界阴雨高湿时降湿有限。待处理建议，不执行设备。"},{"stage":"结果初期（用户报告）","action":"根区和灌溉只核查，不凭缺项定量","trigger":"补测土壤或基质含水率、灌溉方式、有效面积；若根区过湿或积水先查排水；若植株萎蔫再查缺水","detail":"作用：避免盲灌加剧高湿和根区过湿。代价：延迟处置可能错过窗口，但无依据给水风险更高；不给升数或克数。待处理建议，未执行。"},{"stage":"结果初期（用户报告）","action":"病叶处置与送检按人工诊断，不盲目用药","trigger":"仅对已确认严重病叶登记或送检；若快速扩展或整棚多点发生，联系当地植保；复查病斑面积和新生病斑","detail":"作用：减少可能病原和误判。代价：摘叶造成伤口和劳动力，错误用药有成本和残留风险；不写药剂定量参数。待处理建议，未执行。"}],"budget":{"note":"新动作均未执行，不产生本方案批准的能耗、水肥或药剂费用；已有3.36 kWh和设备状态为仿真或历史记录。若人工确认执行，按当地设备计量和人工登记，缺项下不给水肥剂量或费用承诺。"}},"bannerInjected":false,"sections":["当前重点","每日管理清单","设备作用与代价","复查与待补信息"],"missingFields":["品种","设施类型","面积","定植日期","栽培方式","土壤含水率","水汽压亏缺","灌溉方式与频次","施肥方案","已确诊病虫害","发生程度","目标上市期","预算"],"streamMode":"STREAM","elapsedMillis":48233,"baseline":{"available":false,"unavailableReason":"本次使用所关联任务与当前大棚状态，不计算固定旧场景评测。","scopeNote":"规划使用本次明确提供的农情；关联任务时取同一运行状态，未计算的效果不填参考数值。"},"taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80","requestId":"d1edbdc2-bb15-4809-89b8-e5534ae0bacc","simulationRunId":"0d01c93d-9794-4dc4-b875-073778913055"}
+
+event:record
+data:{"id":5}
+
+

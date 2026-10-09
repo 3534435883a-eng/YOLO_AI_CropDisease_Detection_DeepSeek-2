@@ -1,0 +1,265 @@
+{
+  "id": "880bb12c-444e-4180-83e2-8c52e88bdf80",
+  "schemaVersion": 1,
+  "title": "番茄农情管理",
+  "crop": "番茄",
+  "question": "本任务番茄连续阴雨、叶片有斑，已上传病叶图和农情表格。按本任务实际识别候选和新增复查记录给出今天管理建议，最多4点，区分用户输入与模拟读数，暂不执行设备。",
+  "simulationRunId": "0d01c93d-9794-4dc4-b875-073778913055",
+  "createdAt": "2026-10-08T19:39:42.404+08:00",
+  "evidence": [
+    {
+      "id": "1389cdc3-1a6d-46bc-9810-4d02ce7547f6",
+      "createdAt": "2026-10-08T19:42:01.527+08:00",
+      "type": "TEXT",
+      "label": "现场描述",
+      "source": "人工录入",
+      "details": "流程验证样例（非现场实测）：番茄连续阴雨3天，下层叶片有褐斑，尚未用药，先检查叶背和扩展速度。",
+      "diagnosisConfirmed": false
+    },
+    {
+      "id": "image-1791459740544",
+      "createdAt": "2026-10-08T19:42:20.549+08:00",
+      "type": "IMAGE",
+      "label": "Early_Blight(早疫病)",
+      "source": "YOLO候选识别 / 待人工核验",
+      "imageUrl": "http://localhost:9999/files/99742976ae6446c185aa539d66a293d0_31a9f7ba787f43fa9dc5eb6b0affff12_500px-Tomato_Early_Blight_Leaf_jpg.rf.66a944fe832054ebb7f5024596de17f1.jpg",
+      "candidates": [
+        {
+          "label": "Early_Blight(早疫病)",
+          "score": "86.77%"
+        }
+      ],
+      "details": {
+        "crop": "番茄",
+        "originalImageUrl": "http://localhost:9999/files/99742976ae6446c185aa539d66a293d0_31a9f7ba787f43fa9dc5eb6b0affff12_500px-Tomato_Early_Blight_Leaf_jpg.rf.66a944fe832054ebb7f5024596de17f1.jpg",
+        "annotatedImageUrl": "http://localhost:9999/files/387d94293bb6450b99cac83a97cb21e0_result.jpg",
+        "confidence": "[\"86.77%\"]",
+        "weight": "tomato_best.pt",
+        "threshold": 0.25,
+        "observedAt": "2026-10-08 19:42:17"
+      },
+      "diagnosisConfirmed": false
+    },
+    {
+      "id": "fca4ad2f-8135-4205-976b-360b61754e4e",
+      "createdAt": "2026-10-08T19:43:51.948+08:00",
+      "type": "CSV",
+      "label": "农情表格",
+      "source": "用户上传，已核对",
+      "details": {
+        "fields": [
+          {
+            "key": "crop",
+            "label": "作物",
+            "unit": null,
+            "value": "番茄",
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "growthStage",
+            "label": "当前生育期",
+            "unit": null,
+            "value": "结果初期",
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "temperatureC",
+            "label": "温度",
+            "unit": "℃",
+            "value": 22,
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "humidityPct",
+            "label": "空气湿度",
+            "unit": "%",
+            "value": 92,
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "co2Ppm",
+            "label": "CO₂ 浓度",
+            "unit": "ppm",
+            "value": 500,
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "lightPpfd",
+            "label": "光照",
+            "unit": "μmol·m⁻²·s⁻¹",
+            "value": 120,
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "recentOperations",
+            "label": "近期农事操作",
+            "unit": null,
+            "value": "尚未用药，先核查叶背",
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "symptoms",
+            "label": "田间症状描述",
+            "unit": null,
+            "value": "流程验证样例：下层叶片褐斑，非现场实测",
+            "source": "USER",
+            "rawText": null
+          },
+          {
+            "key": "goal",
+            "label": "生产目标",
+            "unit": null,
+            "value": "先辨别病因与安排巡查",
+            "source": "USER",
+            "rawText": null
+          }
+        ],
+        "missing": [
+          "品种",
+          "设施类型",
+          "面积",
+          "定植日期",
+          "栽培方式",
+          "土壤含水率",
+          "水汽压亏缺",
+          "灌溉方式与频次",
+          "施肥方案",
+          "已确诊病虫害",
+          "发生程度",
+          "目标上市期",
+          "预算"
+        ],
+        "conflicts": [],
+        "notes": [],
+        "input": {
+          "crop": "番茄",
+          "growthStage": "结果初期",
+          "temperatureC": 22,
+          "humidityPct": 92,
+          "co2Ppm": 500,
+          "lightPpfd": 120,
+          "symptoms": "流程验证样例：下层叶片褐斑，非现场实测",
+          "recentOperations": "尚未用药，先核查叶背",
+          "goal": "先辨别病因与安排巡查"
+        },
+        "mappedColumns": [
+          "作物",
+          "当前生育期",
+          "温度",
+          "空气湿度",
+          "CO₂ 浓度",
+          "光照",
+          "田间症状描述",
+          "近期农事操作",
+          "生产目标"
+        ],
+        "unrecognizedColumns": [],
+        "dataRowCount": 1
+      },
+      "diagnosisConfirmed": false
+    }
+  ],
+  "turns": [
+    {
+      "id": "2f3176f2-b7f0-414d-9a1d-b5475aa96951:user",
+      "createdAt": "2026-10-08T19:45:13.717+08:00",
+      "role": "USER",
+      "content": "本任务番茄连续阴雨、下层叶片有褐斑，刚上传了病叶图片和农情表格。请区分用户记录、图像候选与当前模拟环境，给出今天的管理和复查步骤，说明大棚设备能改善什么。先分析，不执行设备。",
+      "requestId": "2f3176f2-b7f0-414d-9a1d-b5475aa96951",
+      "sessionId": "farm:880bb12c-444e-4180-83e2-8c52e88bdf80"
+    },
+    {
+      "id": "2f3176f2-b7f0-414d-9a1d-b5475aa96951:assistant",
+      "createdAt": "2026-10-08T19:45:13.719+08:00",
+      "role": "ASSISTANT",
+      "content": "先把三件事分开，否则很容易把“褐斑”直接当成番茄病害。\n\n**用户记录**：你上传的农情表里写的是：番茄、结果初期、22℃、空气湿度92%、CO₂ 500 ppm、光照120 μmol·m⁻²·s⁻¹，近期“尚未用药，先核查叶背”。但症状栏明确写着“流程验证样例：下层叶片褐斑，非现场实测”。所以“连续阴雨、下层褐斑”目前只能算任务背景和待核实线索，不能当作现场实测或已确诊。表里也缺品种、设施类型、面积、灌溉方式、土壤含水率等关键信息。\n\n**图像候选**：本轮病叶图识别没有通过。工具反馈检测类别“褐斑”与作物“番茄”不匹配，该类别只在其他作物模型中登记，属于资料库不足；不能借其他作物的病害解释来给番茄下诊断。因此图像只能是候选，不能据此选药。\n\n**当前模拟环境**：服务端M3历史观测在11:31显示约32.6℃、16.1%RH、CO₂ 460、原始土壤VWC 54.9%（未标定），VPD约4.12 kPa，属于高VPD告警。scenario把根区VWC设为30%估计值，是模拟锚定、未标定；根区模型判为适宜，冠层湿润代理为0，病害湿润条件规则为LOW。注意这些都和用户表的22℃、92%明显不一致，需要核对测点、时间、传感器和补值来源。设备当前全部停用、占空0，本轮不执行任何设备动作。\n\n**今天建议先做的管理，不执行设备：**\n1. 先核实是否真有病株。若只是流程样例，补现场调查；若真实，分区标记，摘除严重下层病叶装袋带出，手和工具消毒，减少株间走动。\n2. 查病因：翻叶背看霉层、菌脓、虫螨或卵，记录病斑形状、边缘、轮纹、水渍状、是否从下往上扩展；同时看茎、果和根区。拍整株、病叶正反面、病健交界，放标尺和日期。\n3. 校准环境测点：用经过校准的温湿度计在冠层高度多点测，记录叶面是否结露/湿润多久；根区水分用张力计、称重或校准探头核对。原始VWC 54.9%和模拟30%都不能单独判定缺水或过湿。阴雨期避免傍晚叶面喷水，灌溉尽量根区/滴灌。\n4. 重新提交适合番茄模型的图像，或转人工诊断/送检。未确诊前不要按图像候选用药；若后续确诊，再按登记标签和使用条件处理。本轮没有可引用的病害诊断资料，不给具体药剂处方。\n5. 做好标记和记录，方便复查扩展速度。\n\n**大棚设备能改善什么：**\n环流风机可降低冠层湿润代理和叶面结露，但不改变棚均温湿度；通风/顶窗/排风可与外界交换空气，降湿或改变VPD，但外界阴雨高湿时效果有限，高VPD时还可能加重干燥；加热可升温降相对湿度、减少结露，但能耗高并可能加剧蒸腾；湿帘降温会增湿，若叶面已湿或病害风险高可能不利；遮阳/补光影响光照和辐射热，补光可缓解连阴天弱光，但有电耗和热负荷；滴灌可调根区水分，不能治叶斑；CO₂影响光合，不直接控病。设备只能降低环境/水分风险，病斑已经形成不会因此逆转，风险下降不等于病斑治愈。\n\n**复查条件：**\n当日复查已标记病叶的叶背和病斑；次日或短期再看是否扩大、新叶是否受害、是否出现霉层或菌脓，有则升级诊断。环境上复查实际温湿度、叶面湿润时长、VPD、根区水分，并把用户记录、历史观测和模拟值分开记录。图像等作物类别匹配后再重识别，否则以人工诊断为准。若后续要开设备，应先做仿真，再复查冠层湿润代理、VPD、根区水分和水电消耗；当前没有执行任何设备动作。",
+      "requestId": "2f3176f2-b7f0-414d-9a1d-b5475aa96951",
+      "sessionId": "farm:880bb12c-444e-4180-83e2-8c52e88bdf80",
+      "status": "DONE",
+      "sources": []
+    },
+    {
+      "id": "6e34e127-e021-4e41-8f54-43f2306570ef:user",
+      "createdAt": "2026-10-08T19:58:15.687+08:00",
+      "role": "USER",
+      "content": "请纠正前一次图像类别解释：本任务已保存的检测候选是 Early_Blight(早疫病)，褐斑是用户症状，不是识别类别。请按实际图片候选和农情证据重新分析今天如何管理，给出资料依据与人工复查步骤；当前只分析，不执行设备。",
+      "requestId": "6e34e127-e021-4e41-8f54-43f2306570ef",
+      "sessionId": "farm:880bb12c-444e-4180-83e2-8c52e88bdf80"
+    }
+  ],
+  "actions": [
+    {
+      "id": "simulation:5b7f9d18-eb7e-44b2-a7fd-82b5f89eaeb5",
+      "key": "simulation:5b7f9d18-eb7e-44b2-a7fd-82b5f89eaeb5",
+      "type": "SIMULATION",
+      "kind": "SIMULATION",
+      "requestId": "5b7f9d18-eb7e-44b2-a7fd-82b5f89eaeb5",
+      "title": "大棚虚拟设备方案",
+      "source": "SIMULATION_RECEIPT",
+      "status": "APPLIED_SIMULATION",
+      "reviewCondition": "观察同一事件下环境与根区变化；病害症状需人工复查，模型风险下降不代表病斑消失。",
+      "createdAt": "2026-10-08T20:02:07.438+08:00",
+      "updatedAt": "2026-10-08T20:03:51.043+08:00",
+      "modelAt": "2025-04-19T13:00",
+      "scenarioVersion": 6
+    },
+    {
+      "id": "simulation:f1af5c23-c5e5-496d-9101-e76965c27e04",
+      "key": "simulation:f1af5c23-c5e5-496d-9101-e76965c27e04",
+      "type": "SIMULATION",
+      "kind": "SIMULATION",
+      "requestId": "f1af5c23-c5e5-496d-9101-e76965c27e04",
+      "title": "大棚虚拟设备方案",
+      "source": "SIMULATION_RECEIPT",
+      "status": "APPLIED_SIMULATION",
+      "reviewCondition": "观察同一事件下环境与根区变化；病害症状需人工复查，模型风险下降不代表病斑消失。",
+      "createdAt": "2026-10-08T20:03:55.709+08:00",
+      "updatedAt": "2026-10-08T20:03:56.089+08:00",
+      "modelAt": "2025-04-19T14:00",
+      "scenarioVersion": 9
+    },
+    {
+      "id": "simulation:bcccd143-dd15-43cb-940b-d569b05aff22",
+      "key": "simulation:bcccd143-dd15-43cb-940b-d569b05aff22",
+      "type": "SIMULATION",
+      "kind": "SIMULATION",
+      "requestId": "bcccd143-dd15-43cb-940b-d569b05aff22",
+      "title": "大棚虚拟设备方案",
+      "source": "SIMULATION_RECEIPT",
+      "status": "APPLIED_SIMULATION",
+      "reviewCondition": "观察同一事件下环境与根区变化；病害症状需人工复查，模型风险下降不代表病斑消失。",
+      "createdAt": "2026-10-08T20:04:00.933+08:00",
+      "updatedAt": "2026-10-08T20:12:02.329+08:00",
+      "modelAt": "2025-04-19T17:00",
+      "scenarioVersion": 16
+    },
+    {
+      "id": "c06a76fb-147f-4e8a-96b1-9d35a09b269c",
+      "createdAt": "2026-10-08T20:05:49.341+08:00",
+      "type": "HUMAN",
+      "kind": "HUMAN",
+      "key": "c06a76fb-147f-4e8a-96b1-9d35a09b269c",
+      "title": "流程验证：检查病叶正反面与新增病斑，实际执行前核对温湿度测点",
+      "source": "人工新增",
+      "status": "PROPOSED"
+    }
+  ],
+  "observations": [
+    {
+      "id": "cb1fd1e8-9672-4e94-9a72-9a675bb819ef",
+      "note": "流程验证记录，非现场巡查：模拟时刻2025-04-19 17:00，处理分支29.2°C、95%RH；相比未干预温度高1.3°C、湿度高6.1个百分点，用电3.36kWh。不能把本次方案称为已改善，需继续评估除湿与冠层湿润条件。病斑扩展、叶背和根区真实情况尚未人工核查，图像仅为早疫病候选。",
+      "modelAt": "2025-04-19T17:00",
+      "createdAt": "2026-10-08T20:06:02.72+08:00",
+      "recordedAt": "2026-10-08T20:06:02.72+08:00",
+      "source": "HUMAN_RECORDED"
+    }
+  ],
+  "updatedAt": "2026-10-09T12:50:33.483+08:00"
+}

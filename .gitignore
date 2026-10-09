@@ -12,6 +12,7 @@ YOLO_AI_CropDisease_Detection_Flask/runs/
 # Java build and runtime uploads
 YOLO_AI_CropDisease_Detection_SpringBoot/target/
 YOLO_AI_CropDisease_Detection_SpringBoot/files/
+YOLO_AI_CropDisease_Detection_SpringBoot/data/farm-tasks/
 
 # Frontend dependencies and build output
 YOLO_AI_CropDisease_Detection_Vue/node_modules/

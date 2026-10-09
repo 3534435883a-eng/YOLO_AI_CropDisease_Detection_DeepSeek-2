@@ -155,10 +155,19 @@ public class TomatoCropGrowthModel {
     /** M3 candidate: sunlight PAR conversion and thermal stem extension; legacy advance remains frozen. */
     public TomatoCropState advanceCalibrated(TomatoCropState current, SimulationState environment,
                                              int minutes, double heightCmPerGdd) {
+        return advanceCalibrated(current, environment, minutes, heightCmPerGdd, 1.0);
+    }
+
+    /** Virtual root-zone stress; keep VWC separate from legacy relative moisture units. */
+    public TomatoCropState advanceCalibrated(TomatoCropState current, SimulationState environment,
+                                             int minutes, double heightCmPerGdd, double rootWaterStressFactor) {
         if (!Double.isFinite(heightCmPerGdd) || heightCmPerGdd < 0 || heightCmPerGdd > 1) {
             throw new IllegalArgumentException("heightCmPerGdd must be in [0,1]");
         }
-        return advanceVersion(current, environment, minutes, 1.0, Double.valueOf(heightCmPerGdd));
+        if (!Double.isFinite(rootWaterStressFactor) || rootWaterStressFactor < 0 || rootWaterStressFactor > 1) {
+            throw new IllegalArgumentException("rootWaterStressFactor must be in [0,1]");
+        }
+        return advanceVersion(current, environment, minutes, rootWaterStressFactor, Double.valueOf(heightCmPerGdd));
     }
 
     private TomatoCropState advanceVersion(TomatoCropState current, SimulationState environment,
@@ -227,7 +236,7 @@ public class TomatoCropGrowthModel {
 
         // 6) 株高：与新增叶干重联动
         double heightIncrement = heightCmPerGdd == null ? dLeaf * HEIGHT_CM_PER_G_LEAF
-                : heightCmPerGdd.doubleValue() * gddIncrement;
+                : heightCmPerGdd.doubleValue() * gddIncrement * stressFactor;
         double plantHeightCm = clamp(current.getPlantHeightCm() + heightIncrement,
                 0.0, MAX_PLANT_HEIGHT_CM);
 

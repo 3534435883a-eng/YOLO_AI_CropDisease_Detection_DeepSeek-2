@@ -7,6 +7,9 @@ import com.example.Ece.agent.eco.SoilWaterNutrientModel;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
 import com.example.Ece.agent.eval.PerformanceEvaluationService;
+import com.example.Ece.agent.eval.EvaluationBatch;
+import com.example.Ece.agent.eval.EvaluationOutcome;
+import com.example.Ece.agent.eval.EvaluationStrategy;
 import com.example.Ece.agent.rag.CitationFormatter;
 import com.example.Ece.agent.rag.EmbeddingClient;
 import com.example.Ece.agent.rag.EmbeddingUnavailableException;
@@ -24,6 +27,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * 报告工具的测试。
@@ -98,10 +106,42 @@ class ProductionReportToolTest {
      */
     @Test
     void deltasCarryAnExplicitSignSoPercentagesCannotBeReadBackwards() throws Exception {
-        Map<String, Object> output = runWith(90);
+        Map<String, Object> output = reportWithControlledDelta(110);
         String summary = String.valueOf(output.get("summary"));
-        assertTrue(summary.contains("相对规则档产量 +"),
+        assertTrue(summary.contains("相对规则档产量 +10%"),
                 "增量应带显式正号，实得摘要：" + summary);
+    }
+
+    @Test
+    void yieldReductionAlsoCarriesExplicitNegativeSign() throws Exception {
+        String summary = String.valueOf(reportWithControlledDelta(90).get("summary"));
+        assertTrue(summary.contains("相对规则档产量 -10%"), "利润择优不等于产量必增，下降量也必须写清方向：" + summary);
+    }
+
+    @Test
+    void selectingRuleBaselineDoesNotInventImprovementAgainstItself() throws Exception {
+        Map<String, Object> output = reportWithControlledOutcomes(100, false);
+        assertEquals(EvaluationStrategy.P2_RULE_ENGINE.name(), output.get("recommendedStrategy"));
+        assertFalse(String.valueOf(output.get("summary")).contains("相对规则档产量"), "选择规则档本身时不能显示伪增量");
+    }
+
+    /** These values exercise report formatting only; they are isolated test fixtures, not model observations. */
+    private Map<String, Object> reportWithControlledDelta(double bestYield) throws Exception {
+        return reportWithControlledOutcomes(bestYield, true);
+    }
+
+    private Map<String, Object> reportWithControlledOutcomes(double bestYield, boolean includeCandidate) throws Exception {
+        PerformanceEvaluationService evaluation = mock(PerformanceEvaluationService.class);
+        EvaluationOutcome rule = mock(EvaluationOutcome.class), candidate = mock(EvaluationOutcome.class);
+        when(rule.getMarketableYieldKg()).thenReturn(100.0); when(rule.getProfitYuan()).thenReturn(50.0);
+        when(candidate.getMarketableYieldKg()).thenReturn(bestYield); when(candidate.getProfitYuan()).thenReturn(100.0);
+        Map<EvaluationStrategy, EvaluationOutcome> outcomes = new java.util.EnumMap<>(EvaluationStrategy.class);
+        outcomes.put(EvaluationStrategy.P2_RULE_ENGINE, rule);
+        if (includeCandidate) outcomes.put(EvaluationStrategy.P3_AGENT, candidate);
+        when(evaluation.runBatch(isNull(), anyLong(), anyInt())).thenReturn(new EvaluationBatch("format-test", 11L, 90, 1L, outcomes));
+        ProductionReportTool controlled = new ProductionReportTool(evaluation, new PlatformSnapshotEvidence(new CitationFormatter()), null, new CitationFormatter());
+        Map<String, Object> input = new LinkedHashMap<>(); input.put("days", 90);
+        return controlled.execute(input);
     }
 
     @Test

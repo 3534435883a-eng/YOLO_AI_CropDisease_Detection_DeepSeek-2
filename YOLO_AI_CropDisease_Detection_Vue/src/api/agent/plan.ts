@@ -108,6 +108,7 @@ export interface PlanFinalPayload {
 }
 
 export interface PlanStreamHandlers {
+	onWarning?: (message: string) => void;
 	onStage: (phase: string, message: string) => void;
 	onBaseline: (baseline: PlanBaseline) => void;
 	/** 一个 token 增量；`reasoning` 为 true 表示属于思考过程，与正文分栏展示。 */
@@ -122,6 +123,9 @@ export interface PlanStreamHandlers {
 }
 
 export interface PlanDeduceRequest {
+	taskId?: string;
+	requestId?: string;
+	simulationRunId?: string;
 	situation?: Record<string, unknown>;
 	question?: string;
 	seed?: number;
@@ -160,6 +164,9 @@ function dispatchPlanFrame(frame: SseFrame, handlers: PlanStreamHandlers): void 
 		return;
 	}
 	switch (frame.event) {
+        case 'taskWarning':
+            handlers.onWarning?.(String(payload.message || '方案已生成，但农情任务保存失败'));
+            return;
 		case 'stage':
 			handlers.onStage(String(payload.phase ?? ''), String(payload.message ?? ''));
 			return;

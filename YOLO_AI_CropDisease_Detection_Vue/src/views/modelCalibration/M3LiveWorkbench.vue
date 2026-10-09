@@ -33,84 +33,55 @@
   </template>
  </section>
 </template>
-<script lang="ts">
-const startPlayback=new Set<string>();
-</script>
 <script setup lang="ts">
 import {computed,nextTick,onBeforeUnmount,onMounted,ref,watch} from 'vue';
 import {useRoute,useRouter} from 'vue-router';
 import * as echarts from 'echarts';
 import ScenarioPanel from '../digitalTwin/components/ScenarioPanel.vue';
 import {formatM3Number as fmt,type M3ReplayState} from '/@/api/m3';
-import {startM3Live,stepM3Live,getM3Live,deleteM3Live,commandM3Scenario,type M3LiveRun,type M3LiveFrame,type M3LiveEvent} from '/@/api/m3/live';
+import {stepM3Live,commandM3Scenario,type M3LiveRun} from '/@/api/m3/live';
+import {storeToRefs} from 'pinia';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
 const props=withDefaults(defineProps<{compact?:boolean}>(),{compact:false});
 const emit=defineEmits<{(event:'frame',state:M3ReplayState):void;(event:'run',run:M3LiveRun):void;(event:'playback',playing:boolean):void;(event:'error',message:string):void}>();
-const router=useRouter(),route=useRoute(),run=ref<M3LiveRun|null>(null),frames=ref<M3LiveFrame[]>([]),events=ref<M3LiveEvent[]>([]);
-const year=ref(2025),stepCount=ref(1),playing=ref(false),busy=ref(false),error=ref(''),chartRef=ref<HTMLDivElement>();
+const router=useRouter(),route=useRoute(),store=useGreenhouseStore();
+const {run,frames,events,busy,error}=storeToRefs(store);
+const year=ref(2025),stepCount=ref(1),chartRef=ref<HTMLDivElement>();
+const playing=computed(()=>run.value?.playback?.playing===true);
 const current=computed(()=>run.value?.current),activeRisk=computed(()=>run.value?.current.scenario?.risk??run.value?.current.risk),recentUpdate=computed(()=>events.value.filter(e=>e.type==='HEIGHT_UPDATE').slice(-1)[0]);
 const activeEnvironment=computed(()=>current.value?.scenario?.environment??current.value?.environment);
 const lastLeaf=computed(()=>frames.value.filter(f=>f.leafReference.laiRaw!==null).slice(-1)[0]?.leafReference);
-let timer:ReturnType<typeof setTimeout>|undefined,chart:echarts.ECharts|undefined,observer:ResizeObserver|undefined,disposed=false;
-let pollTimer:ReturnType<typeof setTimeout>|undefined,mountTask:Promise<void>=Promise.resolve();
-function pause(){playing.value=false;if(timer)clearTimeout(timer);timer=undefined;}
-async function accept(value:M3LiveRun,replace=false){
- if(disposed||!replace&&run.value&&(value.cursor<run.value.cursor||value.cursor===run.value.cursor&&(value.current.scenario?.version??0)<(run.value.current.scenario?.version??0)))return;
- sessionStorage.setItem('m3ActiveRun',value.runId);year.value=value.year;
- if(replace){frames.value=value.frames;events.value=value.events;}
- else {const last=frames.value.slice(-1)[0]?.cursor??-1;frames.value.push(...value.frames.filter(f=>f.cursor>last));events.value.push(...value.events);}
- run.value={...value,frames:frames.value,events:events.value};
- emit('frame',{frame:value.current,heightCm:value.current.scenario?.growth.plantHeightCm??value.current.correctedHeightCm,year:value.year,track:'online',lai:value.current.scenario?.growth.lai??value.current.growth.lai});emit('run',{...value,frames:frames.value,events:events.value});
- await nextTick();render();if(value.finished||value.failure)pause();if(value.failure)error.value='计算已停止：'+value.failure+'，请重开接入';
-}
+let seenRun='';
+let chart:echarts.ECharts|undefined,observer:ResizeObserver|undefined,disposed=false,unsubscribe:(()=>void)|undefined,mountTask:Promise<void>=Promise.resolve();
+async function pause(){try{await store.setPlayback(false);}catch(e){error.value=e instanceof Error?e.message:String(e);}}
 async function start(){
- pause();error.value='';busy.value=true;
- try{
-  if(run.value)await deleteM3Live(run.value.runId);
-  run.value=null;frames.value=[];events.value=[];
-  const value=await startM3Live(year.value);await accept(value,true);
-  startPlayback.add(value.runId);
-  await router.replace({query:{...route.query,liveRun:value.runId}});
-  if(!disposed){startPlayback.delete(value.runId);playing.value=true;schedule();}
- }catch(e){error.value=e instanceof Error?e.message:String(e);}
- finally{busy.value=false;}
+ const selectedSpeed=stepCount.value;
+ try{await store.start(year.value);await router.replace({query:{...route.query,...store.linkedQuery()}});await store.setPlayback(true,selectedSpeed);}
+ catch(e){error.value=e instanceof Error?e.message:String(e);}
 }
 async function step(){
- if(!run.value||busy.value||run.value.finished)return;
- busy.value=true;error.value='';
- try{await accept(run.value.current.scenario?.pending?await getM3Live(run.value.runId,true):await stepM3Live(run.value.runId,run.value.cursor,stepCount.value));}
- catch(e){pause();error.value=e instanceof Error?e.message:String(e);}
- finally{busy.value=false;}
+ if(!run.value||busy.value||playing.value||run.value.finished)return;
+ const id=run.value.runId;busy.value=true;error.value='';
+ try{store.acceptRun(await stepM3Live(id,run.value.cursor,stepCount.value));}
+ catch(e){error.value=e instanceof Error?e.message:String(e);}finally{busy.value=false;}
 }
-function schedule(){if(!playing.value||disposed)return;timer=setTimeout(async()=>{await step();if(playing.value)schedule();},1000);}
-function toggle(){if(playing.value)pause();else if(run.value&&!run.value.finished){playing.value=true;schedule();}}
+async function toggle(){try{await store.setPlayback(!playing.value,stepCount.value);}catch(e){error.value=e instanceof Error?e.message:String(e);}}
 async function startAutomatic(){
  await mountTask;
  if(disposed)throw new Error('大棚页面已关闭');
  if(busy.value)throw new Error('当前操作尚未完成，请稍后继续');
- pause();busy.value=true;error.value='';stepCount.value=1;
  try{
-  let value=run.value;
-  if(!value){const id=String(route.query.liveRun||sessionStorage.getItem('m3ActiveRun')||'');if(id){try{value=await getM3Live(id);}catch{value=null;}}}
-  if(!value||value.finished||value.failure)value=await startM3Live(2025);
-  const scenario=value.current.scenario;
+  if(!run.value||run.value.finished||run.value.failure)await store.start(2025);
+  let value=run.value!;const scenario=value.current.scenario;
   if(!scenario)throw new Error('当前运行没有可接管的事件场景');
-  if(!scenario.autoEvents||!scenario.autoActuation)value=await commandM3Scenario(value.runId,'configure',{autoEvents:true,autoActuation:true});
-  value=await getM3Live(value.runId);
-  await accept(value,true);
-  if(route.query.liveRun!==value.runId)await router.replace({query:{...route.query,liveRun:value.runId}});
-  if(!disposed){playing.value=true;schedule();}
+  const task=await store.ensureTask();
+  if(!scenario.autoEvents||!scenario.autoActuation||scenario.farmTaskId!==task.id){value=await commandM3Scenario(value.runId,'configure',{autoEvents:true,autoActuation:true,taskId:task.id});store.acceptRun(value);}
+  await router.replace({query:{...route.query,...store.linkedQuery()}});stepCount.value=1;await store.setPlayback(true,1);
  }catch(e){error.value=e instanceof Error?e.message:String(e);throw e;}
- finally{busy.value=false;}
 }
-async function reload(){
- pause();if(!run.value&&!route.query.liveRun)return;
- busy.value=true;error.value='';
- try{await accept(await getM3Live(String(route.query.liveRun||run.value?.runId)),true);}
- catch(e){error.value=e instanceof Error?e.message:String(e);}
- finally{busy.value=false;}
-}
-function openTwin(){pause();if(run.value)router.push({path:'/digitalTwin',query:{mode:'m3',liveRun:run.value.runId}});}
-function openDetails(){pause();if(run.value)router.push({path:'/modelCalibration',query:{liveRun:run.value.runId}});}
+async function reload(){await store.attachRun(String(route.query.liveRun||store.activeRunId||''));}
+function openTwin(){router.push({path:'/digitalTwin',query:store.linkedQuery()});}
+function openDetails(){router.push({path:'/modelCalibration',query:store.linkedQuery()});}
 function render(){
  if(props.compact||!chartRef.value||!frames.value.length)return;
  if(!chart){chart=echarts.init(chartRef.value);observer=new ResizeObserver(()=>chart?.resize());observer.observe(chartRef.value);}
@@ -128,17 +99,17 @@ function exportRun(){
  if(!run.value)return;const blob=new Blob([JSON.stringify({...run.value,frames:frames.value,events:events.value},null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='m3-online-'+run.value.year+'-'+run.value.cursor+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-function pollSnapshot(){pollTimer=setTimeout(async()=>{
- if(disposed)return;
- if(run.value&&!busy.value){try{let value=await getM3Live(run.value.runId,true);if((!props.compact&&value.cursor>run.value.cursor)||value.updateCount>events.value.filter(e=>e.type==='HEIGHT_UPDATE').length)value=await getM3Live(run.value.runId);await accept(value,value.frames.length>0);}
- catch(e){pause();error.value=e instanceof Error?e.message:String(e);}}
- if(!disposed)pollSnapshot();
- },2000);}
-onMounted(()=>{mountTask=(async()=>{if(route.query.liveRun){await reload();if(run.value&&startPlayback.delete(run.value.runId)){playing.value=true;schedule();}}pollSnapshot();})();});
-watch(()=>route.query.liveRun,id=>{if(typeof id==='string'&&id!==run.value?.runId)void reload();});
+onMounted(()=>{unsubscribe=store.subscribe();mountTask=(async()=>{await reload();if(typeof route.query.taskId==='string')await store.attachTask(route.query.taskId);})();});
+watch(()=>route.query.liveRun,id=>{if(typeof id==='string'&&id!==run.value?.runId)void store.attachRun(id);});
+watch(()=>run.value,async value=>{
+ if(!value||disposed)return;year.value=value.year;if(seenRun!==value.runId||value.playback?.playing)stepCount.value=value.playback?.stepCount||stepCount.value;seenRun=value.runId;
+ emit('frame',{frame:value.current,heightCm:value.current.scenario?.growth.plantHeightCm??value.current.correctedHeightCm,year:value.year,track:'online',lai:value.current.scenario?.growth.lai??value.current.growth.lai});emit('run',value);
+ await nextTick();if(!disposed)render();
+},{immediate:true});
+watch(stepCount,value=>{if(playing.value)void store.setPlayback(true,value).catch(e=>{error.value=String(e);});});
 watch(playing,value=>emit('playback',value));watch(error,value=>emit('error',value));
-onBeforeUnmount(()=>{disposed=true;pause();if(pollTimer)clearTimeout(pollTimer);observer?.disconnect();chart?.dispose();});
-async function acceptSnapshot(value:M3LiveRun){await accept(value,value.frames.length>0);}
+onBeforeUnmount(()=>{disposed=true;unsubscribe?.();observer?.disconnect();chart?.dispose();});
+async function acceptSnapshot(value:M3LiveRun){store.acceptRun(value);}
 defineExpose({pause,reload,acceptSnapshot,startAutomatic});
 </script>
 <style scoped>

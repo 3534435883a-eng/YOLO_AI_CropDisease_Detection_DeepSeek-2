@@ -1,0 +1,1546 @@
+event:context
+data:{"type":"context","taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80","simulationRunId":"0d01c93d-9794-4dc4-b875-073778913055","requestId":"42e403f3-4e35-4bcd-90c0-fc9e8500ed2b","snapshot":{"array":false,"bigDecimal":false,"bigInteger":false,"binary":false,"boolean":false,"containerNode":true,"double":false,"empty":false,"float":false,"floatingPointNumber":false,"int":false,"integralNumber":false,"long":false,"missingNode":false,"nodeType":"OBJECT","null":false,"number":false,"object":true,"pojo":false,"short":false,"textual":false,"valueNode":false}}
+
+event:stage
+data:{"type":"stage","phase":"context","message":"已读取同一任务的证据和当前大棚状态…"}
+
+event:baseline
+data:{"type":"baseline","available":false,"unavailableReason":"本次使用所关联任务与当前大棚状态，不计算固定旧场景评测。","scopeNote":"规划使用本次明确提供的农情；关联任务时取同一运行状态，未计算的效果不填参考数值。"}
+
+event:stage
+data:{"type":"stage","phase":"deduce","message":"模型正在推演…"}
+
+event:delta
+data:{"type":"delta","text":"用户","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"的是一个3天管理清单，但系统提示要求","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"七节格式+JSON。我需要遵守系统提示格式，同时回","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"应用户诉求（未来3天清单、表格","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、人工事项/设备建议/作用代价/复查条件）。\n\n关键要点：\n- 用户数据：温度","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"22℃、湿度92%、CO₂ 500ppm、光照120 μmol、结果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"初期、下层叶片褐斑（流程","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"验证样例，非现场实测）、尚未用药、先核查叶背。\n- 模拟读数（","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不是实测）：M3环境 29","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":".2℃、94.9%RH、VPD 0.205 kPa、露点余量","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"0.897℃、叶面湿润代理0.64、湿润37","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"分钟、根区29.86%vol、风险MEDIUM","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；另一路ck-back","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"实测风格数据 30.15℃、19.82%RH、VPD 3.43 kPa —— 这两者互相矛盾，我要指出这个矛盾，不能混成一句。\n- 用户上传的CSV：温度22、湿度92。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 图像：早疫病候选，非确诊。\n- 人工记录：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"流程验证，非现场巡查。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 无参考基线。\n\n矛盾点很重要：用户给的22℃/92%RH 与 模拟","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"29.2℃/94.9%RH 与 ck-back 30.15℃/19.8%RH 三","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"套数不一致。这本身是判读的第一要点","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：温湿度测点未核对（人工动作","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"里也提到\"实际执行前核对温湿度测点","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"）。\n\n我是农艺决策助手。要给出3天","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"清单，用表格（第三节可用表格","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"），并说明作用代价和复查条件。\n\n字数控制：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"中等偏长，但要有干货。\n\n关键农艺","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"判断：\n- 结果初期 + 下层叶片褐斑 + 高湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"（92%）+ 22℃ → 早疫病（Altern","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"aria solani）候选，但叶背核查","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"未做，需与灰霉（Botrytis","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）、叶霉（Passalora fulva","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）、细菌性斑点、晚疫病区分。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"22℃+高湿其实更偏晚疫病（Phyt","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"ophthora infestans，18-22℃+高湿）和叶","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"霉（20-25℃高湿）。早疫病偏 ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"24-28℃ 且干湿交替。所以要说：22","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"℃+92%RH 更贴近晚疫病/叶霉的适","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"生窗口，早疫病候选需要复核——但不要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"下定论。\n- VPD 极低（0.2 kPa","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）→ 蒸腾弱、叶面结露","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"风险、钙运输受阻（脐腐风险","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"在未来果实膨大期）。\n- 光照 120 μmol → 结果初期严重不足，阴雨寡照，落花","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、坐果差。\n- CO₂ 500ppm ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不是限制因子。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3天清单（4点以内用户要求","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"最多4点\"，但系统要求七节；我可以在第三节给","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3天表格，控制在4条主干动作）。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"数据缺失：面积（但仿真里给了","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"areaM2=252，那是仿真的，不是用户给的","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"——要注明这是仿真参数不是用户提供）、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"品种、栽培方式、土壤本底、灌溉方式、已确诊病害","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。\n\n我不能用252 m² 当作","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"真实面积？","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真参数里 areaM2 252 是模拟场景参数。我应该说明：水肥处方只能按","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"每平方米给，因为用户未提供面积；若","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"采用仿真场景的252 m²作为核算口径","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，需用户确认。这算比较严谨的写法。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"好，写正文。\n\n第一节 农情判读：\n- 最关键限制因子：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不是单一温度，而是\"高湿+弱光+叶面","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"长时间湿润\"的组合，加上测点数据自","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"相矛盾导致不能定量决策。\n- 三套温湿度","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"互相冲突：用户CSV 22℃/92%；M","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3仿真 29.2℃/94.9%；对照路29.8-","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"30.1℃/19.8%。任何基于温","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿度的动作（开窗/除湿）","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"在核对测点前都有风险——比如","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"若真实是19.8%RH，再除","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿就伤苗。\n- 缺失：品种（抗病性）、栽培方式与面积、生育期与定植日期、根区水分实测（现在的","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"29.86%vol是仿真根水平衡）、病害确诊。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 图像是候选（早疫病），褐斑是\"流程","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"验证样例\"，非现场实测——所以连\"有","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"褐斑\"这件事都还没被证实。\n\n第二节 ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"生长推演：\n- 用户报\"结果初期","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"，但仿真生长模型 stage=SEEDLING，株高48.7cm","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、LAI 1.30、wFruit=0 —— 这是模型","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"内部状态，与用户口径冲突，以用户","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"口径为准，但说明坐果/果实干物质","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"在模型中为0，意味着这批果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"还没进入膨大计算。\n- 第1","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"周（4/19-4/26）：第一穗","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"果膨大-第二穗开花坐","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"果期。弱光120μmol（约7.","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"2 mol/m²/日 DLI，远低于","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"番茄结果期 20-25 mol 需要","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）→ 落花、花芽分化","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不良。\n- 若持续阴雨：\n  - 3-5天内","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：叶面持续湿润 → 病斑扩展窗口","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；灰霉/叶霉/","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"晚疫风险上升\n  - 7-10天：坐果率下降、空洞","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"果、僵果\n  - 弱光","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"+高湿 → 根系吸收钙","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"硼受阻 → 脐腐在第2-","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3穗果膨大时出现（约2-4周","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"后）\n- 最可能掉链子：花器（","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"落花）和根系（湿度过大沤","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"根）。\n\n给出时间与条件。\n\n第三节 农事管理方案：3天表格","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"。用户要\"简短表格","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"，我用表格：日期/事项/人工or设备/触发条件/做到什么程度/作用与代价/复查条件。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"4条主干：\n1) 人工巡查：核对测","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"点+叶背核查。触发：立即（","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"今天17:00后或明日清晨）。分上中下","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"三层叶，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"重点看叶背、叶柄、茎基部；记录病斑形状（同心轮纹=早","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"疫病倾向；水渍状无边缘+白","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"霉=晚疫病；叶背紫","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"褐绒霉=叶霉","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；灰霉有灰色霉层）。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"做到：每层取5","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"株，拍照留档，登记病斑数/面积占比。\n2) ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"环境管理：以\"测点核对后的","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"实际值\"为准。若棚内RH>","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"85%且温度>20℃：日出后","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"（约7:30-8:30）开顶窗","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"+环流风，先升温排","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿；若温度偏低（<","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"20℃），以通风换气为主、避免湿帘","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"（阴雨高湿下湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"帘降温无意义）。目标：白天RH降到75","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"%以下，夜间避免叶","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"面结露（露点余量>1.5℃）。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"3) 病叶处置：仅摘除已确认","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"的病叶、带出棚外，不要大面积摘","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶（结果初期叶","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"面积本来就小","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，LAI 1.3 偏低）。手部工具消毒。\n4) 设备建议：环流","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"风机（降低冠层湿润代理，代价","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"是电耗，注意它不改变棚均","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"温湿度）；补光（若确认光照不足，代价是电耗+可能升温，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"需与通风配合）；避免加","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"温（除非核对后确实","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"低温）；CO₂ 500ppm","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 暂不作为重点。\n\n复查条件：每次操作后30-","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"60分钟复测；病斑24-48小时复看。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"作用/代价要写：设备","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"动作是仿真，不是现场效果；不开。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"第四节 病虫害：\n- 当前环境（22","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"℃/92%）适生：晚疫病、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶霉病、灰霉病为主","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，早疫病候选需复核；\n- 若实测为29-30℃/95%，则偏细菌性病害+","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"灰霉+早疫。\n- 关键：不要在病因确认前","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"打药（用户说未用药）。防治方向：控湿","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、控叶面湿润时长（>","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"4小时连续湿润是叶部病害","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"的关键窗口，模拟里37","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"分钟，未到240分钟告警线）；药剂需按","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"当地登记，由人工核定，不给商品","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"名/剂量/安全间隔期。\n- 时机：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"发病初期、晴天上午露水","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"干后施药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"；避免连阴雨打药。\n\n第五节 水肥：\n- 缺面积、栽培方式、土壤本底、灌溉方式。给相对量：以每平方米计。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 关键判断：根区29.86%vol是","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真值，不是实测。若采用该口径","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，田间持水量34%、湿阈值36%、干阈值24%，则29.86%属\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"适宜偏湿\"。阴雨弱光下蒸散","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"极低（0.52 mm/day 仿真），此时","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"严禁按晴天频次灌溉。\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 建议：暂停或延后灌溉；若必须","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"滴灌，按单","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"次每平方米2-4 L的量级（需按实际","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"根层深度和基质/土壤","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"类型调整），且在棚温回升、","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"VPD>0","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":".5kPa时进行；阴雨夜不灌。\n- 追肥","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：结果初期钾需求上升，但弱","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"光下不宜高N。方向","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"：低浓度高钾水溶","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"肥随水施，每平方米氮素","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"不超过2-3 g 的量级（需面积","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"换算，需要本底）。叶面补钙","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"硼（用于脐腐预防）——不建议在","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"阴雨高湿时叶面喷施（增加","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"叶面湿润）。\n- 明确：这些","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"是按\"土壤栽培、根层25cm、沙壤","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"土至壤土\"假设给的，需用户确认。\n\n第六节 风险：\n- 测点矛盾→决策","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"性质错误\n- 叶面","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"湿润累积→叶部","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"病害暴发窗口（连续湿润4小时）\n- 弱光落花\n- 湿度过高沤根/根腐","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\n- 湿帘误用/加温","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"误用\n- 摘叶过度削弱光合\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"- 虚假改善：人工记录里提到","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"29.2℃/95%RH是处理分支，比未干预高1.3℃","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/高6.1个百分点——这是\"用了设备反而更湿\"，要看清楚。\n\n","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"第七节 生产规划：\n- 目标：先辨病因+安排巡查（用户","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"自己说的）。所以近期优先\"诊断正确性","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"，牺牲短期产量优化。\n- 路径：Day0","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"-1 诊断期（不施药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、不追肥，只查+控湿）；","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"Day2-3 处置期（确认后针对性用药","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"/摘病叶）；Day4-7 ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"恢复期（补光/养根/坐果","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"）。\n- 取舍：补光耗电","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"、控湿耗电；此时若放弃巡查直接打","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"药，代价是药不对症","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"+抗药性+成本。\n- 不承诺产量。\n\nJSON：","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"字段齐全。\n\n现在，注意用户要求\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"最多4点\"——第三节我控制在4","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"条主干，加一个3天时序表也行，","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"但\"简短表格\"。我把第三节做成一个表格，含4","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"-5行。\n\n注意严格禁止：不得出现","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"已开启\"。仿真里的 device ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"状态是模拟回放，我可以说\"上一轮","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"仿真中遮阳/通风/环流被置","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"为工作状态（仿真回执，非现场执行）","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"\"。\n\n写吧。注意开头第一行必须原样。\n\n表格用","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" Markdown。\n\n字数：目标 1800-2500","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":" 字左右中文。开始。\n\n关于面积：仿真给了 area","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"M2=252。我会说：本轮仿真","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"场景按 252 m² 核算，这不是用户提供的面积；若与实际不符","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，下面所有绝对量都要重算。\n\n写 JSON ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"时 schedule 用 dayOffset。actions 里 stage ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"可以写\"第1天/第2天\"等。\n\n注意 JSON ","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"中不能有注释。budget note 说明口径：未给","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"预算，按\"人工工时+电耗\"","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"说明，不估算金额，或按当地电价","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"折算。我说按电耗与人工工时口径估","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"，不含药剂","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"费用。\n\n开始写。","reasoning":true}
+
+event:delta
+data:{"type":"delta","text":"【以下为模型推演，非实测、非知识库依据，请结合当地实际复核】\n\n## 一","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、农情判读\n\n**最关键的限制因子不是某一项数值，而是\"温湿度","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测点互相打架 + 病因未经核实\"这两件事","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叠在一起。**\n\n- 你上传的农情","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"表给的是 22.0 ℃ / 92.0","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" %RH；本轮仿真回放里同一天同一棚出现的却是 29.2 ℃ / 94.9 %RH，而","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"另一路对照口径又是约","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 30.1 ℃ / 19.8 %RH。三套数不能同时为真。**在核对","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测点之前，任何\"除湿\"\"加温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\"\"通风降温\"的动作都可能是反方向操作**——如果真实是 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"19.8 %RH，再按 92 %RH ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"去通风除湿就是白耗电还伤苗","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；如果真实是 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"22 ℃，按 29 ℃ 去遮阳降温就会压低本已不足的光照。\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"- 病害侧：\"下层叶片","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"褐斑\"在你这行里明确写的是**流程验证样例，非现场实测**；图像给出的也只是","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**早疫病候选，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不是确诊**。也就是说，截至现在，\"棚里有没有褐斑\"本身都还没有被证实。","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"这不是小事，它决定了后面要不要用药、用哪一类","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"药。\n- 缺失项里最影响","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"判断的三项：**品种（抗病性差异极大）、栽培方式与面积、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"土壤/基质水分实测**。现在给","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"到的根区 29.86 %vol、田间持","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"水量 34 %vol 等全部来自仿真的","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"根水平衡模型，**不是你那棚的","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"实测值**，不能当作灌溉依据。\n\n## 二、生长推","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"演\n\n以你自报的\"结果初期\"为准（注意：仿真生长模型","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"内部状态标的是 SEEDLING、株高","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"约 48.7 cm、LAI 约 1.30、果实干重记为 0，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"这与\"结果初期\"口径不一致，以田间实际为准，模型状态仅作","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"参考）。\n\n- **当前至第 1 周末（4/19–4/26）**","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：第一穗果膨大、第二穗进入开花坐果","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。此阶段对光照最敏感。你","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"给的光照 120 μmol·m⁻²·s⁻¹，若按","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 12 小时有效光照粗估","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，日累积约 5–6 mol","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"·m⁻²·d⁻¹，而结果期番茄通常需要 15","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"–25 mol·m⁻²·d⁻¹ 量级。**在连续","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"阴雨不解除的前提下，第一个掉链","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"子的环节是花器**：落花、花芽分化不良","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、坐果率下降，随后才表现为果个小。\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"- **第 2–4 周**：若棚内","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"持续高湿、根区偏","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿，第二个掉链子是**根系**（沤根、根腐","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，进而整株萎蔫）。同时弱光下","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"蒸腾弱，钙向果实运输","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"受阻，**第二、三穗果膨大期出现脐腐的概率上升**。\n- **病害窗口**：叶部病害的关键不是瞬时湿度，而是**叶面连续湿润时长**。本轮仿真给出的冠层湿润连续时长只有 37 分钟，远未到 240 分钟的告警线——但","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"这是仿真的代理量，**必须靠人工在清晨","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"看叶背有没有结露、水膜能","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"挂多久来核对**。若实际连续","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿润超过 4 小时/夜","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，3–5 天内就会看到新病斑。\n- **一句话**：未来 10 天，光不足致落花、湿过高致根病，这两条线","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"会同时走，谁先爆取决于","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"你核对测点后能不能把夜间叶面湿润时间","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"压下来。\n\n## 三、农事管理方案\n\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"以下为未来 3 天清单。**用户要求最多 4 点，故只","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"列 4 条主干**；设备一栏全部是建议，本轮尚未执行。\n\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"| # | 事项 | 人工/设备 | 触发条件 | 做到什么","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"程度 | 作用与代价 | 复查条件 |\n|---|---|---|---|---|---|---|\n| 1 | 核对温湿度","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测点 + 叶背核查 | 人工 | 今日日落前或明日","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"露水干后立即 | 同棚","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"内 3 个高度（冠层","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、株高 1/2、地面以上 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"20 cm）各读一次温湿度，与记录仪对表；随机取 5 株，翻","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"看下/中/上三层叶背与茎基部，逐叶","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"登记病斑形状、颜色、有无霉层、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"有无水渍状边缘，拍照留档 |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 作用：把\"三套矛盾数\"收敛成","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"一套可用数，同时把\"褐斑","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"是否存在\"从推断变成事实。代价：约 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"0.5–1 人工工时 | 若三层温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿度差 >2 ℃ 或 >10 %RH，说明","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"测点代表性不足，需重新选点后再做","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"任何环境决策 |\n| 2 | 控湿排湿","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、压低叶面湿润时长 | 设备（建议） |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 以核对后的实测值触发：棚内","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" RH >85 % 且温度 >20 ℃ 时，日出后","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 30 分钟内开启顶窗与环流","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"风机；14:00 后开始逐步关窗保温 | 白天目标","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" RH 降至 75 % 以下；夜间目标是冠层","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"温度高于露点 **≥1.5 ℃** 不","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"结露。若实测温度 <20 ℃，则只","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"做短时换气、不启湿帘 |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 作用：缩短叶面","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿润时长，是当前最有效的非化学手段。代价：环流与","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"排风有电耗；**阴","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"雨外界湿度 90 % 时换气排湿效率会明显打折","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**，不能指望固定降幅 | 操作后 30–60 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"分钟复测一次棚温、RH，并在","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"次日清晨看叶背是否仍有水膜 |\n|","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 3 | 病叶处置 | 人工 | 仅在 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"1 号事项确认了病斑、且确认是**已发病","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**的老叶","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"时 | 只摘除确认发病的下层老叶，单株摘除","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不超过 2 片，装袋带出棚外销毁；手与","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"工具用酒精擦拭后再碰下一株","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" | 作用：减少初侵染源。","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"代价：此期 LAI 仅约 1.3，本身叶面积","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"就不足，**摘叶过度会直接削弱光合，得不偿失","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"** | 摘后 24–48 小时复看同株","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"及邻近株有无新斑 |\n| 4 | 补","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"光与否的取舍 | 设备（建议，需先","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"决策） | 若 1 号事项确认","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"光照持续低于结果期需求（日累积低于","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"约 10 mol·m⁻²·d⁻¹","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"） | 建议在阴雨白天补光，并同时","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"保持通风，避免补光带来的升温叠加 |","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 作用：缓解落花。代价","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：电耗是实打实的，且补光灯发热会加重排","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿负担 | 补光 3 天后看新","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"开花朵的坐果情况，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"以及棚温是否被顶上去 |\n\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"## 四、病虫害防治建议\n\n- **按你","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"给的 22 ℃ / 92 %RH 推**：这个","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"温湿组合更贴近**","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"晚疫病、叶霉病、灰霉病**的适生窗口，而早疫病通常偏 24–28 ℃、干","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿交替的条件——也就是说，**图像给的\"早疫病候选\"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"在这个温湿下需要打一个问","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"号**。\n- **按仿真那一路 29–30 ℃ / 95 %RH 推**：则","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"要额外考虑细菌性病害与灰霉、早","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"疫。\n- 因此，**在叶背核查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"完成前不建议施药**。原因很直接","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：褐斑类与霉层","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"类、细菌性病害的用药方向完全不同，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"打错不只是浪费钱，还会筛出抗","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"药性。\n- **防治方向与时机**（不给","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"商品名、用量、稀释倍数、安全间隔期——这些必须按当地","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"登记与产品标签核定，**须人工确认**）：\n  -","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 第一步永远是环境：把叶面连续","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿润时长压到 4 小时以内。\n  - 施药时机选**","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"晴天上午露水干后**，避开采收前","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"与阴","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"雨当天；连阴雨期打药基本等于白打。\n  - 若确认","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"是卵菌类（晚疫病方向），","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"与确认是真菌类（叶霉","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"/灰霉方向），选药类别不同，请由当地植保","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"部门或登记标签核定后决定。\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"  - 本棚**尚未用药**，这其实是优势——第一轮","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"选对药，后续压力小很多。\n\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"## 五、水肥调控处方\n\n**前提说明（重要）：用户未提供面积、栽培方式","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、土壤本底、灌溉方式与频次，所以下面所有","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"量都以\"每平方米\"给，不做亩用量","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"换算。** 本轮仿真场景里出现的 252 m²、根层","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 25 cm、田间持水量 34 %vol、湿阈值 36 %vol 等，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**都是仿真参数，不是你的实测值**；若与实际不符，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"全部要重算。\n\n- **灌溉**：阴雨弱光","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"下蒸散极低（仿真给的蒸散速率约 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"0.52 mm/d，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"仅供量级参考）。**建议主动推迟灌溉**，不要按晴天的频次走。判断依据用插","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"针法或张力计实测，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不要用日历。若确需滴灌","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，建议单次按每平方米 2–4 L 的量级给，在棚","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"温回升、VPD 回升后于上午","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"进行，**阴雨夜间不灌**。做到什么","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"程度：灌溉后根区不要长时间停在饱和","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"状态，宁干勿涝。\n- **追肥","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**：结果初期钾需求上升，但弱光下**不宜提高氮浓度**（","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"会加速徒长、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"加重落花）。方向是低浓度高钾水溶肥随水施，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"氮素按每平方米每次不超过 2–3 g 的量级起步，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**实际用量必须以你棚的土壤/基质","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"本底检测结果校正**。\n- **叶面补钙硼**：对预防","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"脐腐有意义，但**当前高湿条件下不建议","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶面喷施**（等于人为延长叶","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"面湿润时间）；等到有连续晴","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"天的上午再考虑。\n- 所有处方在拿到面积、栽培方式和","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"本底数据前，**都只是方向性建议，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不是可照抄的配方**。\n\n## 六、风险提示\n\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"1. **测点矛盾导致决策方向错误**——发生条件","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：不核对测点就直接按某一套数操作","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。应对：先执行第三节第","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 1 条，未核对前不做任何环境设备","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"动作。\n2. **叶面湿润累积导致叶部病害暴发**——发生","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"条件：夜间叶面连续湿润超过 4 小时。应对：加强夜间","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"通风与环流，清晨复看叶背。\n3. **\"越","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"处理越湿\"**——本轮人工记录里那条 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"29.2 ℃ / 95 %RH 的处理分支，比未干预","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"时**温度高 1.3 ℃、湿度高 6.1 个百分点**，也","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"说明存在\"动了设备反而加重湿润\"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"的可能。这不是改善，是代价。应对：任何设备","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"动作后 30–60 分钟必须复测，无效则停。\n4. **弱光落","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"花**——发生条件：阴雨持续 5 天以上。应对：","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"优先保花，不要在此期做","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"重剪、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"重摘叶。\n5. **根区过湿沤根**——发生条件：连续灌溉 +","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" 阴雨低蒸散。应对：停灌","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、松土、必要时检查排水。\n6","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":". **摘叶过度**——发生条件：为\"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"防病\"大面积摘除下层叶。应对：单株","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"单次不超过 2 片。\n\n## 七、生产规划\n\n- **","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"你的目标本身是\"先辨别病因与安排巡查\"**，这是一个诊断","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"优先的目标，那就必须接受短期代价","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：未来 3 天不做产量优化动作（","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不催肥、不催果、不打药）。\n- **路径","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"**：Day 0–1 诊断期（核对测点 + 叶背","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"核查，只做环境干预，不动药","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不动肥）→ Day 2–3 处置期（病因确认后针对性用药或摘除","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"病叶）→ Day 4–7 恢复期（补光、养根","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、保花坐果）。\n- **取舍与代价**：\n  - 选\"先诊断\"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：代价是可能晚 1–2 ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"天用药，若真是流行性病害（晚","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"疫），这两天有扩展风险","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；收益是避免打错药和抗药性","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。\n  - 选\"先打广谱药\"：代价是药剂成本","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" + 抗药性筛选 + 可能掩盖真实病因","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，后续更难判断。\n  - 选\"补光\"：代价","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"是电耗，且阴雨下补光会抬温","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"、加重排湿负担，需要与通风同步","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。\n  - 选\"控湿\"：代价是电耗，且","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"外界 90 %RH 时排","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿边际效率递减，**不要指望固定降","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"幅**。\n- **不承诺**：本方案不承诺病斑","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"治愈、不承诺产量、不承诺任何设备动作的实际效果；所有","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"仿真数值未经现场标定","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，须以实测复核为准。\n\n```json\n{\n  \"conclusion\": \"当前","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"首要矛盾是温湿度测点互相矛盾且病因","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"未核实，建议未来3天先做人工核查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"与环境控湿，确认后再决定用药，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不做产量优化动作。\",\n  \"actions\": [\n    {\"stage\": \"","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"第1天（诊断","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"）\", \"action\": \"核对棚内三层温湿度测点并翻查叶背\", \"trigger\": \"今日日落","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"前或明日露水干后立即\", \"detail\": \"冠层、株高","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"1/2、地面以上20cm各读一次；随机5株","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"翻看三层叶背与茎","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"基部，登记病斑形状、霉层、水渍状边缘，拍照留档\"},\n    {\"stage\": \"第1-3天（诊断与环境）\", \"action\": \"控","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿通风，压低叶面湿润时长","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\", \"trigger\": \"核对后的实测RH>","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"85%且温度>20℃时，日出后30分钟内\", \"detail\": \"开顶窗与环流风机，白天RH目标降至75%以下，夜间冠层温度高于露点≥1.5℃","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"；操作后30-60分钟复测\"},\n    {\"stage\": \"第2-3天（处置）","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\", \"action\": \"摘除已确认发病的下层老","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶并带出棚外\", \"trigger\": \"仅在核查确认是","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"已发病老叶后\", \"detail\": \"单株不超过2片，装袋","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"销毁，工具消毒；此期LAI约1.3，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"不得大面积摘叶\"},\n    {\"stage\": \"第2-3天（处置）\", \"action\": \"按","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"当地登记核定后选择针对性药剂\", \"trigger\": \"病因明确且天气为","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"晴天上午露水干后\", \"detail\": \"具体药剂类别、用量、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"稀释倍数与安全间隔期须由当地登记与产品标签核定并经人工","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"确认，本方案不给具体数值\"},\n    {\"stage\": \"第4","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"-7天（恢复）\", \"action\": \"按需补光","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"并同步通风\", \"trigger\": \"确认日","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"累积光照低于约10 mol·m⁻²·d⁻¹时\", \"detail\": \"补光同时保持","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"通风，避免升温叠加，3天后复看","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"新开花朵坐果情况\"}\n  ],\n  \"cautions\": [\n    \"用户上传","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"的22℃/92%RH、仿真回放的29.2℃/94.9%RH、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"对照口径的约30.1℃/19.8%RH三者互相","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"矛盾，核对测点前不建议做任何环境设备","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"动作\",\n    \"叶片褐斑在用户数据中标注为'流程验证样例，非现场实测","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"'，图像仅为早","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"疫病候选，均不构成确诊\",\n    \"根区29.86%vol、田间持水量34%vol、面积252m²均为仿真参数，不是实测值，不能作为灌溉依据\",\n    \"所有设备动作均为建议，系统不控制设备；上一轮仿真回执不代表现场已","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"执行\",\n    \"不承诺病斑治愈、不承诺产量、不承诺设备","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"实际效果\"\n  ],\n  \"schedule\": [\n    {\"dayOffset","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\": 0, \"stage\": \"诊断\", \"task\": \"核对三层温湿度测点，翻查","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶背与茎基部，","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"登记病斑特征并拍照\"},\n    {\"dayOffset\": 1, \"stage\": \"诊断与环境\", \"task\": \"日出后通风排","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"湿，清晨复看叶背水膜持续时间","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"，记录夜间结露情况\"},\n","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"    {\"dayOffset\": ","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"2, \"stage\": \"处置\", \"task\": \"根据核查结果判断病因方向，确认后按","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"当地登记核定用药或","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"摘除病叶\"},\n    {\"dayOffset\": 3, \"stage\": \"处置\", \"task\": \"复看同株","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"及邻近株有无新斑，评估控湿","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"措施是否有效，决定是否","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"调整\"},\n    {\"dayOffset\": 5, \"stage\": \"恢复\", \"task\": \"如确认光照不足则","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"补光并同步通风，观察新开花朵坐果","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\"},\n    {\"dayOffset\": 7, \"stage\": \"恢复\", \"task\": \"小结本周落","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"花、坐果与病斑扩展情况，决定下周水","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"肥是否恢复\"}\n  ],\n  \"riskAlerts\": [\n    {\"risk\": \"测点矛盾","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"导致环境决策方向错误\", \"window\": \"未核对测点","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"即操作设备时\", \"mitigation\": \"先执行三层测","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"点核对，未核对前不做环境设备动作","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\"},\n    {\"risk\": \"叶面湿润累积引发叶部病害暴发\", \"window\":","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":" \"夜间叶面连续湿润超过4小时\", \"mitigation\": \"加强夜间通风与环流，清晨复看","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"叶背，缩短湿润时长\"},\n    {\"risk\": \"设备动作反而","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"加重高湿\", \"window\": \"仿真回执显示处理分支持","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"续高湿，比","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"未干预高6.1个百分点\", \"mitigation\": \"任何动作后30-60分钟复测，无效即停","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"\"},\n    {\"risk\": \"弱光落花与坐果率下降\", \"window\": \"阴","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"雨持续5天以上、日累积光照低于约10 mol·","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"m⁻²·d⁻¹\", \"mitigation\": \"优先保花，此期不做重剪重","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"摘叶，按需补光\"},\n    {\"risk\": \"根区过湿沤","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"根\", \"window\": \"连续灌溉叠加阴雨低蒸散\", \"mitigation\": \"停灌、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"松土、检查排水，改按插针法","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"或张力计实测判断\"},\n    {\"risk\": \"摘叶过度削弱光合\", \"window\": \"为","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"防病大面积摘除下层叶\", \"mitigation\": \"单株单次不超过2片，仅摘确认","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"发病的老叶\"}\n  ],\n  \"budget\": {\n    \"note\": \"用户未","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"提供预算。本条仅按口径说明","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"：可计入项为人工工时（约0.5-1工时/日巡查）与设备电耗（环流、","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"排风、补光），不含药剂费用；具体","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"金额需按当地电价、人工单价与最终核","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"定的药剂方案折算，本方案不做金额估算","reasoning":false}
+
+event:delta
+data:{"type":"delta","text":"。\"\n  }\n}\n```","reasoning":false}
+
+event:task
+data:{"type":"task","taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80"}
+
+event:final
+data:{"type":"final","markdown":"【以下为模型推演，非实测、非知识库依据，请结合当地实际复核】\n\n## 一、农情判读\n\n**最关键的限制因子不是某一项数值，而是\"温湿度测点互相打架 + 病因未经核实\"这两件事叠在一起。**\n\n- 你上传的农情表给的是 22.0 ℃ / 92.0 %RH；本轮仿真回放里同一天同一棚出现的却是 29.2 ℃ / 94.9 %RH，而另一路对照口径又是约 30.1 ℃ / 19.8 %RH。三套数不能同时为真。**在核对测点之前，任何\"除湿\"\"加温\"\"通风降温\"的动作都可能是反方向操作**——如果真实是 19.8 %RH，再按 92 %RH 去通风除湿就是白耗电还伤苗；如果真实是 22 ℃，按 29 ℃ 去遮阳降温就会压低本已不足的光照。\n- 病害侧：\"下层叶片褐斑\"在你这行里明确写的是**流程验证样例，非现场实测**；图像给出的也只是**早疫病候选，不是确诊**。也就是说，截至现在，\"棚里有没有褐斑\"本身都还没有被证实。这不是小事，它决定了后面要不要用药、用哪一类药。\n- 缺失项里最影响判断的三项：**品种（抗病性差异极大）、栽培方式与面积、土壤/基质水分实测**。现在给到的根区 29.86 %vol、田间持水量 34 %vol 等全部来自仿真的根水平衡模型，**不是你那棚的实测值**，不能当作灌溉依据。\n\n## 二、生长推演\n\n以你自报的\"结果初期\"为准（注意：仿真生长模型内部状态标的是 SEEDLING、株高约 48.7 cm、LAI 约 1.30、果实干重记为 0，这与\"结果初期\"口径不一致，以田间实际为准，模型状态仅作参考）。\n\n- **当前至第 1 周末（4/19–4/26）**：第一穗果膨大、第二穗进入开花坐果。此阶段对光照最敏感。你给的光照 120 μmol·m⁻²·s⁻¹，若按 12 小时有效光照粗估，日累积约 5–6 mol·m⁻²·d⁻¹，而结果期番茄通常需要 15–25 mol·m⁻²·d⁻¹ 量级。**在连续阴雨不解除的前提下，第一个掉链子的环节是花器**：落花、花芽分化不良、坐果率下降，随后才表现为果个小。\n- **第 2–4 周**：若棚内持续高湿、根区偏湿，第二个掉链子是**根系**（沤根、根腐，进而整株萎蔫）。同时弱光下蒸腾弱，钙向果实运输受阻，**第二、三穗果膨大期出现脐腐的概率上升**。\n- **病害窗口**：叶部病害的关键不是瞬时湿度，而是**叶面连续湿润时长**。本轮仿真给出的冠层湿润连续时长只有 37 分钟，远未到 240 分钟的告警线——但这是仿真的代理量，**必须靠人工在清晨看叶背有没有结露、水膜能挂多久来核对**。若实际连续湿润超过 4 小时/夜，3–5 天内就会看到新病斑。\n- **一句话**：未来 10 天，光不足致落花、湿过高致根病，这两条线会同时走，谁先爆取决于你核对测点后能不能把夜间叶面湿润时间压下来。\n\n## 三、农事管理方案\n\n以下为未来 3 天清单。**用户要求最多 4 点，故只列 4 条主干**；设备一栏全部是建议，本轮尚未执行。\n\n| # | 事项 | 人工/设备 | 触发条件 | 做到什么程度 | 作用与代价 | 复查条件 |\n|---|---|---|---|---|---|---|\n| 1 | 核对温湿度测点 + 叶背核查 | 人工 | 今日日落前或明日露水干后立即 | 同棚内 3 个高度（冠层、株高 1/2、地面以上 20 cm）各读一次温湿度，与记录仪对表；随机取 5 株，翻看下/中/上三层叶背与茎基部，逐叶登记病斑形状、颜色、有无霉层、有无水渍状边缘，拍照留档 | 作用：把\"三套矛盾数\"收敛成一套可用数，同时把\"褐斑是否存在\"从推断变成事实。代价：约 0.5–1 人工工时 | 若三层温湿度差 >2 ℃ 或 >10 %RH，说明测点代表性不足，需重新选点后再做任何环境决策 |\n| 2 | 控湿排湿、压低叶面湿润时长 | 设备（建议） | 以核对后的实测值触发：棚内 RH >85 % 且温度 >20 ℃ 时，日出后 30 分钟内开启顶窗与环流风机；14:00 后开始逐步关窗保温 | 白天目标 RH 降至 75 % 以下；夜间目标是冠层温度高于露点 **≥1.5 ℃** 不结露。若实测温度 <20 ℃，则只做短时换气、不启湿帘 | 作用：缩短叶面湿润时长，是当前最有效的非化学手段。代价：环流与排风有电耗；**阴雨外界湿度 90 % 时换气排湿效率会明显打折**，不能指望固定降幅 | 操作后 30–60 分钟复测一次棚温、RH，并在次日清晨看叶背是否仍有水膜 |\n| 3 | 病叶处置 | 人工 | 仅在 1 号事项确认了病斑、且确认是**已发病**的老叶时 | 只摘除确认发病的下层老叶，单株摘除不超过 2 片，装袋带出棚外销毁；手与工具用酒精擦拭后再碰下一株 | 作用：减少初侵染源。代价：此期 LAI 仅约 1.3，本身叶面积就不足，**摘叶过度会直接削弱光合，得不偿失** | 摘后 24–48 小时复看同株及邻近株有无新斑 |\n| 4 | 补光与否的取舍 | 设备（建议，需先决策） | 若 1 号事项确认光照持续低于结果期需求（日累积低于约 10 mol·m⁻²·d⁻¹） | 建议在阴雨白天补光，并同时保持通风，避免补光带来的升温叠加 | 作用：缓解落花。代价：电耗是实打实的，且补光灯发热会加重排湿负担 | 补光 3 天后看新开花朵的坐果情况，以及棚温是否被顶上去 |\n\n## 四、病虫害防治建议\n\n- **按你给的 22 ℃ / 92 %RH 推**：这个温湿组合更贴近**晚疫病、叶霉病、灰霉病**的适生窗口，而早疫病通常偏 24–28 ℃、干湿交替的条件——也就是说，**图像给的\"早疫病候选\"在这个温湿下需要打一个问号**。\n- **按仿真那一路 29–30 ℃ / 95 %RH 推**：则要额外考虑细菌性病害与灰霉、早疫。\n- 因此，**在叶背核查完成前不建议施药**。原因很直接：褐斑类与霉层类、细菌性病害的用药方向完全不同，打错不只是浪费钱，还会筛出抗药性。\n- **防治方向与时机**（不给商品名、用量、稀释倍数、安全间隔期——这些必须按当地登记与产品标签核定，**须人工确认**）：\n  - 第一步永远是环境：把叶面连续湿润时长压到 4 小时以内。\n  - 施药时机选**晴天上午露水干后**，避开采收前与阴雨当天；连阴雨期打药基本等于白打。\n  - 若确认是卵菌类（晚疫病方向），与确认是真菌类（叶霉/灰霉方向），选药类别不同，请由当地植保部门或登记标签核定后决定。\n  - 本棚**尚未用药**，这其实是优势——第一轮选对药，后续压力小很多。\n\n## 五、水肥调控处方\n\n**前提说明（重要）：用户未提供面积、栽培方式、土壤本底、灌溉方式与频次，所以下面所有量都以\"每平方米\"给，不做亩用量换算。** 本轮仿真场景里出现的 252 m²、根层 25 cm、田间持水量 34 %vol、湿阈值 36 %vol 等，**都是仿真参数，不是你的实测值**；若与实际不符，全部要重算。\n\n- **灌溉**：阴雨弱光下蒸散极低（仿真给的蒸散速率约 0.52 mm/d，仅供量级参考）。**建议主动推迟灌溉**，不要按晴天的频次走。判断依据用插针法或张力计实测，不要用日历。若确需滴灌，建议单次按每平方米 2–4 L 的量级给，在棚温回升、VPD 回升后于上午进行，**阴雨夜间不灌**。做到什么程度：灌溉后根区不要长时间停在饱和状态，宁干勿涝。\n- **追肥**：结果初期钾需求上升，但弱光下**不宜提高氮浓度**（会加速徒长、加重落花）。方向是低浓度高钾水溶肥随水施，氮素按每平方米每次不超过 2–3 g 的量级起步，**实际用量必须以你棚的土壤/基质本底检测结果校正**。\n- **叶面补钙硼**：对预防脐腐有意义，但**当前高湿条件下不建议叶面喷施**（等于人为延长叶面湿润时间）；等到有连续晴天的上午再考虑。\n- 所有处方在拿到面积、栽培方式和本底数据前，**都只是方向性建议，不是可照抄的配方**。\n\n## 六、风险提示\n\n1. **测点矛盾导致决策方向错误**——发生条件：不核对测点就直接按某一套数操作。应对：先执行第三节第 1 条，未核对前不做任何环境设备动作。\n2. **叶面湿润累积导致叶部病害暴发**——发生条件：夜间叶面连续湿润超过 4 小时。应对：加强夜间通风与环流，清晨复看叶背。\n3. **\"越处理越湿\"**——本轮人工记录里那条 29.2 ℃ / 95 %RH 的处理分支，比未干预时**温度高 1.3 ℃、湿度高 6.1 个百分点**，也说明存在\"动了设备反而加重湿润\"的可能。这不是改善，是代价。应对：任何设备动作后 30–60 分钟必须复测，无效则停。\n4. **弱光落花**——发生条件：阴雨持续 5 天以上。应对：优先保花，不要在此期做重剪、重摘叶。\n5. **根区过湿沤根**——发生条件：连续灌溉 + 阴雨低蒸散。应对：停灌、松土、必要时检查排水。\n6. **摘叶过度**——发生条件：为\"防病\"大面积摘除下层叶。应对：单株单次不超过 2 片。\n\n## 七、生产规划\n\n- **你的目标本身是\"先辨别病因与安排巡查\"**，这是一个诊断优先的目标，那就必须接受短期代价：未来 3 天不做产量优化动作（不催肥、不催果、不打药）。\n- **路径**：Day 0–1 诊断期（核对测点 + 叶背核查，只做环境干预，不动药不动肥）→ Day 2–3 处置期（病因确认后针对性用药或摘除病叶）→ Day 4–7 恢复期（补光、养根、保花坐果）。\n- **取舍与代价**：\n  - 选\"先诊断\"：代价是可能晚 1–2 天用药，若真是流行性病害（晚疫），这两天有扩展风险；收益是避免打错药和抗药性。\n  - 选\"先打广谱药\"：代价是药剂成本 + 抗药性筛选 + 可能掩盖真实病因，后续更难判断。\n  - 选\"补光\"：代价是电耗，且阴雨下补光会抬温、加重排湿负担，需要与通风同步。\n  - 选\"控湿\"：代价是电耗，且外界 90 %RH 时排湿边际效率递减，**不要指望固定降幅**。\n- **不承诺**：本方案不承诺病斑治愈、不承诺产量、不承诺任何设备动作的实际效果；所有仿真数值未经现场标定，须以实测复核为准。\n\n\n\n```","structured":{"conclusion":"当前首要矛盾是温湿度测点互相矛盾且病因未核实，建议未来3天先做人工核查与环境控湿，确认后再决定用药，不做产量优化动作。","schedule":[{"task":"核对三层温湿度测点，翻查叶背与茎基部，登记病斑特征并拍照","dayOffset":0,"stage":"诊断"},{"task":"日出后通风排湿，清晨复看叶背水膜持续时间，记录夜间结露情况","dayOffset":1,"stage":"诊断与环境"},{"task":"根据核查结果判断病因方向，确认后按当地登记核定用药或摘除病叶","dayOffset":2,"stage":"处置"},{"task":"复看同株及邻近株有无新斑，评估控湿措施是否有效，决定是否调整","dayOffset":3,"stage":"处置"},{"task":"如确认光照不足则补光并同步通风，观察新开花朵坐果","dayOffset":5,"stage":"恢复"},{"task":"小结本周落花、坐果与病斑扩展情况，决定下周水肥是否恢复","dayOffset":7,"stage":"恢复"}],"riskAlerts":[{"mitigation":"先执行三层测点核对，未核对前不做环境设备动作","risk":"测点矛盾导致环境决策方向错误","window":"未核对测点即操作设备时"},{"mitigation":"加强夜间通风与环流，清晨复看叶背，缩短湿润时长","risk":"叶面湿润累积引发叶部病害暴发","window":"夜间叶面连续湿润超过4小时"},{"mitigation":"任何动作后30-60分钟复测，无效即停","risk":"设备动作反而加重高湿","window":"仿真回执显示处理分支持续高湿，比未干预高6.1个百分点"},{"mitigation":"优先保花，此期不做重剪重摘叶，按需补光","risk":"弱光落花与坐果率下降","window":"阴雨持续5天以上、日累积光照低于约10 mol·m⁻²·d⁻¹"},{"mitigation":"停灌、松土、检查排水，改按插针法或张力计实测判断","risk":"根区过湿沤根","window":"连续灌溉叠加阴雨低蒸散"},{"mitigation":"单株单次不超过2片，仅摘确认发病的老叶","risk":"摘叶过度削弱光合","window":"为防病大面积摘除下层叶"}],"cautions":["用户上传的22℃/92%RH、仿真回放的29.2℃/94.9%RH、对照口径的约30.1℃/19.8%RH三者互相矛盾，核对测点前不建议做任何环境设备动作","叶片褐斑在用户数据中标注为'流程验证样例，非现场实测'，图像仅为早疫病候选，均不构成确诊","根区29.86%vol、田间持水量34%vol、面积252m²均为仿真参数，不是实测值，不能作为灌溉依据","所有设备动作均为建议，系统不控制设备；上一轮仿真回执不代表现场已执行","不承诺病斑治愈、不承诺产量、不承诺设备实际效果"],"actions":[{"stage":"第1天（诊断）","action":"核对棚内三层温湿度测点并翻查叶背","trigger":"今日日落前或明日露水干后立即","detail":"冠层、株高1/2、地面以上20cm各读一次；随机5株翻看三层叶背与茎基部，登记病斑形状、霉层、水渍状边缘，拍照留档"},{"stage":"第1-3天（诊断与环境）","action":"控湿通风，压低叶面湿润时长","trigger":"核对后的实测RH>85%且温度>20℃时，日出后30分钟内","detail":"开顶窗与环流风机，白天RH目标降至75%以下，夜间冠层温度高于露点≥1.5℃；操作后30-60分钟复测"},{"stage":"第2-3天（处置）","action":"摘除已确认发病的下层老叶并带出棚外","trigger":"仅在核查确认是已发病老叶后","detail":"单株不超过2片，装袋销毁，工具消毒；此期LAI约1.3，不得大面积摘叶"},{"stage":"第2-3天（处置）","action":"按当地登记核定后选择针对性药剂","trigger":"病因明确且天气为晴天上午露水干后","detail":"具体药剂类别、用量、稀释倍数与安全间隔期须由当地登记与产品标签核定并经人工确认，本方案不给具体数值"},{"stage":"第4-7天（恢复）","action":"按需补光并同步通风","trigger":"确认日累积光照低于约10 mol·m⁻²·d⁻¹时","detail":"补光同时保持通风，避免升温叠加，3天后复看新开花朵坐果情况"}],"budget":{"note":"用户未提供预算。本条仅按口径说明：可计入项为人工工时（约0.5-1工时/日巡查）与设备电耗（环流、排风、补光），不含药剂费用；具体金额需按当地电价、人工单价与最终核定的药剂方案折算，本方案不做金额估算。"}},"bannerInjected":false,"sections":["一、农情判读","二、生长推演","三、农事管理方案","四、病虫害防治建议","五、水肥调控处方","六、风险提示","七、生产规划"],"missingFields":["品种","设施类型","面积","定植日期","栽培方式","土壤含水率","水汽压亏缺","灌溉方式与频次","施肥方案","已确诊病虫害","发生程度","目标上市期","预算"],"streamMode":"STREAM","elapsedMillis":38073,"baseline":{"available":false,"unavailableReason":"本次使用所关联任务与当前大棚状态，不计算固定旧场景评测。","scopeNote":"规划使用本次明确提供的农情；关联任务时取同一运行状态，未计算的效果不填参考数值。"},"taskId":"880bb12c-444e-4180-83e2-8c52e88bdf80","requestId":"42e403f3-4e35-4bcd-90c0-fc9e8500ed2b","simulationRunId":"0d01c93d-9794-4dc4-b875-073778913055"}
+
+event:record
+data:{"id":3}
+
+

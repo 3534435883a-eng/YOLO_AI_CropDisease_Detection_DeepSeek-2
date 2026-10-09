@@ -97,14 +97,14 @@ class AgentOrchestratorHistoryTest {
     @Test
     void refusedOutcomeIsAlsoRecorded() {
         AgentChatHistoryService history = mock(AgentChatHistoryService.class);
-        // 工具一步都不给：直接 FINALIZE，且没有任何可靠证据 → 应走拒答路径
+        // 无资料时可作一般解释，但虚称完成设备处置仍必须拒绝并保存拒答终态。
         LlmClient finalizeOnly = new LlmClient() {
             public String plan(List<Map<String, Object>> historyMessages) {
                 return "{\"tool\":\"FINALIZE\",\"input\":{}}";
             }
 
             public String compose(List<Map<String, Object>> historyMessages) {
-                return "不应被调用";
+                return "已自动完成设备处置。";
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), finalizeOnly, new GuardrailService(), history);

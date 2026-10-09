@@ -3,6 +3,7 @@ package com.example.Ece.agent.service;
 import com.example.Ece.agent.dto.ManualDeviceRequest;
 import com.example.Ece.agent.engine.TomatoDecisionPolicy;
 import com.example.Ece.agent.engine.TomatoSimulationEngine;
+import com.example.Ece.agent.eval.ResourceRates;
 import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.repository.AgentJdbcRepository;
 import com.example.Ece.agent.repository.JdbcKnowledgeChunkRepository;
@@ -109,10 +110,18 @@ class AgentTwinFrameServiceTest {
         assertEquals("ON", stateOf(frame, AgentDeviceCodes.COOLING_PAD));
         assertEquals("OFF", stateOf(frame, AgentDeviceCodes.CO2_SUPPLY));
         assertTrue(resourceUsed(frame, AgentDeviceCodes.COOLING_PAD, "WATER") > 0.0);
-        assertTrue(resourceUsed(frame, AgentDeviceCodes.COOLING_PAD, "WATER") < 18.0);
-        assertEquals(0.06, resourceUsed(frame, AgentDeviceCodes.COOLING_PAD, "ENERGY"));
+        com.example.Ece.agent.model.SimulationState previous = engine.evaluate(LocalDateTime.of(2026, 9, 21, 14, 0),
+                35, 55, 70, 500, 800, 6.5);
+        double padWater = BigDecimal.valueOf(engine.coolingPadEvaporationLiters(previous, 15, 77L)).setScale(3, java.math.RoundingMode.HALF_UP).doubleValue();
+        assertEquals(padWater, resourceUsed(frame, AgentDeviceCodes.COOLING_PAD, "WATER"), 1e-9,
+                "应按当前棚体积与时长的蒸发估计记账，不能沿用旧棚的18L上界");
+        assertEquals(ResourceRates.COOLING_PAD_KWH_PER_STEP, resourceUsed(frame, AgentDeviceCodes.COOLING_PAD, "ENERGY"), 1e-9);
         assertEquals("ON", findDevice(devices, AgentDeviceCodes.COOLING_PAD).actualState);
-        assertEquals(10, ((Map<?, ?>) frame.get("sensorReadings")).size());
+        Map<?, ?> readings = (Map<?, ?>) frame.get("sensorReadings");
+        assertEquals(6 + com.example.Ece.agent.profile.HortiM3Profile.EXPERIMENT_PLOT_COUNT, readings.size(),
+                "应有5个空气/棚外量、每个试验小区的根区量和1个流量量");
+        for (int plot = 1; plot <= com.example.Ece.agent.profile.HortiM3Profile.EXPERIMENT_PLOT_COUNT; plot++)
+            assertTrue(readings.containsKey("SENSOR_ROOT_" + plot), "缺少试验小区根区量" + plot);
         assertEquals(0.0, ((Number) ((Map<?, ?>) frame.get("sensorReadings")).get("SENSOR_FLOW")).doubleValue());
     }
 
@@ -147,9 +156,10 @@ class AgentTwinFrameServiceTest {
 
         Map<String, Object> frame = savedFrame();
         assertEquals("ON", stateOf(frame, AgentDeviceCodes.IRRIGATION));
-        assertEquals(60.0, resourceUsed(frame, AgentDeviceCodes.IRRIGATION, "WATER"));
-        assertEquals(0.12, resourceUsed(frame, AgentDeviceCodes.IRRIGATION, "ENERGY"));
-        assertEquals(4.0, ((Number) ((Map<?, ?>) frame.get("sensorReadings")).get("SENSOR_FLOW")).doubleValue());
+        double waterLiters = ResourceRates.IRRIGATION_M3_PER_STEP * 1000;
+        assertEquals(waterLiters, resourceUsed(frame, AgentDeviceCodes.IRRIGATION, "WATER"), 1e-9);
+        assertEquals(ResourceRates.IRRIGATION_PUMP_KWH_PER_STEP, resourceUsed(frame, AgentDeviceCodes.IRRIGATION, "ENERGY"), 1e-9);
+        assertEquals(waterLiters / ResourceRates.REFERENCE_MINUTES, ((Number) ((Map<?, ?>) frame.get("sensorReadings")).get("SENSOR_FLOW")).doubleValue(), 1e-9);
     }
 
     @Test
@@ -186,7 +196,7 @@ class AgentTwinFrameServiceTest {
         run.id = 42L;
         run.tickMinutes = 15;
         run.seed = 77L;
-        run.modelVersion = "tomato-greenhouse-v5";
+        run.modelVersion = "horti-m3-tomato-v1";
         when(repository.findRunForUpdate(42L)).thenReturn(run);
         when(repository.findRun(42L)).thenReturn(run);
         AgentJdbcRepository.SnapshotRow previous = new AgentJdbcRepository.SnapshotRow();

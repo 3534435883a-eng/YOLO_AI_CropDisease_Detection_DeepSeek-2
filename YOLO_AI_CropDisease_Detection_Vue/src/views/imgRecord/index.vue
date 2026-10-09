@@ -2,14 +2,14 @@
 	<div class="system-role-container layout-padding">
 		<div class="system-role-padding layout-padding-auto layout-padding-view">
 			<DetectionNav mode="image" view="history" />
-			<div class="record-intro"><div><p class="eyebrow">OBSERVATION LOG / IMAGE</p><h1>图片识别记录</h1><p>保存的模型候选结果与原始图片，可查看详情并在指挥中心中作为待核验信号导入。</p></div><span class="record-count">{{ state.tableData.total }} 条记录</span></div>
+			<div class="record-intro"><div><p class="eyebrow">OBSERVATION LOG / IMAGE</p><h1>图片识别记录</h1><p>保存的模型候选结果与原始图片，可作为待核验证据加入农情任务，交给助手讨论。</p></div><span class="record-count">{{ state.tableData.total }} 条记录</span></div>
 			<div class="agent-vision-note mb15">
 				<div>
 					<el-tag size="small" effect="plain" type="info">视觉信号</el-tag>
-					<span v-if="agentStore.hasActiveRun">识别记录将作为番茄温室模拟的待核验事件导入，不会直接触发设备或处置。</span>
-					<span v-else>请先创建番茄温室模拟，才可将识别记录导入为待核验事件。</span>
+					<span v-if="!!greenhouse.run">番茄记录可加入当前大棚任务；其他作物使用独立任务核对。</span>
+					<span v-else>可先建立独立农情任务；进入大棚后可关联当前番茄场景。</span>
 				</div>
-				<el-button link type="primary" @click="router.push('/agentCenter')">{{ agentStore.hasActiveRun ? '查看指挥中心' : '创建模拟' }}</el-button>
+				<el-button link type="primary" @click="router.push({path:'/digitalTwin',query:greenhouse.linkedQuery()})">{{ !!greenhouse.run ? '查看当前大棚' : '进入大棚' }}</el-button>
 			</div>
 			<div class="system-user-search mb15">
 				<el-input v-model="state.tableData.param.search1" size="default" placeholder="请输入农作物类型"
@@ -57,14 +57,14 @@
 				<el-table-column prop="username" label="识别用户" show-overflow-tooltip align="center"></el-table-column>
 				<el-table-column label="操作" width="180">
 					<template #default="scope">
-						<el-tooltip :disabled="agentStore.hasActiveRun" content="请先在智能体指挥中心创建番茄温室模拟" placement="top">
+						<el-tooltip :disabled="true" content="识别结果为候选证据" placement="top">
 							<span>
 								<el-button
 									size="small"
 									text
 									type="success"
 									:loading="importingId === scope.row.id"
-									:disabled="!agentStore.hasActiveRun || importingId !== null"
+									:disabled="importingId !== null"
 									@click="importVisionEvent(scope.row)"
 								>
 									导入并核对
@@ -85,19 +85,21 @@
 </template>
 
 <script setup lang="ts" name="systemRole">
-import { defineAsyncComponent, reactive, onMounted, ref } from 'vue';
+import { defineAsyncComponent, reactive, onMounted, onBeforeUnmount, ref } from 'vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
 import request from '/@/utils/request';
 import { useUserInfo } from '/@/stores/userInfo';
-import { useAgentRunStore } from '/@/stores/agentRun';
+import { useGreenhouseStore } from '/@/stores/greenhouse';
+import {createFarmTask,addFarmEvidence,type FarmEvidence} from '/@/api/agent/tasks';
 import { storeToRefs } from 'pinia';
 import DetectionNav from '/@/components/detectionNav/index.vue';
 
 const router = useRouter();
 const stores = useUserInfo();
 const { userInfos } = storeToRefs(stores);
-const agentStore = useAgentRunStore();
+const greenhouse=useGreenhouseStore();
+const unsubscribe=greenhouse.subscribe();onBeforeUnmount(unsubscribe);
 const importingId = ref<number | string | null>(null);
 
 const state = reactive({
@@ -170,33 +172,20 @@ const transformData = (originalData, confidences, labels) => {
     return result;
 }
 
-const importVisionEvent = async (row: { id: number | string }) => {
-	if (agentStore.runId === null) {
-		ElMessage.warning('请先在智能体指挥中心创建番茄温室模拟');
-		return;
-	}
-
-	importingId.value = row.id;
-	try {
-		const response = await request.post(`/api/agent/runs/${encodeURIComponent(String(agentStore.runId))}/vision-events`, {
-			sourceRecordId: row.id,
-			sourceType: 'IMG_RECORD',
-			operatorUsername: userInfos.value.userName || 'operator',
-		});
-		const code = response?.code;
-		if (code !== undefined && code !== 0 && code !== '0' && code !== 200 && code !== '200') {
-			throw new Error(response?.msg || '导入视觉事件失败');
-		}
-		ElMessage.success('已导入为待核验视觉信号');
-		await agentStore.loadActiveRun();
-		await router.push({ path: '/agentChat', query: { recordId: String(row.id) } });
-	} catch (error) {
-		ElMessage.error(error instanceof Error ? error.message : '导入视觉事件失败');
-	} finally {
-		importingId.value = null;
-	}
+const importVisionEvent = async (row: {id:number|string;cropType?:string;inputImg?:string;outImg?:string;weight?:string;conf?:number;startTime?:string;family?:Array<{label:string;confidence?:unknown}>}) => {
+ importingId.value=row.id;
+ try{
+  const cropLabels:Record<string,string>={tomato:'番茄',corn:'玉米',rice:'水稻',wheat:'小麦',potato:'马铃薯',cotton:'棉花',apple:'苹果',grape:'葡萄',strawberry:'草莓'};
+  const crop=cropLabels[row.cropType||'']||row.cropType||'作物未提供';
+  const linked=!!greenhouse.run&&crop==='番茄';
+  let task=linked?await greenhouse.ensureTask():await createFarmTask({crop,title:crop+'农情管理'});
+  const label=(row.family||[]).map(item=>item.label).join('、')||'识别记录';
+  const evidence:FarmEvidence={id:'record:'+row.id,type:'IMAGE',label,source:'已保存的YOLO图片记录 / 待核验',imageUrl:row.inputImg,candidates:row.family||[],details:{sourceRecordId:row.id,crop,annotatedImageUrl:row.outImg,weight:row.weight,threshold:row.conf,observedAt:row.startTime}};
+  task=linked?await greenhouse.addEvidence(evidence):await addFarmEvidence(task.id,evidence);
+  ElMessage.success('已保存为农情任务的候选证据');
+  await router.push({path:'/agentChat',query:{...(linked?greenhouse.linkedQuery():{taskId:task.id}),crop,detection:label.slice(0,120)}});
+ }catch(error){ElMessage.error(error instanceof Error?error.message:'识别证据导入失败');}finally{importingId.value=null;}
 };
-
 
 // 删除
 const onRowDel = (row: any) => {
@@ -241,7 +230,7 @@ const onHandleCurrentChange = (val: number) => {
 // 页面加载时
 onMounted(() => {
 	getTableData();
-	if (!agentStore.loading) agentStore.loadActiveRun();
+	void greenhouse.refreshRun();
 });
 </script>
 

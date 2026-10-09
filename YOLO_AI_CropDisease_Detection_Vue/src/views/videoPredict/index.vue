@@ -61,7 +61,7 @@ import DetectionNav from '/@/components/detectionNav/index.vue';
 
 const uploadFile = ref<UploadInstance>();
 const stores = useUserInfo();
-const conf = ref('');
+const conf = ref(25);
 const kind = ref('');
 const weight = ref('');
 const { userInfos } = storeToRefs(stores);
@@ -165,7 +165,7 @@ const getData = () => {
 
 const upData = () => {
 	state.form.weight = weight.value;
-	state.form.conf = (parseFloat(conf.value)/100);
+	state.form.conf = (Math.max(1,Math.min(100,Number(conf.value)||25))/100);
 	state.form.username = userInfos.value.userName;
 	state.form.kind = kind.value;
 	state.form.startTime = formatDate(new Date(), 'YYYY-mm-dd HH:MM:SS');

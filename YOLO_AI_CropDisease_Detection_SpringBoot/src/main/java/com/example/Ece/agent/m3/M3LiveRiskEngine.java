@@ -11,6 +11,38 @@ public final class M3LiveRiskEngine {
     private final Map<String,String> previous=new HashMap<>();
     private final Deque<double[]> history=new ArrayDeque<>();
     public M3LiveRiskEngine(ObjectMapper mapper){this.mapper=mapper;}
+    /** Explicit state serialization; no future environment or private-JDK state is included. */
+    public ObjectNode checkpoint() {
+        ObjectNode o=mapper.createObjectNode();o.put("version","exposure-rules-v1");
+        o.set("duration",mapper.valueToTree(duration));o.set("previous",mapper.valueToTree(previous));
+        ArrayNode rows=o.putArray("history");
+        for(double[] row:history){ArrayNode values=rows.addArray();for(double v:row)values.add(v);}
+        return o;
+    }
+    public void restoreCheckpoint(JsonNode o) {
+        if(!"exposure-rules-v1".equals(o.path("version").asText()))throw new IllegalArgumentException("风险规则存档版本不匹配");
+        JsonNode d=o.path("duration"),p=o.path("previous"),h=o.path("history");
+        if(!d.isObject()||!p.isObject()||!h.isArray()||h.size()>48||d.size()>16||p.size()>16)throw new IllegalArgumentException("风险存档结构无效");
+        Map<String,Integer> durations=new LinkedHashMap<>();Map<String,String> levels=new HashMap<>();Deque<double[]> rows=new ArrayDeque<>();
+        Set<String> known=new HashSet<>(Arrays.asList("HEAT","COLD","HUMID","VPD_HIGH","VPD_LOW","ESTIMATED"));
+        d.fields().forEachRemaining(e->{
+            if(!known.contains(e.getKey())||!e.getValue().isIntegralNumber()||!e.getValue().canConvertToInt()||e.getValue().asInt()<0)throw new IllegalArgumentException("风险暴露存档无效");
+            durations.put(e.getKey(),e.getValue().asInt());
+        });
+        p.fields().forEachRemaining(e->{
+            String level=e.getValue().asText();
+            if(!known.contains(e.getKey())||!Arrays.asList("CLEAR","INFO","MEDIUM","HIGH").contains(level))throw new IllegalArgumentException("风险等级存档无效");
+            levels.put(e.getKey(),level);
+        });
+        for(JsonNode row:h){
+            if(!row.isArray()||row.size()!=4)throw new IllegalArgumentException("风险窗口存档无效");
+            double[] values=new double[4];for(int i=0;i<4;i++){
+                if(!row.get(i).isNumber()||!Double.isFinite(row.get(i).asDouble())||row.get(i).asDouble()<0)throw new IllegalArgumentException("风险窗口数值无效");
+                values[i]=row.get(i).asDouble();
+            }rows.addLast(values);
+        }
+        duration.clear();duration.putAll(durations);previous.clear();previous.putAll(levels);history.clear();history.addAll(rows);
+    }
     public ObjectNode evaluate(JsonNode env,int minutes) {
         double t=env.path("temperatureC").asDouble(),rh=env.path("airHumidityPct").asDouble();
         double es=0.6108*Math.exp(17.27*t/(t+237.3)),vpd=Math.max(0,es*(1-rh/100));

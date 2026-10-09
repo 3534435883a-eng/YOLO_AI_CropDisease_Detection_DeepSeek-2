@@ -74,7 +74,7 @@ class AgentOrchestratorTest {
     }
 
     @Test
-    void stopsAtMaxStepsAndRefusesWhenNoEvidence() {
+    void boundsToolLoopAndAllowsUncitedGeneralExplanationWhenNoEvidence() {
         LlmClient looping = new LlmClient() {
             public String plan(List<Map<String, Object>> history) {
                 return "{\"tool\":\"knowledge.search\",\"input\":{\"query\":\"完全不相关的问题\"}}";
@@ -87,15 +87,12 @@ class AgentOrchestratorTest {
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), looping);
         AgentResult result = orchestrator.run("s2", "量子计算机", "番茄", null);
         assertTrue(result.getSteps() <= AgentOrchestrator.MAX_STEPS);
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
+        assertTrue(result.getCitations().isEmpty(), "未取得依据不能捏造引用");
     }
 
     /**
-     * 域内但库缺依据时，**允许用模型自身通用知识作答**，且必须带出处声明。
-     *
-     * <p>2026-09-27 政策调整：此前"无可靠证据"一律拒答。用户要求放开——让模型在库缺时也能
-     * 用学到的通用农艺知识回答。放开的判据是"本轮是否命中过关键词"：
-     * 命中过说明问题落在农业域内（只是库里依据不足），零命中说明问题与农业语料毫无交集。</p>
+     * 域内库缺时允许自然的通用解释；出处由本轮实际引用表示，不强制模板横幅。
      */
     @Test
     void answersFromGeneralKnowledgeWhenDomainMatchedButEvidenceWeak() {
@@ -110,8 +107,7 @@ class AgentOrchestratorTest {
             }
 
             public String compose(List<Map<String, Object>> history) {
-                return AgentOrchestrator.GENERAL_KNOWLEDGE_BANNER
-                        + "\n棚内湿度高时应优先通风降湿，并在结果期避免叶面长时间带水。需人工确认。";
+                return "棚内湿度高时应优先通风降湿，并在结果期避免叶面长时间带水。需人工确认。";
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(registryWith(corpus), llm);
@@ -125,16 +121,16 @@ class AgentOrchestratorTest {
             }
         }
         assertEquals("GENERAL_KNOWLEDGE", reason, "终态原因码应标明这是通用知识回答");
-        assertTrue(result.getAnswer().startsWith(AgentOrchestrator.GENERAL_KNOWLEDGE_BANNER),
-                "通用知识回答必须带出处声明，实得：" + result.getAnswer());
+        assertTrue(result.getAnswer().startsWith("棚内湿度高时应优先通风降湿"),
+                "自然解释不应被强制横幅包装，实得：" + result.getAnswer());
         assertTrue(result.getCitations().isEmpty(), "通用知识回答不得带引用编号");
     }
 
     /**
-     * **没带出处声明就不放行**：宁可拒答，也不能让"通用经验"被读成"知识库依据"。
+     * 普通解释不需要固定出处横幅，但不能生成不存在的文献编号。
      */
     @Test
-    void refusesWhenGeneralKnowledgeAnswerLacksTheProvenanceBanner() {
+    void acceptsNaturalGeneralAnswerWithoutProvenanceBannerOrInventedCitations() {
         List<KnowledgeChunk> corpus = new ArrayList<KnowledgeChunk>();
         corpus.add(new KnowledgeChunk("disease", 1L, "番茄", "番茄早疫病",
                 KnowledgeChunk.FieldType.SYMPTOM, 0, 0, "番茄叶片出现褐色轮纹斑。", "h1"));
@@ -146,14 +142,15 @@ class AgentOrchestratorTest {
             }
 
             public String compose(List<Map<String, Object>> history) {
-                return "棚内湿度高时应优先通风降湿。";   // 故意不带声明
+                return "棚内湿度高时应优先通风降湿。";   // 自然说明，不加固定横幅
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(registryWith(corpus), llm);
         AgentResult result = orchestrator.run("gk2", "褐色的问题要怎么处理呢请问", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus(),
-                "未带出处声明的通用知识回答不得放行");
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
+        assertEquals("棚内湿度高时应优先通风降湿。", result.getAnswer());
+        assertTrue(result.getCitations().isEmpty());
     }
 
     @Test
@@ -207,7 +204,7 @@ class AgentOrchestratorTest {
             }
 
             public String compose(List<Map<String, Object>> history) {
-                return "不应被采纳";
+                return "先查看叶片症状并补拍照片。";
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), hallucinating);
@@ -215,7 +212,8 @@ class AgentOrchestratorTest {
         assertTrue(planCalls[0] <= AgentOrchestrator.MAX_STEPS,
                 "无效规划也必须受步数上限约束，否则会空转到超时");
         assertEquals(0, result.getSteps());
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
+        assertTrue(result.getCitations().isEmpty());
     }
 
 
@@ -233,7 +231,8 @@ class AgentOrchestratorTest {
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), llm);
         AgentResult result = orchestrator.run("s5", "叶子有褐色轮纹斑", "番茄", null);
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
-        assertEquals(AgentOrchestrator.REFUSAL_ANSWER, result.getAnswer());
+        assertTrue(result.getAnswer().contains("无法核实"));
+        assertFalse(result.getAnswer().contains("已自动开启"));
 
         String reason = null;
         for (AgentStepEvent event : result.getEvents()) {
@@ -245,10 +244,7 @@ class AgentOrchestratorTest {
     }
 
     /**
-     * 工具给出终止信号时必须立即结束本轮：不再规划、不调作答步，直接返回工具给的答复。
-     *
-     * <p>动机（实测）：问"摄像头检出潜叶虫怎么办"时，vision.explain 已如实说明没有可核对条目，
-     * 但循环继续，模型又检索到 7 条番茄病害并试图作答。该说"资料库不足"就直接说，不要拿相近主题硬答。</p>
+     * 工具的终止信号停止后续工具规划；作答仍可解释具体限制和一般核查步骤。
      */
     @Test
     void stopsImmediatelyWhenToolSignalsTerminal() {
@@ -290,22 +286,25 @@ class AgentOrchestratorTest {
 
             public String compose(List<Map<String, Object>> history) {
                 composeCalls[0]++;
-                return "不应被调用";
+                assertTrue(history.toString().contains("没有可核对的对应条目"));
+                assertTrue(history.toString().contains("不能用相近病害替代确诊"));
+                return "潜叶虫类别暂无可核对资料，先查看叶背虫体与取食痕迹，补拍照片供人工确认。";
             }
         };
         AgentResult result = new AgentOrchestrator(registry, llm).run("s16", "摄像头检出潜叶虫怎么办", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
         assertEquals(1, planCalls[0], "终止后不得再规划下一步");
-        assertEquals(0, composeCalls[0], "终止后不得调用作答步");
-        assertTrue(result.getAnswer().contains("资料库不足"), "应直接返回工具给的答复：" + result.getAnswer());
+        assertEquals(1, composeCalls[0]);
+        assertTrue(result.getAnswer().contains("暂无可核对资料"));
+        assertTrue(result.getCitations().isEmpty());
         String reason = null;
         for (AgentStepEvent event : result.getEvents()) {
             if ("final".equals(event.getType())) {
                 reason = String.valueOf(event.getPayload().get("reason"));
             }
         }
-        assertEquals("KNOWLEDGE_INSUFFICIENT", reason);
+        assertEquals("GENERAL_KNOWLEDGE", reason);
     }
 
     /**
@@ -391,7 +390,8 @@ class AgentOrchestratorTest {
         assertNotNull(composeSystemPrompt[0], "作答步必须带上系统提示");
         assertFalse(composeSystemPrompt[0].contains("只输出一个 JSON"),
                 "作答阶段不得沿用规划的 JSON 约束：" + composeSystemPrompt[0]);
-        assertTrue(composeSystemPrompt[0].contains("作答"), "应换成作答阶段提示");
+        assertTrue(composeSystemPrompt[0].contains("自然中文回答"), "应换成自然作答阶段提示");
+        assertTrue(composeSystemPrompt[0].contains("仅引用实际支持它的本轮资料"), "自然回答仍须保留来源要求");
     }
 
     /** 模型仍把答案包进动作 JSON 时，必须解包后再返回，不能把 JSON 直接给用户。 */
@@ -442,7 +442,7 @@ class AgentOrchestratorTest {
     }
 
     /**
-     * 有证据但模型没给出回答时，必须如实报失败（REFUSED/ANSWER_EMPTY），
+     * 有证据但模型没给出回答时，必须如实报失败（ERROR/ANSWER_EMPTY），
      * 不能用拒答文案兜底却报 DONE——界面上那会被显示成"结论"，把失败伪装成成功。
      *
      * <p>同时锁住**文案不与"知识库无依据"混用**：2026-09-26 实测中上游返回一次瞬时 5xx，
@@ -468,7 +468,7 @@ class AgentOrchestratorTest {
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), llm);
         AgentResult result = orchestrator.run("s14", "叶子有褐色轮纹斑", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.ERROR, result.getStatus());
         String reason = null;
         for (AgentStepEvent event : result.getEvents()) {
             if ("final".equals(event.getType())) {
@@ -535,7 +535,7 @@ class AgentOrchestratorTest {
         AgentResult result = new AgentOrchestrator(registry(), llm)
                 .run("invalid-rewrite-citation", "叶子有褐色轮纹斑", "番茄", null);
 
-        assertEquals(2, composeCalls[0]);
+        assertEquals(3, composeCalls[0], "越权重写后仍有假引用，应再尝试修正引用；再次假引则拒答");
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
         assertTrue(result.getCitations().isEmpty());
     }
@@ -592,16 +592,16 @@ class AgentOrchestratorTest {
         AgentResult result = orchestrator.run("s13", "叶子有褐色轮纹斑", "番茄", null);
 
         assertEquals(AgentResult.Status.REFUSED, result.getStatus());
-        assertEquals(AgentOrchestrator.REFUSAL_ANSWER, result.getAnswer());
+        assertTrue(result.getAnswer().contains("无法核实"));
+        assertFalse(result.getAnswer().contains("已经自动"));
         assertEquals(2, composeCalls[0], "只重写一次，不做无休止重试");
     }
 
     /**
-     * 拒答文案必须带上工具的解释性说明（note）：
-     * 否则用户只看到"没有检索到可靠依据"，不知道到底是"类别没有对应条目"还是"检索没命中"。
+     * 工具解释进入作答提示，回答可自然说明知识限制而无需套用拒答模板。
      */
     @Test
-    void refusalAnswerCarriesToolExplanation() {
+    void generalAnswerReceivesAndExplainsToolLimitations() {
         AgentToolRegistry registry = new AgentToolRegistry();
         registry.register(new AgentTool() {
             public String name() {
@@ -633,19 +633,20 @@ class AgentOrchestratorTest {
             }
 
             public String compose(List<Map<String, Object>> history) {
-                return "不应被调用";
+                assertTrue(history.toString().contains("没有可核对的对应条目"));
+                return "潜叶虫在当前资料中没有可核对的对应条目，请补充叶背和虫体照片。";
             }
         };
         AgentResult result = new AgentOrchestrator(registry, llm).run("s15", "摄像头检出潜叶虫怎么办", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
         assertTrue(result.getAnswer().contains("没有可核对的对应条目"),
-                "拒答文案应带上工具的说明：" + result.getAnswer());
+                "一般解释应保留具体限制：" + result.getAnswer());
     }
 
-    /** 无可靠证据时必须直接拒答，不得白调一次作答步（拒答路径的答案本来就会被丢弃）。 */
+    /** 无可靠资料仍可解释一般原理，但提示必须禁止编造引用和具体未核实处方。 */
     @Test
-    void doesNotCallComposeWhenEvidenceIsUnreliable() {
+    void callsComposeWithExplicitSourceLimitsWhenEvidenceIsUnreliable() {
         final int[] composeCalls = {0};
         LlmClient llm = new LlmClient() {
             public String plan(List<Map<String, Object>> history) {
@@ -654,14 +655,17 @@ class AgentOrchestratorTest {
 
             public String compose(List<Map<String, Object>> history) {
                 composeCalls[0]++;
-                return "无依据";
+                assertTrue(history.toString().contains("本轮没有取得可引用资料"));
+                assertTrue(history.toString().contains("不能编造引用"));
+                return "这一问题暂时没有检索到资料，可以先解释一般原理。";
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(registry(), llm);
         AgentResult result = orchestrator.run("s8", "量子计算机", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
-        assertEquals(0, composeCalls[0], "无可靠证据时不应调用作答步");
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
+        assertEquals(1, composeCalls[0]);
+        assertTrue(result.getCitations().isEmpty());
     }
     /**
      * **检索降级不能被说成"知识库里没有"**。
@@ -691,15 +695,16 @@ class AgentOrchestratorTest {
             }
 
             public String compose(List<Map<String, Object>> history) {
-                return "不应走到作答步";
+                assertTrue(history.toString().contains("检索本轮降级，不等于主题不存在"));
+                return "检索能力当前不完整，可先检查病斑形态并补拍叶片照片。";
             }
         };
         AgentOrchestrator orchestrator = new AgentOrchestrator(degradedRegistry, llm);
         AgentResult result = orchestrator.run("dg1", "番茄叶片褐色轮纹", "番茄", null);
 
-        assertEquals(AgentResult.Status.REFUSED, result.getStatus());
+        assertEquals(AgentResult.Status.DONE, result.getStatus());
         assertTrue(result.getAnswer().contains("检索能力当前不完整"),
-                "降级拒答必须说明是检索服务问题，而不是资料库不足：" + result.getAnswer());
+                "降级回答必须说明检索服务限制：" + result.getAnswer());
         assertFalse(result.getAnswer().contains("知识库里没有能支撑这个问题的可靠依据"),
                 "降级时不得复用「资料库不足」文案");
         String reason = null;
@@ -708,6 +713,8 @@ class AgentOrchestratorTest {
                 reason = String.valueOf(event.getPayload().get("reason"));
             }
         }
-        assertEquals("DEGRADED_RETRIEVAL", reason);
+        assertEquals("GENERAL_KNOWLEDGE", reason);
+        assertTrue(result.getAnswer().contains("降级"), "检索降级仍应披露");
+        assertTrue(result.getCitations().isEmpty());
     }
 }

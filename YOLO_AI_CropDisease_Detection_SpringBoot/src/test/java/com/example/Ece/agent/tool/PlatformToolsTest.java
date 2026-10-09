@@ -56,6 +56,8 @@ class PlatformToolsTest {
         run.setRunCode("RUN-8-TOMATO");
         run.setStatus("RUNNING");
         run.setCurrentStep(12);
+        run.setTickMinutes(15);
+        run.setProfile(com.example.Ece.agent.profile.HortiM3Profile.metadata());
         run.setSimulatedAt("2026-09-21T09:00");
         return run;
     }
@@ -121,6 +123,7 @@ class PlatformToolsTest {
     private PrescriptionDraftTool prescriptionTool(AgentRunService runService, SimulationState state) {
         if (state != null) {
             when(runService.currentState(Long.valueOf(RUN_ID))).thenReturn(state);
+            when(runService.getSummary(Long.valueOf(RUN_ID))).thenReturn(summary());
         }
         return new PrescriptionDraftTool(runService, new PrescriptionService(),
                 new TomatoDecisionPolicy(), retrieverWithCorpus(), new CitationFormatter(), evidence,

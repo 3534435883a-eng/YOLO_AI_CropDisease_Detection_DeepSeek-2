@@ -1,0 +1,43 @@
+{
+  "verifiedAt": "2026-10-09T13:16:52.7749919+08:00",
+  "completed": true,
+  "liveModel": true,
+  "checks": [
+    {
+      "name": "原任务可恢复且与同一运行关联",
+      "passed": true
+    },
+    {
+      "name": "暂停后模拟游标保留",
+      "passed": true
+    },
+    {
+      "name": "文字、图片、CSV三类证据保留",
+      "passed": true
+    },
+    {
+      "name": "人工复查和虚拟设备回执分别保留",
+      "passed": true
+    },
+    {
+      "name": "真实助手完成回答并正确识别候选",
+      "passed": true
+    },
+    {
+      "name": "真实回答全文及冻结上下文完整归档",
+      "passed": true
+    },
+    {
+      "name": "关联规划完成且不采用旧固定基线",
+      "passed": true
+    },
+    {
+      "name": "规划保存到同任务并产生人工事项",
+      "passed": true
+    },
+    {
+      "name": "报告包含证据、助手、复查与完整参数指纹",
+      "passed": true
+    }
+  ]
+}

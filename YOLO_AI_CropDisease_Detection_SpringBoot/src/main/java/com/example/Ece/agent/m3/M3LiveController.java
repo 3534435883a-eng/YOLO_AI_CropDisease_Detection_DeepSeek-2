@@ -11,18 +11,24 @@ public class M3LiveController {
     public M3LiveController(M3LiveService service){this.service=service;}
     public static class StartRequest { public int year=2025; }
     public static class StepRequest { public int expectedCursor; public int stepCount=48; }
+    public static class PlaybackRequest { public boolean playing; public int stepCount=1; }
     @PostMapping("/start") public Result<?> start(@RequestBody StartRequest request) {
         try{return Result.success(service.start(request.year));}
         catch(IOException|IllegalArgumentException e){return Result.error("M3_LIVE_START_FAILED",e.getMessage());}
     }
-    @GetMapping("/{id}") public Result<?> current(@PathVariable String id,@RequestParam(defaultValue="false") boolean compact) {
-        try{return Result.success(service.current(id,compact));}catch(IOException e){return Result.error("M3_LIVE_UNAVAILABLE",e.getMessage());}
+    @GetMapping("/{id}") public Result<?> current(@PathVariable String id,@RequestParam(defaultValue="false") boolean compact,
+            @RequestParam(defaultValue="-1") int afterCursor) {
+        try{return Result.success(service.current(id,compact,afterCursor));}catch(IOException e){return Result.error("M3_LIVE_UNAVAILABLE",e.getMessage());}
     }
     @PostMapping("/{id}/step") public Result<?> step(@PathVariable String id,@RequestBody StepRequest request) {
         try{return Result.success(service.step(id,request.expectedCursor,request.stepCount));}
         catch(IOException|IllegalStateException e){return Result.error("M3_LIVE_STEP_FAILED",e.getMessage());}
     }
-    @DeleteMapping("/{id}") public Result<?> delete(@PathVariable String id){service.delete(id);return Result.success(null);}
+    @DeleteMapping("/{id}") public Result<?> delete(@PathVariable String id){try{service.delete(id);return Result.success(null);}catch(IllegalStateException e){return Result.error("M3_RELEASE_FAILED",e.getMessage());}}
+    @PostMapping("/{id}/playback") public Result<?> playback(@PathVariable String id,@RequestBody PlaybackRequest request) {
+        try{return Result.success(service.playback(id,request.playing,request.stepCount));}
+        catch(IOException|IllegalArgumentException e){return Result.error("M3_PLAYBACK_FAILED",e.getMessage());}
+    }
     @PostMapping("/{id}/scenario/{operation}") public Result<?> scenario(@PathVariable String id,@PathVariable String operation,
             @RequestBody com.fasterxml.jackson.databind.JsonNode input){
         try{return Result.success(service.scenarioCommand(id,operation,input));}

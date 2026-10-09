@@ -35,8 +35,11 @@ class AgriPlanBaselineTest {
 
         assertTrue(result.isAvailable(), result.getUnavailableReason());
         // 这句话是这份数值唯一没说谎的前提，必须排在数值之前。
-        assertTrue(result.getPromptBlock().startsWith("以下数值来自**固定标准情景**"),
-                "提示词里必须最先说明它不采用用户输入");
+        String firstLine = result.getPromptBlock().split("\\n", 2)[0];
+        assertTrue(firstLine.contains("参数参考场景") && firstLine.contains("未导入原始观测、未校准"),
+                "参考数字之前须先说明当前M3参数参考场景的性质");
+        assertTrue(firstLine.contains("不采用你提供的农情输入"),
+                "首行必须说明参考基线不采用本次农情");
         assertTrue(result.getPromptBlock().contains("不采用你提供的农情输入"));
     }
 

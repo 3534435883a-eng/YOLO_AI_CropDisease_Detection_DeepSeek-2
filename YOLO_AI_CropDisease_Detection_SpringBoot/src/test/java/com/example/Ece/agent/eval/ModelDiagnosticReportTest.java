@@ -18,6 +18,7 @@ import com.example.Ece.agent.model.AgentDeviceCodes;
 import com.example.Ece.agent.model.DecisionPlan;
 import com.example.Ece.agent.model.DeviceCommand;
 import com.example.Ece.agent.model.SimulationState;
+import com.example.Ece.agent.profile.HortiM3Profile;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
@@ -34,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * 也就是说模型算出来的土壤化学与胁迫过程在对外产物里是**看不见的**——本测试把它打出来。</p>
  *
  * <p><b>自证忠实性</b>：本测试自行复现评测平台 P2 档的耦合推进循环，先断言终值与该档
- * **已记录的实测值**一致（wFruit、高温暴露、病害压力积分、利润）。只有复现成立，
+ * **同配置的平台模拟值**一致（wFruit、高温暴露、病害压力积分、利润）。只有复现成立，
  * 下面打印的内部量才可信——否则就是另一份实现，不能代表被测模型。</p>
  *
  * <p>断言只用于自证忠实性；其余为诊断输出，**不对农艺合理性下断言**——
@@ -42,14 +43,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  */
 class ModelDiagnosticReportTest {
 
-    private static final int STEP_MINUTES = 15;
-    private static final int STEPS_PER_DAY = 96;
+    private static final int STEP_MINUTES = PerformanceEvaluationService.STEP_MINUTES;
+    private static final int STEPS_PER_DAY = 1440 / STEP_MINUTES;
     private static final int DAYS = 120;
     private static final long SEED = 20260921L;
-    private static final LocalDateTime START = LocalDateTime.of(2026, 9, 21, 6, 0);
-    /** 种植床面积：4 条 × 21 m × 1.7 m。用于把产量折算成单位面积产量。 */
-    private static final double BED_AREA_M2 = 4.0 * 21.0 * 1.7;
-    /** 棚体占地面积：26 m × 13 m。 */
+    private static final LocalDateTime START = HortiM3Profile.DEFAULT_START_DATE.atStartOfDay();
+    /** 当前全试验区参考面积；不能把旧四床夹具带入M3场景。 */
+    private static final double BED_AREA_M2 = SoilParameters.BED_AREA_M2;
 
     private final TomatoSimulationEngine engine = new TomatoSimulationEngine();
     private final TomatoDecisionPolicy policy = new TomatoDecisionPolicy();
@@ -94,7 +94,11 @@ class ModelDiagnosticReportTest {
         if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION))) {
             water += ResourceRates.IRRIGATION_M3_PER_STEP;
         }
-        return new ResourceUsage(water, energy, co2, 0.0, 0.0, ResourceRates.LABOR_HOURS_PER_STEP);
+        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.HEATING))) energy += ResourceRates.HEATING_KWH_PER_STEP;
+        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.CIRCULATION_FAN))) energy += ResourceRates.CIRCULATION_FAN_KWH_PER_STEP;
+        if (Boolean.TRUE.equals(devices.get(AgentDeviceCodes.IRRIGATION))) energy += ResourceRates.IRRIGATION_PUMP_KWH_PER_STEP;
+        double factor = STEP_MINUTES / (double) ResourceRates.REFERENCE_MINUTES;
+        return new ResourceUsage(water * factor, energy * factor, co2 * factor, 0.0, 0.0, ResourceRates.LABOR_HOURS_PER_STEP * factor);
     }
 
     private Map<String, Boolean> devicesOf(DecisionPlan plan) {
@@ -161,7 +165,9 @@ class ModelDiagnosticReportTest {
      * 若两者不一致，就会出现"策略按 A 决策、作物按 B 生长"的错位。</p>
      */
     private double[] extremes(boolean irrigate) {
-        SimulationState air = engine.evaluate(START, 22.0, 72.0, 62.0, 600.0, 0.0, 6.2);
+        SimulationState air = engine.evaluate(START, HortiM3Profile.ASSUMED_INITIAL_AIR_TEMPERATURE_C,
+                HortiM3Profile.ASSUMED_INITIAL_RELATIVE_HUMIDITY_PCT, HortiM3Profile.ASSUMED_INITIAL_SUBSTRATE_MOISTURE_PCT,
+                HortiM3Profile.ASSUMED_INITIAL_CO2_PPM, 0.0, 6.2);
         SoilState soil = soilModel.initial();
         TomatoCropState crop = cropModel.initial();
         DiseaseState disease = epidemicModel.initial();
@@ -212,7 +218,9 @@ class ModelDiagnosticReportTest {
 
     @Test
     void printsModelInternalsThatTheEvaluationSeriesNeverExposes() {
-        SimulationState air = engine.evaluate(START, 22.0, 72.0, 62.0, 600.0, 0.0, 6.2);
+        SimulationState air = engine.evaluate(START, HortiM3Profile.ASSUMED_INITIAL_AIR_TEMPERATURE_C,
+                HortiM3Profile.ASSUMED_INITIAL_RELATIVE_HUMIDITY_PCT, HortiM3Profile.ASSUMED_INITIAL_SUBSTRATE_MOISTURE_PCT,
+                HortiM3Profile.ASSUMED_INITIAL_CO2_PPM, 0.0, 6.2);
         SoilState soil = soilModel.initial();
         TomatoCropState crop = cropModel.initial();
         DiseaseState disease = epidemicModel.initial();
@@ -318,8 +326,7 @@ class ModelDiagnosticReportTest {
         // 2026-09-26 修：原打印把 wFruit 除以床面积，当成"g/m²"输出——等于把**已经是 g/m² 的量**
         // 又除了一次面积。wFruit 的单位由生长模型确定：dW = RUE(g/MJ) × 截获 PAR(MJ/m²)，
         // 而 PPFD 本就按 m² 计，故 wFruit 即**每平方米种植床的干重**。
-        // 验证：541.91 g/m² ÷ 0.055 = 9.85 kg/m² = 98.5 t/hm²，与实测均值（85 t/hm²，n=703）同量级；
-        // 若按原打印的 541.91/142.8 读，会把产量整体看小 142.8 倍。
+        // 按当前参考种植面积换算全区总量，不能再次把单位面积干物质除以面积。
         System.out.printf("  果实干重：%.2f g/m²（种植床面积 %.1f m²，全床合计 %.1f kg 干重）%n",
                 crop.getWFruit(), BED_AREA_M2, crop.getWFruit() * BED_AREA_M2 / 1000.0);
         System.out.printf("  商品产量：%.1f kg → %.2f kg/m²（种植床）/ %.1f t/hm²%n",
@@ -363,44 +370,41 @@ class ModelDiagnosticReportTest {
         // 不一致就说明还有未列出的氮去向（或某个量没进收支式），必须当场看见而不是被残差吞掉。
         System.out.printf("  模型自记累计吸氮 %.1f（与上式的差额 %.1f）%n",
                 soil.getNitrogenUptakeKgPerHa(), uptake - soil.getNitrogenUptakeKgPerHa());
-        // 刻意不算"隐含含氮率"：uptake 是 kg/ha，wTotal 的单位（与果实干重同）是每株克数，
+        // 刻意不算"隐含含氮率"：uptake 是 kg/ha，wTotal 的单位（与果实干重同）是 g/m²，
         // 两者相除没有意义。要算需先确定 wTotal 的单位与株数折算——宁可不印，也不印一个读不出的比值。
         if (uptake > 0) {
             System.out.printf("  供氮构成占比：初始 %.1f%% / 矿化 %.1f%% / 施肥 %.1f%%%n",
                     initialN / supply * 100.0, mineralized / supply * 100.0, fertilizerInput / supply * 100.0);
             System.out.printf("  总供氮占带走量的 %.1f%%%n", supply / uptake * 100.0);
         }
-        System.out.println("  判读：总供氮低于带走量时，氮必然在季内见底、养分因子长期钳在下限；"
-                + "远高于带走量时，养分因子长期贴着 1.0。**两种失效都会让氮子系统对产量不产生机制性影响。**"
-                + "当前按需求侧（李书田等 2022，设施番茄 n=703，2.19 kg N/t）与质量平衡反推的矿化量，"
-                + "供氮为需求的约 113%、养分因子落在 0.300~1.000 的**全区间**——机制首次有区分度。"
-                + "仍需实测替换矿化量：质量平衡只保证收支自洽，不保证数值真实。");
+        System.out.printf("  判读：本次养分因子 %.3f~%.3f，总供氮/模型累计吸氮 %.3f。%n",
+                nutrientMin, nutrientMax, soil.getNitrogenUptakeKgPerHa() > 0 ? supply / soil.getNitrogenUptakeKgPerHa() : 0);
+        System.out.println("  矿化与需求参数仍需现场标定；质量平衡只验证计算自洽，不能证明实际吸收或产量准确。");
 
         System.out.println("--- 病虫害 ---");
         System.out.printf("  最大病害伤害因子 %.4f   最大单病严重度 %.4f   最大虫口 %.4f%n",
                 maxDamage, maxSeverity, maxPest);
 
         System.out.println();
-        System.out.println("--- 自证：复现结果必须与评测档 P2 已记录值一致 ---");
-        System.out.printf("  果实干重 %.4f（评测记录 541.9147）%n", crop.getWFruit());
-        System.out.printf("  高温暴露 %d min（评测记录 29505）%n", highTempMinutes);
-        System.out.printf("  病害压力积分 %.1f（评测记录 5526658.5）%n", diseasePressureIntegral);
-        System.out.printf("  利润 %.4f 元（评测记录 863.1635）%n", economics.getProfitYuan());
-
-        // 果实干重 2026-09-26 两度上移：先因补上土壤矿化供氮（258.36→274.23），
-        // 再因把需求侧由「干重×2%/天」换成「目标产量×每吨带走量×逐生育期累积比例」（274.23→541.91）。
-        // 而同日的两处规模修正使**利润由 +8988 转为 -952**：产量面积由棚体占位 500 m² 改为种植床 142.8 m²
-        // （收入缩到 1/3.5），耗能定额由「按 500 m² 温室估」改为按本棚棚体 338 m² 折算（成本同步下降）。
-        // 随后按 2026 年实价替换 ECON_*（水价 3.5→0.8、电价 0.65→0.47、人工 25→12.5、
-        // 肥价 4.5→2.9、A 级果 6→7），利润转正 +948.7；再引入**分时电价**后为 +905.2；
-        // 再引入**超定额累进水价**后为 +863.2。本断言的作用不是"数值不能变"，而是"本测试的循环必须与评测平台
-        // 逐值一致，否则下面打印的内部量不能代表被测模型"——所以模型改了就要两边一起更新，
-        // 而不是把断言放宽。
-        assertEquals(541.9147, crop.getWFruit(), 0.01,
-                "复现失败：本测试的循环与评测平台不一致，下面的内部量不能代表被测模型");
-        assertEquals(29505L, highTempMinutes, "复现失败：高温暴露不一致");
-        assertEquals(5526658.5, diseasePressureIntegral, 1.0, "复现失败：病害压力积分不一致");
-        assertEquals(863.1635, economics.getProfitYuan(), 0.01, "复现失败：利润不一致");
+        // This loop independently reproduces coupling and resource accounting.
+        // Compare with the current public evaluation path at the SAME profile,
+        // seed and duration instead of relabelling a historic four-bed snapshot.
+        PerformanceEvaluationService platform = new PerformanceEvaluationService(new TomatoSimulationEngine(),
+                new TomatoDecisionPolicy(), new TomatoCropGrowthModel(), new SoilWaterNutrientModel(),
+                new PestDiseaseEpidemicModel(), new ManagementEconomicsModel());
+        EvaluationOutcome expected = platform.runBatch("model-diagnostic-equivalence", SEED, DAYS).getOutcomes()
+                .get(EvaluationStrategy.P2_RULE_ENGINE);
+        System.out.println("--- 自证：独立耦合循环与同配置当前P2平台模拟结果逐项一致 ---");
+        System.out.printf("  果实干重 %.4f（当前平台 %.4f）%n", crop.getWFruit(), expected.getWFruit());
+        System.out.printf("  高温暴露 %d min（当前平台 %d）%n", highTempMinutes, expected.getHighTemperatureMinutes());
+        System.out.printf("  病害压力积分 %.4f（当前平台 %.4f）%n", diseasePressureIntegral, expected.getDiseasePressureIntegral());
+        System.out.printf("  利润 %.4f 元（当前平台 %.4f）%n", economics.getProfitYuan(), expected.getProfitYuan());
+        // Only output rounding (four decimal places) is allowed. A coupling or
+        // unit difference must still fail; this is not field-accuracy validation.
+        assertEquals(expected.getWFruit(), crop.getWFruit(), .0001, "独立耦合循环的果实干物质与当前平台不一致");
+        assertEquals(expected.getHighTemperatureMinutes(), highTempMinutes, "独立耦合循环的高温暴露不一致");
+        assertEquals(expected.getDiseasePressureIntegral(), diseasePressureIntegral, .0001, "独立耦合循环的病害压力积分不一致");
+        assertEquals(expected.getProfitYuan(), economics.getProfitYuan(), .0001, "独立耦合循环的利润账本不一致");
     }
 
     private double clamp(double value, double lower, double upper) {

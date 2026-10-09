@@ -5,7 +5,7 @@
 				<p class="eyebrow">AGRICULTURE / LLM AGENT</p>
 				<h2>AI 决策对话</h2>
 				<p class="header-copy">
-					{{ chatScope === 'general' ? '讨论病害、栽培与农事问题。需要时查资料，也能直接解释原理并给出建议。' : '围绕当前大棚交流。读取本轮环境与处置反馈，讨论并执行仿真方案。' }}
+                    {{ chatScope === 'general' ? '讨论病害、栽培与农事问题。需要时查资料，也能直接解释原理并给出建议。' : '围绕当前大棚交流。读取本轮环境与处置反馈，讨论并应用管理方案。' }}
 				</p>
 				<div class="chat-scopes" role="group" aria-label="问答范围">
 					<button :class="{active:chatScope==='general'}" :aria-pressed="chatScope==='general'" :disabled="isRunning" @click="switchChat('general')">普通问答</button>
@@ -84,7 +84,7 @@
 						<span class="vision-text">
 							{{ latestVision.cropType }} · {{ latestVision.detectedLabel }} · 置信度 {{ latestVision.confidence }}
 							<template v-if="latestVision.explainable"> → 知识库《{{ latestVision.kbDiseaseName }}》（{{ latestVision.mappingRule }}）</template>
-							<template v-else> → <b class="vision-gap">知识库暂无对应条目</b></template>
+							<template v-else> → <b class="vision-gap">识别证据待检索核对</b></template>
 						</span>
 						<el-switch v-model="attachVision" size="small" active-text="附带进对话" />
 					</template>
@@ -116,8 +116,8 @@
 			</main>
 
 			<aside class="chat-aside">
-                <section v-if="chatScope==='greenhouse'" class="panel aside-panel greenhouse-context">
-                    <p class="eyebrow">关联大棚</p><h3>{{ simulation ? '当前模拟运行' : '尚未关联运行' }}</h3>
+                <GreenhouseContext v-if="chatScope==='greenhouse'" /><section v-if="chatScope==='greenhouse'" class="panel aside-panel greenhouse-context">
+                    <p class="eyebrow">关联大棚</p><h3>{{ simulation ? '当前大棚状态' : '尚未关联运行' }}</h3>
                     <p class="muted">{{ simulation ? simulation.current.at+' · '+simulation.year+'年 M3参考' : '先开启大棚推演，助手即可读取环境与设备。' }}</p>
                     <template v-if="simulation?.current.scenario">
                         <div class="context-readings"><div><span>温度</span><strong>{{ simulation.current.scenario.environment.temperatureC.toFixed(1) }}<small>°C</small></strong></div><div><span>湿度</span><strong>{{ simulation.current.scenario.environment.airHumidityPct.toFixed(0) }}<small>%</small></strong></div></div>
@@ -125,8 +125,8 @@
                         <p v-if="simulation.current.scenario.decision.plan" class="muted">{{ simulation.current.scenario.decision.plan.summary }}</p>
                     </template>
                     <p v-if="simulationError" class="context-error">{{ simulationError }}</p>
-                    <div class="context-links"><button v-if="simulationId" @click="openSimulation">打开大棚 ↗</button><button @click="autoAssociate=true;refreshSimulation()">刷新关联</button><button v-if="simulationId" @click="unlinkSimulation">解除关联</button></div>
-                    <small class="context-note">M3为历史观测回放；天气和设备响应为模拟。</small>
+                    <div class="context-links"><button v-if="simulationId" @click="openSimulation">打开大棚 ↗</button><button @click="refreshSimulation()">刷新关联</button><button v-if="simulationId" @click="unlinkSimulation">解除关联</button></div>
+                    <details class="context-note"><summary>查看数据来源</summary><p>M3为历史观测回放；天气和设备响应由模型计算。</p></details>
                 </section>
 				<section v-else class="panel aside-panel">
 					<p class="eyebrow">CONVERSATION</p><h3>独立会话</h3>
@@ -183,7 +183,10 @@ import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import AnswerBody from '/@/components/agent/AnswerBody.vue';
-import {getM3Live,type M3LiveRun,type M3LiveFrame} from '/@/api/m3/live';
+import {type M3LiveFrame} from '/@/api/m3/live';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+import {getFarmTask,updateFarmTask,type FarmTask} from '/@/api/agent/tasks';
+import GreenhouseContext from '/@/components/GreenhouseContext.vue';
 import { AgentVisionEvent, getActiveAgentRun, getAgentVisionEvents } from '/@/api/agent';
 import {
 	AgentCitation,
@@ -237,33 +240,58 @@ const router = useRouter();
 const route = useRoute();
 type ChatScope = 'general' | 'greenhouse';
 interface ChatState { sessionId:string; crop:string; draft:string; attachVision:boolean; turns:Turn[]; }
-function createChatState():ChatState { return {sessionId:createSessionId(),crop:'番茄',draft:'',attachVision:false,turns:[]}; }
+const greenhouse=useGreenhouseStore(),independentTask=ref<FarmTask|null>(null);
+function createChatState(key:string):ChatState {
+ const storageKey='agri-chat-session:'+key;
+ const id=sessionStorage.getItem(storageKey)||createSessionId();sessionStorage.setItem(storageKey,id);
+ return {sessionId:id,crop:'番茄',draft:'',attachVision:false,turns:[]};
+}
 const chatScope=ref<ChatScope>(typeof route.query.liveRun==='string'?'greenhouse':'general');
-const chatStates=reactive<Record<ChatScope,ChatState>>({general:createChatState(),greenhouse:createChatState()});
-const simulationId=ref(typeof route.query.liveRun==='string'?route.query.liveRun:(sessionStorage.getItem('m3ActiveRun')||''));
-const simulation=ref<M3LiveRun|null>(null),simulationError=ref(''),selectedTurn=ref('');
-let simulationTimer:ReturnType<typeof setTimeout>|undefined,chatDisposed=false,autoAssociate=true;
+const chatStates=reactive<Record<string,ChatState>>({general:createChatState('general')});
+const simulationId=computed(()=>greenhouse.activeRunId);
+const simulation=computed(()=>chatScope.value==='greenhouse'?greenhouse.run:null),simulationError=computed(()=>greenhouse.error),selectedTurn=ref('');
+const linkedKey=computed(()=> 'greenhouse:'+simulationId.value+':'+(greenhouse.task?.id||route.query.taskId||''));
+const activeChat=computed(()=>{
+ const key=chatScope.value==='general'?'general:'+(!route.query.liveRun&&route.query.taskId?route.query.taskId:'independent'):linkedKey.value;
+ if(!chatStates[key])chatStates[key]=createChatState(key);
+ return chatStates[key];
+});
+let chatDisposed=false,unsubscribe:(()=>void)|undefined;
 async function refreshSimulation(){
  if(chatScope.value!=='greenhouse')return;
- if(!simulationId.value&&autoAssociate)simulationId.value=sessionStorage.getItem('m3ActiveRun')||'';
- if(!simulationId.value)return;
- try{const run=await getM3Live(simulationId.value,true);if(chatDisposed)return;simulation.value=run;simulationError.value='';}
- catch(e){simulationError.value=e instanceof Error?e.message:String(e);}
+ const id=typeof route.query.liveRun==='string'?route.query.liveRun:greenhouse.activeRunId;
+ if(id)await greenhouse.attachRun(id);
+ if(typeof route.query.taskId==='string'&&greenhouse.task?.id!==route.query.taskId)await greenhouse.attachTask(route.query.taskId);
+ restoreTaskConversation();
 }
-function scheduleSimulation(){simulationTimer=setTimeout(async()=>{if(chatDisposed)return;if(simulationId.value)await refreshSimulation();if(!chatDisposed)scheduleSimulation();},3000);}
-function unlinkSimulation(){autoAssociate=false;simulationId.value='';simulation.value=null;simulationError.value='';}
-watch(()=>[route.path,route.query.liveRun] as const,([path,value])=>{
+function restoreTaskConversation(){
+ const saved=chatScope.value==='greenhouse'?greenhouse.task:independentTask.value;
+ if(!saved||activeChat.value.turns.length)return;
+ let pending='';
+ for(const item of saved.turns||[]){
+  if(item.role.toUpperCase()==='USER'){pending=item.content;continue;}
+  if(item.role.toUpperCase()!=='ASSISTANT')continue;
+  activeChat.value.turns.push({id:item.id||'saved-'+activeChat.value.turns.length,question:pending||'已有农情讨论',crop:saved.crop,steps:[],status:'done',answer:item.content,reason:'',citations:(item.sources||[]) as AgentCitation[],segments:buildSegments(item.content),stepCount:0,startedAt:0,elapsedMs:0,stage:'',degraded:false});pending='';
+ }
+ if(!activeChat.value.draft)activeChat.value.draft=saved.question||'';
+}
+function unlinkSimulation(){switchChat('general');void router.replace({path:'/agentChat',query:{}});}
+async function restoreIndependentTask(){
+ independentTask.value=null;
+ if(chatScope.value==='general'&&!route.query.liveRun&&typeof route.query.taskId==='string'){independentTask.value=await getFarmTask(route.query.taskId);restoreTaskConversation();void loadVision();}
+}
+watch(()=>[route.path,route.query.liveRun,route.query.taskId] as const,([path,value])=>{
  if(path!=='/agentChat')return;
- if(typeof value==='string'&&value){if(value!==simulationId.value){autoAssociate=true;simulationId.value=value;simulation.value=null;}switchChat('greenhouse');}
- else switchChat('general');
+ if(typeof value==='string'&&value){switchChat('greenhouse');void refreshSimulation().catch(e=>ElMessage.error(String(e)));}
+ else {switchChat('general');void restoreIndependentTask().catch(e=>ElMessage.error(String(e)));}
 });
 function switchChat(scope:ChatScope){
  if(isRunning.value)return;
  chatScope.value=scope;activeCitation.value=undefined;selectedTurn.value='';
- if(scope==='greenhouse')void refreshSimulation();
+ if(scope==='greenhouse')void refreshSimulation().catch(e=>ElMessage.error(String(e)));
  scrollToBottom();
 }
-function openSimulation(){router.push({path:'/digitalTwin',query:{mode:'m3',liveRun:simulationId.value}});}
+function openSimulation(){router.push({path:'/digitalTwin',query:greenhouse.linkedQuery()});}
 function decisionStatus(s:string){return ({IDLE:'等待事件',NEEDS_DECISION:'待分析',ANALYZING:'AI分析中',OBSERVING:'动作已应用，观察中',PROPOSED:'方案未执行',MITIGATED:'环境风险已缓解',UNRESOLVED:'风险仍存在',BLOCKED:'动作被约束拦截',FAILED:'AI请求失败',STALE:'方案已过期'} as Record<string,string>)[s]||s;}
 function toolLabel(s:string){return ({'knowledge.search':'查询资料','simulation.snapshot':'读取当前大棚','simulation.decide':'制定仿真方案','platform.greenhouseState':'读取温室','vision.explain':'核对识别依据'} as Record<string,string>)[s]||s.replace('knowledge.','资料 · ').replace('platform.','平台 · ');}
 function focusReplyCitation(turn:Turn,index?:number){selectedTurn.value=turn.id;focusCitation(index);}
@@ -283,17 +311,17 @@ const generalPresets=[
 ];
 const presetGroups=computed(()=>chatScope.value==='general'?generalPresets:greenhousePresets);
 
-const crop = computed({get:()=>chatStates[chatScope.value].crop,set:(value:string)=>{chatStates[chatScope.value].crop=value;}});
+const crop = computed({get:()=>activeChat.value.crop,set:(value:string)=>{activeChat.value.crop=value;}});
 /** 当前运行最近一条识别结果；null 表示还没导入。 */
 const latestVision = ref<AgentVisionEvent | null>(null);
 const visionLoading = ref(false);
 /** 是否把识别结果附带进对话。默认关闭——否则用户问别的问题也会被识别结果带偏。 */
-const attachVision = computed({get:()=>chatStates[chatScope.value].attachVision,set:(value:boolean)=>{chatStates[chatScope.value].attachVision=value;}});
-const draft = computed({get:()=>chatStates[chatScope.value].draft,set:(value:string)=>{chatStates[chatScope.value].draft=value;}});
-const turns = computed(()=>chatStates[chatScope.value].turns);
+const attachVision = computed({get:()=>activeChat.value.attachVision,set:(value:boolean)=>{activeChat.value.attachVision=value;}});
+const draft = computed({get:()=>activeChat.value.draft,set:(value:string)=>{activeChat.value.draft=value;}});
+const turns = computed(()=>activeChat.value.turns);
 const streamRef = ref<HTMLElement | null>(null);
 const activeCitation = ref<number | undefined>(undefined);
-const sessionId = computed(()=>chatStates[chatScope.value].sessionId);
+const sessionId = computed(()=>activeChat.value.sessionId);
 const controller = ref<AbortController | null>(null);
 const ticker = ref<number | undefined>(undefined);
 
@@ -487,7 +515,15 @@ const goCoverage = () => router.push('/visionCoverage');
 async function loadVision(): Promise<void> {
 	visionLoading.value = true;
 	try {
-		const run = await getActiveAgentRun();
+        const evidenceTask=chatScope.value==='greenhouse'?greenhouse.task:independentTask.value;
+        if(evidenceTask){
+            const evidence=[...evidenceTask.evidence].reverse().find(e=>e.type==='IMAGE');
+            const details=evidence?.details as Record<string,unknown>|undefined;
+            latestVision.value=evidence?{detectedLabel:evidence.label,cropType:evidenceTask.crop,confidence:String(details?.confidence||'未提供'),explainable:false,observedAt:evidence.createdAt} as AgentVisionEvent:null;
+            return;
+        }
+        if(!route.query.recordId){latestVision.value=null;return;}
+        const run = await getActiveAgentRun();
 		if (!run || run.id === undefined || run.id === null) {
 			latestVision.value = null;
 			return;
@@ -513,7 +549,7 @@ async function loadVision(): Promise<void> {
 function buildVisionQuestion(userQuestion: string, detection: AgentVisionEvent): string {
 	const mapping = detection.explainable
 		? `知识库已核验对应条目《${detection.kbDiseaseName}》（依据：${detection.mappingRule}）`
-		: '知识库中暂无该类别可核对的对应条目';
+		: detection.mappingRule ? '知识库中暂无该类别可核对的对应条目' : '图像结果尚未完成知识依据和田间核对，请按候选证据检索验证';
 	return [
 		'【本次会话附带识别结果】',
 		`作物：${detection.cropType || '未知'}；检测类别：${detection.detectedLabel}；置信度：${detection.confidence ?? '未提供'}；${mapping}。`,
@@ -536,6 +572,14 @@ function askVision(): void {
 async function send(allowSimulationActions = true): Promise<void> {
 	const question = draft.value.trim();
 	if (!question || isRunning.value) return;
+    const linked=chatScope.value==='greenhouse';
+    let taskId:string|undefined;
+    if(linked){
+        if(!greenhouse.run){ElMessage.info('请先接入大棚运行，或切换普通问答');return;}
+        try{taskId=(await greenhouse.ensureTask(question)).id;}catch(e){ElMessage.error(String(e));return;}
+    }else if(independentTask.value){
+        try{independentTask.value=await updateFarmTask(independentTask.value.id,{question});taskId=independentTask.value.id;}catch(e){ElMessage.error(String(e));return;}
+    }
 	draft.value = '';
 	activeCitation.value = undefined;selectedTurn.value='';
 
@@ -578,9 +622,10 @@ async function send(allowSimulationActions = true): Promise<void> {
 
 	try {
 		await streamAgentChat(
-			{ question: requestQuestion, crop: active.crop, sessionId: sessionId.value,simulationRunId:chatScope.value==='greenhouse'?(simulationId.value||undefined):undefined,allowSimulationActions:chatScope.value==='greenhouse'&&allowSimulationActions!==false },
+			{ question: requestQuestion, crop: active.crop, sessionId: sessionId.value,taskId,requestId:crypto.randomUUID(),simulationRunId:linked?(simulationId.value||undefined):undefined,allowSimulationActions:chatScope.value==='greenhouse'&&allowSimulationActions!==false },
 			{
 				onEvent: (event) => {
+                    if(event.type==='taskWarning'){ElMessage.warning(event.message||'回答已完成，但任务保存失败');return;}
                     if(event.type==='context'){active.context=event.data?.snapshot as M3LiveFrame;active.stage='已读取当前大棚，准备回答…';return;}
 					if (event.type === 'step') {
 						active.steps.push(describeStep(event));
@@ -603,7 +648,8 @@ async function send(allowSimulationActions = true): Promise<void> {
 						const finalCitations = readFinalCitations(event);
 						active.citations = finalCitations;
                         if(data.simulationContext)active.context=data.simulationContext as M3LiveFrame;
-                        void refreshSimulation();
+                        if(linked){void greenhouse.refreshRun();void greenhouse.refreshTask().catch(()=>undefined);}
+                        else if(taskId)void getFarmTask(taskId).then(value=>{independentTask.value=value;}).catch(()=>undefined);
 						const reportedCount = Number(data.citationCount);
 						active.stepCount = Number.isFinite(Number(data.steps)) ? Number(data.steps) : active.stepCount;
 						if (!active.citations.length && Number.isFinite(reportedCount) && reportedCount === 0) {
@@ -670,13 +716,14 @@ function applyIncomingQuestion(){
 	}
 }
 watch(()=>[route.path,route.query.crop,route.query.detection,route.query.score],applyIncomingQuestion);
+watch(()=>greenhouse.task?.id,()=>{restoreTaskConversation();void loadVision();});
 onMounted(() => {
 	applyIncomingQuestion();
-	void loadVision();void refreshSimulation();scheduleSimulation();
+	unsubscribe=greenhouse.subscribe();void loadVision();void refreshSimulation().catch(e=>ElMessage.error(String(e)));void restoreIndependentTask().catch(e=>ElMessage.error(String(e)));
 });
 
 onUnmounted(() => {
-    chatDisposed=true;if(simulationTimer)clearTimeout(simulationTimer);
+    chatDisposed=true;unsubscribe?.();
 	if (ticker.value !== undefined) window.clearInterval(ticker.value);
 	if (controller.value) controller.value.abort();
 });

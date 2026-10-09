@@ -1,0 +1,100 @@
+<template>
+ <aside class="farm-task-workbench" aria-label="农情任务与决策助手">
+  <header><div><span class="caption">同一农情 · 持续跟进</span><h2>{{ greenhouse.task?.title || '番茄农情管理' }}</h2></div><button class="report-button" :disabled="!greenhouse.task||reporting" @click="exportReport">{{ reporting?'生成中':'导出报告' }}</button></header>
+  <nav aria-label="农情工作面板"><button v-for="item in tabs" :key="item.value" :class="{active:tab===item.value}" @click="tab=item.value">{{ item.label }}<small v-if="item.value==='evidence'&&greenhouse.task?.evidence.length">{{ greenhouse.task.evidence.length }}</small></button></nav>
+  <div v-if="error||greenhouse.error" class="error" role="status">{{ error||greenhouse.error }} <button @click="reconnect">重新连接</button></div>
+  <section v-if="tab==='chat'" class="conversation">
+   <div v-if="!greenhouse.task?.turns.length&&!sending" class="welcome"><h3>把农情说清楚，一起判断怎样管理</h3><p>助手结合这座大棚的当前状态和你上传的证据，解释措施的作用、代价与复查条件。</p><button @click="draft='番茄连续阴雨、叶片有斑，接下来怎样管理？'">连续阴雨、叶片有斑</button><button @click="draft='请分析当前根区水分，是否需要调整滴灌？'">查看根区水分与滴灌</button></div>
+   <article v-for="turn in greenhouse.task?.turns||[]" :key="turn.id" :class="{user:turn.role==='USER'}"><div class="turn-heading"><span>{{ turn.role==='USER'?'我的农情':'决策助手' }}</span><time>{{ turn.createdAt?.slice(11,16) }}</time></div><p v-if="turn.role==='USER'">{{ turn.content }}</p><AnswerBody v-else :text="turn.content" :citations="turn.sources||[]" @cite="openSource" /></article>
+   <article v-if="sending&&!greenhouse.task?.turns.some(t=>t.content===pendingQuestion&&t.role==='USER')" class="user"><div class="turn-heading"><span>我的农情</span></div><p>{{ pendingQuestion }}</p></article>
+   <article v-if="sending" class="live-answer"><div class="turn-heading"><span>决策助手</span><span class="stage">{{ stage }}</span></div><AnswerBody v-if="liveAnswer" :text="liveAnswer" :citations="liveSources" @cite="openSource" /><p v-else class="muted">正在读取农情与当前模型状态…</p><button class="text-button" @click="stopAnswer">停止回答</button></article>
+   <article v-if="!sending&&liveAnswer&&!greenhouse.task?.turns.some(t=>t.role==='ASSISTANT'&&t.content===liveAnswer)" class="live-answer"><div class="turn-heading"><span>本次回答</span><span>尚未归档</span></div><AnswerBody :text="liveAnswer" :citations="liveSources" @cite="openSource" /></article>
+   <div v-if="greenhouse.task?.turns.some(t=>t.role==='ASSISTANT'&&t.status==='DONE')" class="apply-followup"><button :disabled="sending||applying||greenhouse.run?.current.scenario?.pending||!greenhouse.run||greenhouse.run.finished" @click="applyTaskDecision">{{ applying?'提交中':'评估并应用虚拟设备方案' }}</button><p class="muted">沿用本任务的图片、农情和复查记录。AI重新核对当前环境后应用允许的设备动作；病叶检查仍需人工处理。</p></div>
+   <p v-if="greenhouse.run?.current.scenario?.pending" class="notice">虚拟设备方案正在分析。完成后可在“事件”中查看回执与反馈。</p>
+  </section>
+  <section v-else-if="tab==='evidence'" class="evidence-panel">
+   <p class="muted">图片、文字和表格保存在同一任务中，后续问答与计划沿用这些信息。</p>
+   <div class="input-actions"><button @click="imageDialog=true">上传病叶并识别</button><button :disabled="uploading" @click="csvInput?.click()">{{ uploading?'解析中':'导入农情 CSV' }}</button><input ref="csvInput" type="file" accept=".csv,text/csv" hidden @change="importCsv" /></div>
+   <textarea v-model="note" rows="3" maxlength="4000" placeholder="补充生育期、叶片症状、检查位置或管理记录" aria-label="补充农情"></textarea><button class="primary" :disabled="!note.trim()||uploading" @click="saveNote">保存农情</button>
+   <article v-for="item in greenhouse.task?.evidence||[]" :key="item.id" class="evidence-item"><img v-if="imageSrc(item.imageUrl)" :src="imageSrc(item.imageUrl)" :alt="item.label" loading="lazy" /><h3>{{ item.label }}</h3><p>{{ item.source }}</p><details v-if="item.details"><summary>查看原始信息</summary><pre>{{ typeof item.details==='string'?item.details:JSON.stringify(item.details,null,2) }}</pre></details></article>
+   <p v-if="!greenhouse.task?.evidence.length" class="empty">尚未上传观察证据。</p>
+  </section>
+  <section v-else-if="tab==='actions'" class="action-panel">
+   <div class="input-actions"><button @click="openPlan">生成关联农事计划 ↗</button><button @click="greenhouse.refreshTask()">刷新记录</button></div><p class="muted">设备以模型回执确认应用；巡查与复查由你登记。</p>
+   <div class="manual-action"><input v-model="actionTitle" maxlength="160" placeholder="增加一项人工检查或管理事项" aria-label="人工事项" /><button :disabled="!actionTitle.trim()" @click="addManualAction">添加</button></div>
+   <article v-for="action in greenhouse.task?.actions||[]" :key="action.id" class="action-item"><div><h3>{{ action.title }}</h3><span class="action-status">{{ statusLabel(action.status) }}</span></div><p v-if="action.detail">{{ action.detail }}</p><p v-if="action.reviewCondition" class="muted">复查：{{ action.reviewCondition }}</p><div v-if="action.type==='HUMAN'" class="input-actions"><button :disabled="['RECORDED','REVIEWED'].includes(action.status)" @click="markAction(action.id,'RECORDED')">登记已处理</button><button :disabled="action.status==='REVIEWED'" @click="markAction(action.id,'REVIEWED')">登记已复查</button></div></article>
+   <section class="review-form"><h3>记录现场复查</h3><p class="muted">填写实际看到的变化。模型显示的风险下降不能替代病叶检查。</p><select v-model="reviewAction" aria-label="关联复查事项"><option value="">本次农情整体复查</option><option v-for="action in greenhouse.task?.actions||[]" :key="action.id" :value="action.id">{{ action.title }}</option></select><textarea v-model="reviewNote" rows="3" maxlength="6000" placeholder="例如：下层叶是否出现新斑，滴头是否出水，根区是否仍积水…" aria-label="现场复查结果"></textarea><button class="primary" :disabled="reviewSaving||!reviewNote.trim()" @click="saveReview">{{ reviewSaving?'保存中':'保存复查结果' }}</button><article v-for="(observation,i) in observations" :key="observation.id||i" class="review-record"><time>{{ observation.recordedAt?.slice(5,16).replace('T',' ') }}</time><p>{{ observation.note }}</p><small>人工登记</small></article></section>
+   <details v-if="greenhouse.run?.current.scenario?.timeline.length" open class="timeline"><summary>大棚处理过程</summary><ol><li v-for="(event,i) in greenhouse.run.current.scenario.timeline.slice(-12).reverse()" :key="event.at+event.type+i"><time>{{ event.at.slice(5,16).replace('T',' ') }}</time><span>{{ event.message }}</span></li></ol></details>
+  </section>
+  <section v-else class="events-panel"><ScenarioPanel v-if="greenhouse.run?.current.scenario" :run="greenhouse.run" inline @change="acceptSnapshot" /><p v-else class="empty">开始接入后可以触发天气事件、查看AI处置与设备反馈。</p></section>
+  <footer v-if="tab==='chat'" class="composer"><textarea v-model="draft" rows="3" maxlength="6000" placeholder="描述当前问题，或追问某项措施的作用…" aria-label="向决策助手提问" @keydown.ctrl.enter.prevent="sendQuestion()"></textarea><div><span>关联当前大棚 · Ctrl + Enter</span><button class="primary" :disabled="sending||!draft.trim()||!greenhouse.run" @click="sendQuestion()">发送</button></div></footer>
+  <el-dialog v-model="imageDialog" title="病叶识别与证据录入" width="88%" destroy-on-close append-to-body><ImgPredict embedded @evidence="onImageHandoff" @handoff="onImageHandoff" /><template #footer><span class="muted">识别结果保存后将回到同一任务。</span><el-button @click="imageDialog=false">返回大棚</el-button></template></el-dialog>
+  <el-dialog v-model="csvDialog" title="核对农情表格" width="640px" append-to-body><template v-if="csvDraft"><p>已读取 {{ csvDraft.dataRowCount||0 }} 行；这些内容为上传的农情，尚未作为实测接入模型。</p><ul><li v-for="field in csvDraft.fields" :key="field.key">{{ field.label }}：{{ field.value }} {{ field.unit||'' }}</li></ul><p v-if="csvDraft.unrecognizedColumns?.length" class="error">未识别列：{{ csvDraft.unrecognizedColumns.join('、') }}</p><p v-if="csvDraft.conflicts.length" class="error">{{ csvDraft.conflicts.join('；') }}</p></template><template #footer><el-button @click="csvDialog=false">取消</el-button><el-button type="primary" :disabled="!csvDraft||!!csvDraft.conflicts.length" @click="saveCsv">确认作为任务证据</el-button></template></el-dialog>
+ </aside>
+</template>
+<script setup lang="ts">
+import {computed,onBeforeUnmount,onMounted,ref,watch} from 'vue';
+import {useRouter} from 'vue-router';
+import {useGreenhouseStore} from '/@/stores/greenhouse';
+import {streamAgentChat,readFinalCitations,type AgentCitation} from '/@/api/agent/chat';
+import {downloadFarmTaskReport} from '/@/api/agent/tasks';
+import {uploadSituation,type SituationDraft} from '/@/api/agent/plan';
+import {commandM3Scenario,type M3LiveRun} from '/@/api/m3/live';
+import AnswerBody from '/@/components/agent/AnswerBody.vue';
+import ImgPredict from '../../imgPredict/index.vue';
+import ScenarioPanel from './ScenarioPanel.vue';
+const greenhouse=useGreenhouseStore(),router=useRouter();
+const props=defineProps<{autoTakeover?:boolean}>();
+const emit=defineEmits<{(e:'change',run:M3LiveRun):void}>();
+const tabs=[{value:'chat',label:'助手'},{value:'evidence',label:'农情证据'},{value:'actions',label:'行动与复查'},{value:'events',label:'事件'}];
+const tab=ref('chat'),draft=ref(''),pendingQuestion=ref(''),note=ref(''),error=ref(''),stage=ref(''),liveAnswer=ref(''),liveSources=ref<AgentCitation[]>([]),sending=ref(false),reporting=ref(false),uploading=ref(false),actionTitle=ref('');
+const reviewNote=ref(''),reviewAction=ref(''),reviewSaving=ref(false);
+const applying=ref(false);
+const observations=computed(()=>(greenhouse.task?.observations||[]) as {id?:string,note?:string,recordedAt?:string}[]);
+const imageDialog=ref(false),csvDialog=ref(false),csvInput=ref<HTMLInputElement>(),csvDraft=ref<SituationDraft|null>(null);
+watch(()=>props.autoTakeover,active=>{if(active)tab.value='events';},{immediate:true});
+let abort:AbortController|undefined,unsubscribe:(()=>void)|undefined;
+const message=(e:unknown)=>e instanceof Error?e.message:String(e);
+const requestId=()=>globalThis.crypto?.randomUUID?.()||'turn-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+const statusLabel=(s:string)=>({PROPOSED:'待处理',PENDING:'待处理',APPLIED_SIMULATION:'已应用于仿真',RECORDED:'已登记处理',REVIEWED:'已登记复查',BLOCKED:'应用受阻'} as Record<string,string>)[s]||s;
+function imageSrc(value?:string){if(!value)return undefined;if(value.startsWith('/')&&!value.startsWith('//'))return value;try{const u=new URL(value);return ['http:','https:'].includes(u.protocol)?u.href:undefined;}catch{return undefined;}}
+function openSource(){void router.push({path:'/referenceLibrary',query:greenhouse.linkedQuery()});}
+async function sendQuestion(){
+ const question=draft.value.trim();if(!question||sending.value||!greenhouse.run)return;
+ const runId=greenhouse.run.runId,id=requestId();sending.value=true;error.value='';liveAnswer.value='';liveSources.value=[];stage.value='读取农情';abort=new AbortController();
+ try{
+  const task=await greenhouse.ensureTask(question);
+  pendingQuestion.value=question;draft.value='';
+  let completed=false,fatal='';
+  await streamAgentChat({question,crop:task.crop,sessionId:'farm:'+task.id,simulationRunId:runId,taskId:task.id,requestId:id,allowSimulationActions:false},{
+   onEvent(event){if(event.type==='step'||event.type==='context')stage.value=event.message||'分析当前条件';if(event.type==='taskWarning')error.value=event.message||'回答已生成，但任务档案保存失败。';if(event.type==='delta')liveAnswer.value+=event.message||String(event.data?.text||'');if(event.type==='final'){completed=true;liveAnswer.value=event.message||liveAnswer.value;liveSources.value=readFinalCitations(event);stage.value='回答完成';if(event.data?.taskWarning)error.value=String(event.data.taskWarning);}},
+   onFatal(value){fatal=value;},onClosed(){}
+  },abort.signal);
+  if(fatal)throw new Error(fatal);if(!completed)throw new Error('回答中断，尚未得到完整结论，请重试。');
+  if(greenhouse.run?.runId!==runId||greenhouse.task?.id!==task.id)throw new Error('任务已切换，当前回答未写入新的任务。');
+  await greenhouse.refreshTask();await greenhouse.refreshRun();
+ }catch(e){error.value=abort?.signal.aborted?'回答已停止。已有虚拟设备应用请查看事件回执。':message(e);}
+ finally{sending.value=false;stage.value='';abort=undefined;}
+}
+function stopAnswer(){abort?.abort();}
+async function applyTaskDecision(){if(!greenhouse.run||applying.value)return;const runId=greenhouse.run.runId;applying.value=true;try{const task=await greenhouse.ensureTask();const value=await commandM3Scenario(runId,'decide',{question:task.question||'请结合当前农情证据和复查记录评估管理措施，应用允许的虚拟设备方案',apply:true,taskId:task.id});if(greenhouse.activeRunId!==runId)return;acceptSnapshot(value);tab.value='events';error.value='';}catch(e){error.value=message(e);}finally{applying.value=false;}}
+async function saveNote(){try{await greenhouse.ensureTask();await greenhouse.addEvidence({type:'TEXT',label:'现场描述',source:'人工录入',details:note.value.trim()});note.value='';error.value='';}catch(e){error.value=message(e);}}
+async function importCsv(event:Event){const input=event.target as HTMLInputElement,file=input.files?.[0];if(!file)return;uploading.value=true;error.value='';try{csvDraft.value=await uploadSituation(file);csvDialog.value=true;}catch(e){error.value=message(e);}finally{input.value='';uploading.value=false;}}
+async function saveCsv(){if(!csvDraft.value)return;try{await greenhouse.addEvidence({type:'CSV',label:'农情表格',source:'用户上传，已核对',details:csvDraft.value});csvDialog.value=false;tab.value='evidence';}catch(e){error.value=message(e);}}
+function onImageHandoff(){imageDialog.value=false;tab.value='chat';draft.value='请结合刚上传的图像候选、症状证据和当前大棚状态，解释可能原因并给出管理与复查建议。';void greenhouse.refreshTask();}
+async function addManualAction(){try{await greenhouse.addAction({type:'HUMAN',title:actionTitle.value.trim(),status:'PROPOSED',source:'人工新增'});actionTitle.value='';}catch(e){error.value=message(e);}}
+async function markAction(id:string|undefined,status:string){if(!id)return;try{await greenhouse.setActionStatus(id,status);}catch(e){error.value=message(e);}}
+async function saveReview(){if(!reviewNote.value.trim()||reviewSaving.value)return;reviewSaving.value=true;try{await greenhouse.addObservation({id:requestId(),note:reviewNote.value.trim(),actionId:reviewAction.value||undefined,modelAt:greenhouse.run?.current.at});reviewNote.value='';error.value='';}catch(e){error.value=message(e);}finally{reviewSaving.value=false;}}
+function openPlan(){void router.push({path:'/agentSimulation',query:greenhouse.linkedQuery()});}
+function acceptSnapshot(value:M3LiveRun){greenhouse.acceptRun(value);emit('change',value);}
+async function exportReport(){if(!greenhouse.task)return;reporting.value=true;try{await downloadFarmTaskReport(greenhouse.task.id);}catch(e){error.value=message(e);}finally{reporting.value=false;}}
+async function reconnect(){try{await greenhouse.refreshRun();await greenhouse.ensureTask();error.value='';}catch(e){error.value=message(e);}}
+onMounted(()=>{unsubscribe=greenhouse.subscribe();void greenhouse.ensureTask().catch(e=>{error.value=message(e);});});
+onBeforeUnmount(()=>{abort?.abort();unsubscribe?.();});
+</script>
+<style scoped>
+.farm-task-workbench{position:absolute;right:20px;top:112px;bottom:96px;width:366px;display:flex;flex-direction:column;z-index:13;box-sizing:border-box;background:rgba(252,251,242,.98);border:1px solid #dddfcf;color:#42543c;pointer-events:auto}.farm-task-workbench>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:19px 20px 16px}.caption{font-size:11px;color:#8b947c;letter-spacing:.5px}.farm-task-workbench h2{font-size:20px;font-weight:500;margin:7px 0 0;line-height:1.4}.farm-task-workbench button{font:inherit;font-size:12px;border:1px solid #dce2d1;padding:7px 10px;background:#f7f8ef;color:#607b50;cursor:pointer}.farm-task-workbench button:disabled{opacity:.45;cursor:default}.farm-task-workbench .report-button{font-size:11px;white-space:nowrap}.farm-task-workbench>nav{display:flex;border-top:1px solid #e1e4d6;border-bottom:1px solid #e1e4d6;padding:0 12px}.farm-task-workbench>nav button{flex:1;border:0;border-bottom:2px solid transparent;background:none;padding:12px 2px;color:#89957d;font-size:12px;white-space:nowrap}.farm-task-workbench>nav button.active{border-bottom-color:#6f895a;color:#486b3d}.farm-task-workbench nav small{margin-left:4px;font-size:10px}.conversation,.evidence-panel,.action-panel,.events-panel{overflow:auto;flex:1;scrollbar-width:thin;padding:18px 20px;min-height:0}.events-panel{padding:0 16px 16px}.welcome h3{font-size:16px;font-weight:500;line-height:1.65;margin:0}.welcome p,.muted,.notice{font-size:12px;line-height:1.8;color:#879479}.welcome button{display:block;margin:12px 0;background:#edf1e3}.conversation article{padding:17px 0;border-bottom:1px solid #e6e9dc}.turn-heading{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#8d987e;margin-bottom:9px}.conversation article.user{padding:13px 14px;margin:9px 0;background:#eaf0e0;border:0}.conversation article.user p{font-size:13px;line-height:1.8;margin:0;white-space:pre-wrap}.conversation :deep(.answer-body){font-size:13px;line-height:1.9}.stage{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.error{margin:10px 14px 0;padding:9px 11px;color:#986c48;background:#f3e9dc;font-size:12px;line-height:1.7}.composer{border-top:1px solid #e0e4d4;padding:12px 16px 15px}.composer textarea,.evidence-panel textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:66px;border:1px solid #d9dfce;padding:10px 11px;background:#fffdf5;color:#45563e;font:inherit;font-size:13px;line-height:1.6}.composer>div{display:flex;align-items:center;justify-content:space-between;margin-top:8px}.composer span{font-size:10px;color:#99a18b}.farm-task-workbench .primary{background:#637f50;color:#fff;border-color:#637f50}.input-actions{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.evidence-panel>.primary{margin-top:8px}.evidence-item,.action-item{padding:16px 0;border-bottom:1px solid #e4e8d9}.evidence-item h3,.action-item h3{font-size:13px;font-weight:500;margin:0;line-height:1.7}.evidence-item>p,.action-item>p{font-size:12px;line-height:1.8;color:#8a967b}.evidence-item img{width:100%;max-height:150px;object-fit:contain;background:#e9eddf;margin-bottom:10px}.evidence-item details{font-size:11px;color:#8b967d}.evidence-item pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;line-height:1.7}.manual-action{display:flex;gap:6px}.manual-action input{flex:1;min-width:0;padding:8px;border:1px solid #dce2d1;background:#fffdf5;font:inherit;font-size:12px;color:#4e6642}.action-item>div:first-child{display:flex;justify-content:space-between;gap:10px}.action-status{white-space:nowrap;font-size:10px;color:#87977a}.timeline{font-size:12px;color:#6f8162;margin-top:17px}.timeline ol{padding:0;list-style:none}.timeline li{font-size:11px;padding:8px 0;line-height:1.8;border-bottom:1px solid #e8ebdf}.timeline time{display:block;font-variant-numeric:tabular-nums;color:#9aa388}.empty{font-size:12px;line-height:1.8;color:#8f9b83;padding:15px 0}.farm-task-workbench .text-button{background:none;border:0;font-size:11px;padding:5px 0}.farm-task-workbench button:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid #72955e;outline-offset:2px}@media(max-width:1150px){.farm-task-workbench{right:12px;width:330px}.conversation,.evidence-panel,.action-panel{padding:16px}.farm-task-workbench>header{padding:16px}.farm-task-workbench h2{font-size:18px}}
+.review-form{margin-top:18px;padding-top:17px;border-top:1px solid #dce2d1}.review-form h3{font-size:14px;font-weight:500;margin:0}.review-form select,.review-form textarea{width:100%;box-sizing:border-box;padding:9px 10px;border:1px solid #d9dfce;background:#fffdf5;color:#45563e;font:inherit;font-size:12px;line-height:1.7;margin-bottom:8px}.review-form textarea{resize:vertical}.review-record{font-size:12px;padding:12px 0;border-bottom:1px solid #e5e8da}.review-record p{white-space:pre-wrap;line-height:1.8;margin:6px 0}.review-record time,.review-record small{font-size:10px;color:#929b85}
+.apply-followup{padding-top:17px}.apply-followup>button{width:100%;background:#e6eddc;border-color:#d3ddc7;color:#4f7141}
+@media(max-height:800px){.farm-task-workbench>header{padding:13px 16px 12px}.farm-task-workbench h2{font-size:18px;margin-top:4px}.farm-task-workbench>nav button{padding:9px 2px}.composer{padding:9px 14px 11px}.composer textarea{min-height:48px;height:52px;resize:none}.conversation{padding:14px 16px}.welcome h3{font-size:14px}.welcome p{margin:9px 0}.welcome button{margin:9px 0}}
+</style>
