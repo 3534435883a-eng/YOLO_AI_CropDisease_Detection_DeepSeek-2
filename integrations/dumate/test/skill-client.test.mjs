@@ -83,4 +83,9 @@ test('report keeps exact metrics and separates business/all-seven rankings', asy
   assert.deepEqual(rendered.leaders.highestCost.strategies, ['P6_PID_FULL']);
   assert.match(rendered.markdown, /仍有1456元模型成本/);
   assert.match(rendered.markdown, /七组模拟利润均为负值/);
+  assert.match(rendered.html, /<head>.*<\/head><body>.*<\/body><\/html>/s);
+  for (const format of [rendered.markdown, rendered.html]) {
+    assert.match(format, /执行方式：本机 HTTP 调用/);
+    assert.match(format, /不声称已创建 Workflow、公开发布或完成实棚验证/);
+  }
 });

@@ -76,3 +76,5 @@ seed=20250419，days=56。场景=REFERENCE_ONLY_NOT_USER_CONDITIONED。
 上游报告摘要：bdffb543f5b24adfb548c701ab073847421f3465b7f8ebc2b13b05f748e97003
 
 本文件由客户端依据实际工具响应排版；原始JSON另行保存。没有实棚验证。
+
+执行方式：本机 HTTP 调用（客户端 → 农业适配层 → 原农业后端）。本报告不声称已创建 Workflow、公开发布或完成实棚验证。
