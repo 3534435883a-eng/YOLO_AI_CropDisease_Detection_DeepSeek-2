@@ -1,0 +1,1168 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DuMate Agricultural Research Adapter",
+    "version": "0.1.0",
+    "description": "仅三能力；固定参考仿真、用户草稿需复核、无实棚验证。不会暴露原用户/文件/设备接口。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:9998",
+      "description": "本机联调；云端节点需管理员配置HTTPS地址"
+    }
+  ],
+  "security": [
+    {
+      "adapterBearer": []
+    }
+  ],
+  "paths": {
+    "/v1/agri/analyze": {
+      "post": {
+        "operationId": "agri_analyze",
+        "summary": "agri.analyze",
+        "tags": [
+          "农业研究与虚拟仿真"
+        ],
+        "description": "仅农业研究；不操作真实设备。",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,80}$"
+            },
+            "description": "同一请求重复提交复用原键；不确定POST禁止自动换键重试。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "text"
+                ],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 6000
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "实际工具结果或存档复用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "requestId",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AnalyzeResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "失败；HTTP 400，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "失败；HTTP 401，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "失败；HTTP 404，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "失败；HTTP 405，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "失败；HTTP 409，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "失败；HTTP 410，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "失败；HTTP 413，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "失败；HTTP 415，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "失败；HTTP 422，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "失败；HTTP 429，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "失败；HTTP 500，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "失败；HTTP 502，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "失败；HTTP 503，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "失败；HTTP 504，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agri/evaluate": {
+      "post": {
+        "operationId": "agri_evaluate",
+        "summary": "agri.evaluate",
+        "tags": [
+          "农业研究与虚拟仿真"
+        ],
+        "description": "固定番茄参考场景P0–P6对照；不使用解析农情作为初始条件。",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,80}$"
+            },
+            "description": "同一请求重复提交复用原键；不确定POST禁止自动换键重试。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "analysisId",
+                  "acknowledgeReferenceScenario"
+                ],
+                "properties": {
+                  "analysisId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "acknowledgeReferenceScenario": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  },
+                  "seed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647,
+                    "default": 20250419
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 56,
+                    "default": 56
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "实际工具结果或存档复用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "requestId",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/EvaluateResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "失败；HTTP 400，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "失败；HTTP 401，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "失败；HTTP 404，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "失败；HTTP 405，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "失败；HTTP 409，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "失败；HTTP 410，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "失败；HTTP 413，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "失败；HTTP 415，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "失败；HTTP 422，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "失败；HTTP 429，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "失败；HTTP 500，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "失败；HTTP 502，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "失败；HTTP 503，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "失败；HTTP 504，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agri/report": {
+      "post": {
+        "operationId": "agri_report",
+        "summary": "agri.report",
+        "tags": [
+          "农业研究与虚拟仿真"
+        ],
+        "description": "仅农业研究；不操作真实设备。",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{8,80}$"
+            },
+            "description": "同一请求重复提交复用原键；不确定POST禁止自动换键重试。"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "analysisId",
+                  "evaluationId"
+                ],
+                "properties": {
+                  "analysisId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  },
+                  "evaluationId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "实际工具结果或存档复用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "ok",
+                    "requestId",
+                    "data"
+                  ],
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ReportResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "失败；HTTP 400，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "失败；HTTP 401，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "失败；HTTP 404，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "失败；HTTP 405，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "失败；HTTP 409，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "失败；HTTP 410，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "失败；HTTP 413，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "失败；HTTP 415，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "失败；HTTP 422，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "失败；HTTP 429，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "失败；HTTP 500，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "失败；HTTP 502，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "失败；HTTP 503，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "失败；HTTP 504，见error.code；上游POST超时结果可能不确定",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "adapterBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "管理员设置DUMATE_TOKEN；不是原后端用户令牌"
+      }
+    },
+    "schemas": {
+      "Trace": {
+        "type": "object",
+        "required": [
+          "evidenceId",
+          "inputSha256",
+          "calls"
+        ],
+        "properties": {
+          "evidenceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "inputSha256": {
+            "type": "string"
+          },
+          "calls": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string"
+                },
+                "method": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "requestedAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "elapsedMs": {
+                  "type": "integer"
+                },
+                "requestSha256": {
+                  "type": "string"
+                },
+                "responseSha256": {
+                  "type": "string"
+                },
+                "resultCode": {
+                  "type": "string"
+                },
+                "errorCode": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Matrix": {
+        "type": "object",
+        "required": [
+          "P0_NONE",
+          "P1_FIXED_MANUAL",
+          "P2_RULE_ENGINE",
+          "P3_AGENT",
+          "P4_PID_PROPORTIONAL",
+          "P5_PID_PI",
+          "P6_PID_FULL"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "P0_NONE": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P1_FIXED_MANUAL": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P2_RULE_ENGINE": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P3_AGENT": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P4_PID_PROPORTIONAL": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P5_PID_PI": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "P6_PID_FULL": {
+            "$ref": "#/components/schemas/Metrics"
+          }
+        }
+      },
+      "Metrics": {
+        "type": "object",
+        "required": [
+          "marketableYieldKg",
+          "waterUsedM3",
+          "energyKWh",
+          "costYuan",
+          "profitYuan",
+          "highTemperatureMinutes",
+          "highHumidityMinutes",
+          "diseasePressureIntegral",
+          "constraintViolations",
+          "finalSeverityTotal"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "marketableYieldKg": {
+            "type": "number",
+            "description": "模型指标；单位：kg"
+          },
+          "waterUsedM3": {
+            "type": "number",
+            "description": "模型指标；单位：m³"
+          },
+          "energyKWh": {
+            "type": "number",
+            "description": "模型指标；单位：kWh"
+          },
+          "costYuan": {
+            "type": "number",
+            "description": "模型指标；单位：元"
+          },
+          "profitYuan": {
+            "type": "number",
+            "description": "模型指标；单位：元"
+          },
+          "highTemperatureMinutes": {
+            "type": "number",
+            "description": "模型指标；单位：分钟"
+          },
+          "highHumidityMinutes": {
+            "type": "number",
+            "description": "模型指标；单位：分钟"
+          },
+          "diseasePressureIntegral": {
+            "type": "number",
+            "description": "模型指标；单位：模型积分"
+          },
+          "constraintViolations": {
+            "type": "number",
+            "description": "模型指标；单位：次"
+          },
+          "finalSeverityTotal": {
+            "type": "number",
+            "description": "模型指标；单位：模型严重度"
+          }
+        }
+      },
+      "AnalyzeResult": {
+        "type": "object",
+        "required": [
+          "analysisId",
+          "draft",
+          "riskClues",
+          "requiresHumanReview",
+          "trace",
+          "boundaries",
+          "resultSha256"
+        ],
+        "properties": {
+          "boundaries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/Trace"
+          },
+          "resultSha256": {
+            "type": "string"
+          },
+          "analysisId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "draft": {
+            "type": "object",
+            "properties": {
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "key",
+                    "value",
+                    "rawText"
+                  ],
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "oneOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        }
+                      ]
+                    },
+                    "rawText": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "unit": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "source": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "conflicts": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "notes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "riskClues": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "environment": {
+            "type": "object",
+            "nullable": true
+          },
+          "knowledge": {
+            "type": "object",
+            "nullable": true
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "requiresHumanReview": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        }
+      },
+      "EvaluateResult": {
+        "type": "object",
+        "required": [
+          "evaluationId",
+          "analysisId",
+          "batchId",
+          "seed",
+          "days",
+          "profile",
+          "outcomes",
+          "scenarioBinding",
+          "trace",
+          "boundaries",
+          "resultSha256"
+        ],
+        "properties": {
+          "boundaries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/Trace"
+          },
+          "resultSha256": {
+            "type": "string"
+          },
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "analysisId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "batchId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "default": 20250419
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 56,
+            "default": 56
+          },
+          "elapsedMillis": {
+            "type": "integer"
+          },
+          "profile": {
+            "type": "object",
+            "description": "原参考场景元数据；sourceStatus=SIMULATED_UNCALIBRATED"
+          },
+          "labels": {
+            "type": "object"
+          },
+          "units": {
+            "type": "object"
+          },
+          "outcomes": {
+            "$ref": "#/components/schemas/Matrix"
+          },
+          "scenarioBinding": {
+            "type": "string",
+            "enum": [
+              "REFERENCE_ONLY_NOT_USER_CONDITIONED"
+            ]
+          }
+        }
+      },
+      "ReportResult": {
+        "type": "object",
+        "required": [
+          "reportId",
+          "analysisId",
+          "evaluationId",
+          "matrix",
+          "humanReview",
+          "evidence",
+          "boundaries",
+          "markdown",
+          "resultSha256"
+        ],
+        "properties": {
+          "boundaries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "trace": {
+            "$ref": "#/components/schemas/Trace"
+          },
+          "resultSha256": {
+            "type": "string"
+          },
+          "reportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "analysisId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "matrix": {
+            "$ref": "#/components/schemas/Matrix"
+          },
+          "experiment": {
+            "type": "object"
+          },
+          "leaders": {
+            "type": "object"
+          },
+          "comparisonToRule": {
+            "$ref": "#/components/schemas/Matrix"
+          },
+          "tradeoffExplanation": {
+            "type": "string"
+          },
+          "economicCaveat": {
+            "type": "string"
+          },
+          "humanReview": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Trace"
+            }
+          },
+          "markdown": {
+            "type": "string"
+          },
+          "reportMethod": {
+            "type": "string",
+            "enum": [
+              "DETERMINISTIC_TOOL_RESULTS_TEMPLATE"
+            ]
+          },
+          "fieldValidation": {
+            "type": "string",
+            "enum": [
+              "NOT_PERFORMED"
+            ]
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "ok",
+          "requestId",
+          "status",
+          "error"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "requestId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "retryable"
+            ],
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "StartCode": "0",
+  "RunId": "46fae4d1-a05b-45be-9d12-dd5f0bdc9165",
+  "Year": 2025,
+  "Cursor": 0,
+  "ScenarioCode": "0",
+  "CurrentCode": "0",
+  "ParameterVersion": "m3-cross-year-2026-10-02T12-01-49.808-a1e148ee",
+  "ObservationSource": "HISTORICAL_REPLAY",
+  "DeviceResponse": "MODEL_SIMULATION",
+  "Operation": "configure",
+  "AutoEvents": false,
+  "AutoActuation": false,
+  "ObservationsSha256": "49423e611242cf219186c6d1196c81eaaf21116afd3536238b6b6c15b00d2dd7",
+  "Source": "M3_HISTORICAL_STREAM",
+  "IndependentlyValidated": false,
+  "VerifiedAtUtc": "2026-10-14T10:57:28.5127167Z"
+}

@@ -1,0 +1,57 @@
+# DuMate 农业研究集成实施清单
+
+**Goal:** 在新分支新增独立适配服务，复用现有农业解析和P0–P6仿真，交付可审核PR。
+
+**Architecture:** 独立Node HTTP服务通过固定路径访问原Spring Boot。文件证据仅保存在适配层私有状态目录；报告按存档结果生成，不接收调用方指标。原业务源码、配置、知识库及UI全部保留。
+
+**Tech Stack:** Node >=22，内置HTTP、fetch、crypto、fs、node:test；零第三方依赖。
+
+**Spec:** [接口审计及设计](findings.md)。用户已授权先建分支、列清单后直接实施、测试、提交PR；不另行设置设计审批关卡。
+
+## 全局约束
+
+- 分支 `feat/dumate-ican-minimal`，基线 `57b6d21de9cb0933a6cd68df88c356f378fa2ff2`，不提交或合并main。
+- 仅新增 `integrations/dumate/`；不得重写仿真算法、知识库或UI。
+- HTTP对外仅3条POST路径，不设通用代理、文件读取、用户管理或设备控制路由。
+- 6000字符/32KiB请求、1–56天、非负32位seed、总调用预算75秒、并发2。
+- 证据保存24小时、最多200条；失败与PENDING阻止自动重放不确定POST。
+- M3历史回放、设备仿真、P3非LLM、无实棚验证必须明确展示。
+
+## 修改文件清单
+
+| 新文件 | 职责 |
+| --- | --- |
+| `package.json` / `.gitignore` / `.env.example` | 无依赖运行、私有状态隔离、环境配置 |
+| `src/config.mjs` | 启动配置与统一错误 |
+| `src/upstream.mjs` | 固定接口、超时、响应上限、业务错误映射 |
+| `src/store.mjs` | 原子证据存储、摘要、重复调用与保留期 |
+| `src/capabilities.mjs` | 参数契约、结果裁剪、结构化报告 |
+| `src/server.mjs` | Bearer鉴权、严格路由与有界并发 |
+| `test/adapter.test.mjs` | HTTP契约、安全与故障测试 |
+| `scripts/smoke.mjs` | 真实解析、重复评测、报告验证 |
+| `scripts/restore-m3-reference.mjs` / `scripts/generate-openapi.mjs` | 参考副本字节校验恢复、从实现Schema生成契约 |
+| `openapi.json` / `README.md` | 对外契约、运行与真实请求示例 |
+| `docs/dumate-setup.md` / `docs/demo.md` | 条件化平台配置、演示及参赛材料 |
+| `skill/agri-research/SKILL.md` | 农业研究能力的可复用DuMate技能说明 |
+| `task_plan.md` / `findings.md` / `progress.md` | 范围、审计与验证证据 |
+| `docs/evidence/` | 无凭证的真实E2E结果及报告 |
+
+恢复脚本是在真实M3测试发现Windows换行导致摘要不一致后加入的必要运行辅助；不改变原始观测或清单。
+
+## 执行步骤
+
+- [x] 拉取GitHub当前仓库并建立分支：`git switch -c feat/dumate-ican-minimal`。
+- [x] 逐项阅读四个Controller及相关Service，确认请求、权限、数据与超时；见findings。
+- [x] 对比独立HTTP、后端模块、MCP三种接入方案，选独立HTTP；先列文件清单。
+- [x] 实现三个能力及固定白名单，增加可信证据关联和风险边界。
+- [x] 编写契约/安全/故障测试：`cd integrations/dumate; npm test`。
+- [x] 验证原后端：在Spring Boot目录执行 `mvn test` 和 `mvn -DskipTests package`。
+- [x] 启动真实后端，关闭知识库bootstrap，使用现有数据库只读状态与真实DeepSeek凭证；不输出凭证。
+- [x] 真实烟测：`node scripts/smoke.mjs .state/real-e2e-20261014`；检验相同键缓存、不同键重算及原值一致。
+- [x] 完成API契约、配置指南、Skill与录屏脚本。
+- [x] 最终代码审查、定向修复并重跑受影响测试。
+- [ ] 提交功能分支并创建PR，附到当前聊天；不合并。
+
+## 平台侧待办
+
+当前账号节点能力尚未确认，也未获得可操作的DuMate管理会话。API/Skill材料可先审核；平台安装、从DuMate真实执行、官方分享链接和录屏需要在该账号中完成。不得把本地E2E替代为平台成功证明。
