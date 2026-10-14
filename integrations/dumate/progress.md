@@ -15,4 +15,5 @@
 - 2026-10-14 18:55:10–18:55:14（北京时间）：最终源码真实E2E再次通过；10个抽取字段；7策略10指标独立重算逐值一致，报告包含原文、缺项、source、实际权衡、负利润提醒与人工复核。已保存`docs/evidence/e2e.json`和`report.md`。
 - API契约、可执行请求链、账号配置指南、Skill、200字简介及录屏脚本已交付；未申请或发布外部服务。
 
-PR创建及推送信息在实际完成后追加。
+- 2026-10-14 18:58（北京时间）：功能提交`9bacde6`已推送到`feat/dumate-ican-minimal`，创建并附加[草稿PR #1](https://github.com/3534435883a-eng/YOLO_AI_CropDisease_Detection_DeepSeek-2/pull/1)，目标main，未合并。
+- 远端检查读取工具返回无法连接GitHub，未把该结果当作远端CI通过。上述验证为本机执行的真实测试。

@@ -50,7 +50,7 @@
 - [x] 真实烟测：`node scripts/smoke.mjs .state/real-e2e-20261014`；检验相同键缓存、不同键重算及原值一致。
 - [x] 完成API契约、配置指南、Skill与录屏脚本。
 - [x] 最终代码审查、定向修复并重跑受影响测试。
-- [ ] 提交功能分支并创建PR，附到当前聊天；不合并。
+- [x] 提交功能分支并创建[草稿PR #1](https://github.com/3534435883a-eng/YOLO_AI_CropDisease_Detection_DeepSeek-2/pull/1)，已附到当前聊天；不合并。
 
 ## 平台侧待办
 
