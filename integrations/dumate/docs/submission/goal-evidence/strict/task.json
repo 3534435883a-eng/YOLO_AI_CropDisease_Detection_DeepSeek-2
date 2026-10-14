@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "taskId": "737b65ea-daab-470f-9662-5129ae6f83f0",
+  "createdAt": "2026-10-14T13:40:54.963Z",
+  "text": "我种植番茄，温室面积600平方米，目前坐果期，温度30℃，空气湿度88%，土壤含水率62%，下部叶片有少量黄斑，尚未确诊病害。请比较节水、能耗、病害风险和收益的权衡，仅做农业研究与虚拟仿真，不操作真实设备。",
+  "seed": 20250419,
+  "days": 56,
+  "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+  "attempts": {
+    "analyze": {
+      "key": "737b65ea-daab-470f-9662-5129ae6f83f0-analyze",
+      "inputSha256": "34571dfc98479d6ac0b74ec1c2198e037fb6476798ec65021cf4a9a4418c7b14",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T13:40:54.969Z",
+      "requestId": "fbabe253-df38-43f9-b8e0-e6439362a664",
+      "resultSha256": "23a4332bfd1ac092ae38c93127c2a33df983cdacfe36e2ee5160921b12736601",
+      "finishedAt": "2026-10-14T13:40:56.787Z"
+    },
+    "evaluate": {
+      "key": "737b65ea-daab-470f-9662-5129ae6f83f0-evaluate",
+      "inputSha256": "d9f3de0a074828f0539884ac010be02b9ca979ac83c0c058bd852eb560f2bbcd",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T13:40:56.793Z",
+      "requestId": "d461b610-6d0b-4959-9f11-74a0668b828a",
+      "resultSha256": "6bf29792d0e665ea68e2bb45b26c79fb0792d95816457f3e5b6d6e9085bf75a3",
+      "finishedAt": "2026-10-14T13:40:57.207Z"
+    },
+    "decide": {
+      "state": "SUCCEEDED",
+      "execution": "LOCAL_NO_HTTP",
+      "key": "737b65ea-daab-470f-9662-5129ae6f83f0-decide",
+      "requestId": "469a8554-dcdc-4280-82a7-5861dfdcab7f",
+      "resultSha256": "eea3e897d3b323616a1541e858523458a33ba883ec38707a103612902b2afc5f",
+      "finishedAt": "2026-10-14T13:40:57.220Z"
+    },
+    "report": {
+      "key": "737b65ea-daab-470f-9662-5129ae6f83f0-report",
+      "inputSha256": "cd3a4a11cdc25130e4268b18c2ee76ace2654a98b612a9c4ee667e3483d556dd",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T13:40:57.228Z",
+      "requestId": "4cb46bd7-f1bd-4e98-b098-8d82ee2bc0b4",
+      "resultSha256": "2c5c36b462046721517153cf02ebad696168a5172170993bec869c3b9c1bffd1",
+      "finishedAt": "2026-10-14T13:40:57.253Z"
+    }
+  },
+  "experimentPlan": {
+    "goalText": "研究番茄固定参考场景，模拟56天，以P2规则调控为基准，至少节水10%，病害压力积分和最终严重度均不得增加，按用水最少优先。无合格方案就不推荐，不放宽条件。",
+    "confirmed": true,
+    "baseline": "P2_RULE_ENGINE",
+    "minWaterSavingPct": 10,
+    "objectives": [
+      {
+        "metric": "waterUsedM3",
+        "direction": "min"
+      }
+    ],
+    "constraints": [
+      {
+        "metric": "diseasePressureIntegral",
+        "maxIncreasePct": 0
+      },
+      {
+        "metric": "finalSeverityTotal",
+        "maxIncreasePct": 0
+      }
+    ]
+  },
+  "experimentPlanSha256": "c97dfff4d86b7db3fcc59d2f1fb08839a061cebb224f971968c5fe3c7b55cdfd"
+}

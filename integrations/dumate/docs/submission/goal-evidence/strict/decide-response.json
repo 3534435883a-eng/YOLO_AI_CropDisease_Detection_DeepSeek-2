@@ -1,0 +1,352 @@
+{
+  "ok": true,
+  "requestId": "469a8554-dcdc-4280-82a7-5861dfdcab7f",
+  "execution": "LOCAL_NO_HTTP",
+  "data": {
+    "decisionId": "469a8554-dcdc-4280-82a7-5861dfdcab7f",
+    "taskId": "737b65ea-daab-470f-9662-5129ae6f83f0",
+    "analysisId": "fbabe253-df38-43f9-b8e0-e6439362a664",
+    "evaluationId": "d461b610-6d0b-4959-9f11-74a0668b828a",
+    "experimentPlanSha256": "c97dfff4d86b7db3fcc59d2f1fb08839a061cebb224f971968c5fe3c7b55cdfd",
+    "evaluationSha256": "6bf29792d0e665ea68e2bb45b26c79fb0792d95816457f3e5b6d6e9085bf75a3",
+    "selection": {
+      "source": "LOCAL_DETERMINISTIC_SELECTOR",
+      "scope": "P0_TO_P3_ONLY",
+      "goal": {
+        "goalText": "研究番茄固定参考场景，模拟56天，以P2规则调控为基准，至少节水10%，病害压力积分和最终严重度均不得增加，按用水最少优先。无合格方案就不推荐，不放宽条件。",
+        "confirmed": true,
+        "baseline": "P2_RULE_ENGINE",
+        "minWaterSavingPct": 10,
+        "objectives": [
+          {
+            "metric": "waterUsedM3",
+            "direction": "min"
+          }
+        ],
+        "constraints": [
+          {
+            "metric": "diseasePressureIntegral",
+            "maxIncreasePct": 0
+          },
+          {
+            "metric": "finalSeverityTotal",
+            "maxIncreasePct": 0
+          }
+        ]
+      },
+      "status": "NO_FEASIBLE",
+      "baselineMetrics": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 66.36,
+        "energyKWh": 3449.68,
+        "costYuan": 3553.5043,
+        "profitYuan": -3553.5043,
+        "highTemperatureMinutes": 14340,
+        "highHumidityMinutes": 22050,
+        "diseasePressureIntegral": 2937264,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 50.7914
+      },
+      "candidates": [
+        {
+          "strategy": "P0_NONE",
+          "eligible": false,
+          "metrics": {
+            "marketableYieldKg": 0,
+            "waterUsedM3": 0,
+            "energyKWh": 0,
+            "costYuan": 1456,
+            "profitYuan": -1456,
+            "highTemperatureMinutes": 15720,
+            "highHumidityMinutes": 39450,
+            "diseasePressureIntegral": 3521150.4,
+            "constraintViolations": 0,
+            "finalSeverityTotal": 89.5323
+          },
+          "checks": [
+            {
+              "metric": "waterUsedM3",
+              "value": 0,
+              "limit": 59.724000000000004,
+              "operator": "<=",
+              "rule": "MINIMUM_WATER_SAVING",
+              "requiredSavingPct": 10,
+              "passed": true
+            },
+            {
+              "metric": "diseasePressureIntegral",
+              "value": 3521150.4,
+              "baselineValue": 2937264,
+              "limit": 2937264,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": false
+            },
+            {
+              "metric": "finalSeverityTotal",
+              "value": 89.5323,
+              "baselineValue": 50.7914,
+              "limit": 50.7914,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": false
+            },
+            {
+              "metric": "constraintViolations",
+              "value": 0,
+              "limit": 0,
+              "operator": "<=",
+              "rule": "SIMULATOR_CONSTRAINTS",
+              "passed": true
+            }
+          ],
+          "objectiveValues": [
+            0
+          ],
+          "waterSavingPct": 100,
+          "deltasFromBaseline": {
+            "waterUsedM3": -66.36,
+            "energyKWh": -3449.68,
+            "costYuan": -2097.5043,
+            "profitYuan": 2097.5043,
+            "marketableYieldKg": 0,
+            "diseasePressureIntegral": 583886.3999999999,
+            "finalSeverityTotal": 38.7409,
+            "highTemperatureMinutes": 1380,
+            "highHumidityMinutes": 17400
+          }
+        },
+        {
+          "strategy": "P1_FIXED_MANUAL",
+          "eligible": false,
+          "metrics": {
+            "marketableYieldKg": 0,
+            "waterUsedM3": 26.88,
+            "energyKWh": 878.592,
+            "costYuan": 1924.2906,
+            "profitYuan": -1924.2906,
+            "highTemperatureMinutes": 15060,
+            "highHumidityMinutes": 39720,
+            "diseasePressureIntegral": 3317827.2,
+            "constraintViolations": 0,
+            "finalSeverityTotal": 52.9915
+          },
+          "checks": [
+            {
+              "metric": "waterUsedM3",
+              "value": 26.88,
+              "limit": 59.724000000000004,
+              "operator": "<=",
+              "rule": "MINIMUM_WATER_SAVING",
+              "requiredSavingPct": 10,
+              "passed": true
+            },
+            {
+              "metric": "diseasePressureIntegral",
+              "value": 3317827.2,
+              "baselineValue": 2937264,
+              "limit": 2937264,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": false
+            },
+            {
+              "metric": "finalSeverityTotal",
+              "value": 52.9915,
+              "baselineValue": 50.7914,
+              "limit": 50.7914,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": false
+            },
+            {
+              "metric": "constraintViolations",
+              "value": 0,
+              "limit": 0,
+              "operator": "<=",
+              "rule": "SIMULATOR_CONSTRAINTS",
+              "passed": true
+            }
+          ],
+          "objectiveValues": [
+            26.88
+          ],
+          "waterSavingPct": 59.493670886075954,
+          "deltasFromBaseline": {
+            "waterUsedM3": -39.480000000000004,
+            "energyKWh": -2571.0879999999997,
+            "costYuan": -1629.2137,
+            "profitYuan": 1629.2137,
+            "marketableYieldKg": 0,
+            "diseasePressureIntegral": 380563.2000000002,
+            "finalSeverityTotal": 2.200099999999999,
+            "highTemperatureMinutes": 720,
+            "highHumidityMinutes": 17670
+          }
+        },
+        {
+          "strategy": "P2_RULE_ENGINE",
+          "eligible": false,
+          "metrics": {
+            "marketableYieldKg": 0,
+            "waterUsedM3": 66.36,
+            "energyKWh": 3449.68,
+            "costYuan": 3553.5043,
+            "profitYuan": -3553.5043,
+            "highTemperatureMinutes": 14340,
+            "highHumidityMinutes": 22050,
+            "diseasePressureIntegral": 2937264,
+            "constraintViolations": 0,
+            "finalSeverityTotal": 50.7914
+          },
+          "checks": [
+            {
+              "metric": "waterUsedM3",
+              "value": 66.36,
+              "limit": 59.724000000000004,
+              "operator": "<=",
+              "rule": "MINIMUM_WATER_SAVING",
+              "requiredSavingPct": 10,
+              "passed": false
+            },
+            {
+              "metric": "diseasePressureIntegral",
+              "value": 2937264,
+              "baselineValue": 2937264,
+              "limit": 2937264,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": true
+            },
+            {
+              "metric": "finalSeverityTotal",
+              "value": 50.7914,
+              "baselineValue": 50.7914,
+              "limit": 50.7914,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": true
+            },
+            {
+              "metric": "constraintViolations",
+              "value": 0,
+              "limit": 0,
+              "operator": "<=",
+              "rule": "SIMULATOR_CONSTRAINTS",
+              "passed": true
+            }
+          ],
+          "objectiveValues": [
+            66.36
+          ],
+          "waterSavingPct": 0,
+          "deltasFromBaseline": {
+            "waterUsedM3": 0,
+            "energyKWh": 0,
+            "costYuan": 0,
+            "profitYuan": 0,
+            "marketableYieldKg": 0,
+            "diseasePressureIntegral": 0,
+            "finalSeverityTotal": 0,
+            "highTemperatureMinutes": 0,
+            "highHumidityMinutes": 0
+          }
+        },
+        {
+          "strategy": "P3_AGENT",
+          "eligible": false,
+          "metrics": {
+            "marketableYieldKg": 10.3282,
+            "waterUsedM3": 7.92,
+            "energyKWh": 5862.08,
+            "costYuan": 4113.1032,
+            "profitYuan": -4051.6506,
+            "highTemperatureMinutes": 21570,
+            "highHumidityMinutes": 35490,
+            "diseasePressureIntegral": 2802420.9,
+            "constraintViolations": 0,
+            "finalSeverityTotal": 77.1906
+          },
+          "checks": [
+            {
+              "metric": "waterUsedM3",
+              "value": 7.92,
+              "limit": 59.724000000000004,
+              "operator": "<=",
+              "rule": "MINIMUM_WATER_SAVING",
+              "requiredSavingPct": 10,
+              "passed": true
+            },
+            {
+              "metric": "diseasePressureIntegral",
+              "value": 2802420.9,
+              "baselineValue": 2937264,
+              "limit": 2937264,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": true
+            },
+            {
+              "metric": "finalSeverityTotal",
+              "value": 77.1906,
+              "baselineValue": 50.7914,
+              "limit": 50.7914,
+              "operator": "<=",
+              "rule": "MAXIMUM_RELATIVE_INCREASE",
+              "maxIncreasePct": 0,
+              "passed": false
+            },
+            {
+              "metric": "constraintViolations",
+              "value": 0,
+              "limit": 0,
+              "operator": "<=",
+              "rule": "SIMULATOR_CONSTRAINTS",
+              "passed": true
+            }
+          ],
+          "objectiveValues": [
+            7.92
+          ],
+          "waterSavingPct": 88.06509945750452,
+          "deltasFromBaseline": {
+            "waterUsedM3": -58.44,
+            "energyKWh": 2412.4,
+            "costYuan": 559.5988999999995,
+            "profitYuan": -498.1462999999999,
+            "marketableYieldKg": 10.3282,
+            "diseasePressureIntegral": -134843.1000000001,
+            "finalSeverityTotal": 26.3992,
+            "highTemperatureMinutes": 7230,
+            "highHumidityMinutes": 13440
+          }
+        }
+      ],
+      "eligibleStrategies": [],
+      "recommendedStrategies": [],
+      "ablationStrategies": [
+        "P4_PID_PROPORTIONAL",
+        "P5_PID_PI",
+        "P6_PID_FULL"
+      ],
+      "rankingMethod": "LEXICOGRAPHIC_USER_PRIORITY_NO_WEIGHTS",
+      "warnings": [
+        "只筛选P0–P3已有管理策略；P4–P6为消融对照，不进入推荐。",
+        "使用未校准固定参考场景，没有注入用户农情；推荐仅为模型内的研究候选，不是实棚处方或收益承诺。",
+        "confirmed字段记录客户端目标确认状态，不是第三方授权或人工签名。",
+        "未列入constraints的指标没有“不增加”保证；需同时查看产量、能耗、利润和最终严重度。"
+      ],
+      "nextResearchSteps": [
+        "本次不推荐新方案。核对约束是否符合研究目的；如需调整，先明确新的条件并创建新任务，不能静默放宽阈值。"
+      ]
+    },
+    "resultSha256": "eea3e897d3b323616a1541e858523458a33ba883ec38707a103612902b2afc5f"
+  }
+}

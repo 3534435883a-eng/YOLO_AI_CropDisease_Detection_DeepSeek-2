@@ -1,5 +1,7 @@
 # DuMate 配置与验收
 
+新增目标模式：同一个agri-research技能可以先澄清研究目标、冻结基准/阈值/优先级，再调用既有仿真，以本机decide完成P0–P3筛选。参见[目标契约](../skill/agri-research/references/goals.md)。decide不是新增HTTP节点，不能将它配置成/v1/agri/decide。原先无目标的三步任务仍可执行。
+
 状态：本地真实API链路已验证；当前用户账号的Workflow第三方API节点权限尚未确认。以下是配置指南，不是已发布的DuMate作品，也不是官方可导入的Workflow DSL。
 
 ## 已完成的直接执行方案

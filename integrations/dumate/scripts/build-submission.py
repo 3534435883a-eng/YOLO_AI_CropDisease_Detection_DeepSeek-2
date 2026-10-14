@@ -35,6 +35,7 @@ def make_pdf(output, evidence, font_dir):
     e = load(evidence / 'evaluate-response.json')['data']
     r = load(evidence / 'report-response.json')['data']
     task = load(evidence / 'task.json')
+    goals = load(ROOT / 'docs/submission/goal-evidence/acceptance.json')
     outcomes = e['outcomes']
     order = list(outcomes)
     if len(order) != 7 or e['scenarioBinding'] != 'REFERENCE_ONLY_NOT_USER_CONDITIONED':
@@ -86,10 +87,10 @@ def make_pdf(output, evidence, font_dir):
         story.extend([p(f'{number:02d} / HE XU AGRICULTURAL RESEARCH', 'small'), p(title, 'h1')])
 
     page(1, '应用方案')
-    story += [Spacer(1, 20), p('禾序\n农业研究助手', 'cover'),
-              p('DuMate驱动的可追溯虚拟策略对照', 'h2'),
+    story += [Spacer(1, 20), p('禾序 Agent', 'cover'),
+              p('基于 DuMate 的农业策略实验与智能决策辅助系统', 'h2'),
               p('2026 iCAN AI无代码智能体挑战赛\n参赛方向：DuMate智能体应用创新\n应用场景：教育科研 / 农业实验仿真'), Spacer(1, 18), flow(), Spacer(1, 14),
-              p('用户用一句话提出研究需求，智能体组织真实工具调用，交付可复算的指标比较、原文依据和人工复核事项。'),
+              p('用户提出研究目标，DuMate澄清基准与风险阈值，组织真实工具调用，筛选满足约束的研究候选，并交付可复算的实验报告；无合格方案时明确不推荐。'),
               table(['3项能力', '7组策略', '56天窗口'], [['农情分析 / 策略评测 / 报告', 'P0–P3业务组 + P4–P6消融组', '固定参考场景，seed=20250419']]), Spacer(1, 18),
               p('验证边界', 'h2'), p('本轮没有实棚验证。用户农情未注入模型初始条件；温室设备响应为仿真。M3历史观测回放与P0–P6合成天气评测分别说明。'),
               p('技术材料由Codex独立编写。技能包与软件调用链已验收；DuMate界面启用、分享链接和实际录屏以客户端实测为准。', 'small')]
@@ -127,11 +128,12 @@ def make_pdf(output, evidence, font_dir):
 
     page(4, '技能使用与用户流程')
     story += [p('自包含Skill，可直接调用', 'h2'),
-              p('交付agri-research.zip，内含SKILL.md、Node客户端、报告生成器及执行说明，不含密钥。Node >=22即可运行，零npm依赖。安装后由DuMate读取用户需求、逐步执行并解释结果。'),
+              p('交付agri-research.zip，内含SKILL.md、Node客户端、报告生成器及执行说明，不含密钥。Node >=22即可运行，零npm依赖。安装后由DuMate理解目标、澄清指标与阈值，逐步执行并解释结果。目标模式增加本机decide，原三条HTTP接口不变。'),
               table(['步骤', '用户与智能体行为', '可见证据'], [
-                  ['准备', '服务检查、加载技能、保存用户原文并创建任务', '任务计划、持久UUID、固定场景说明'],
+                  ['准备', '澄清目标、服务检查、保存原文及已确认目标', '基准/阈值/优先级、UUID与目标摘要'],
                   ['分析', '调用analyze，核对草稿和来源', '字段原文、缺项、冲突、风险线索'],
                   ['评测', '调用evaluate，保持seed/days及关联ID', '七组真实矩阵、profile与批次'],
+                  ['筛选', '本机decide检查P0–P3，单列P4–P6', '各约束通过/淘汰原因、候选或无解'],
                   ['报告', '调用report并排版、解释权衡', '原始JSON、HTML/Markdown、人工复核'],
               ], [58, 238, usable - 296]),
               p('演示输入（用户陈述）', 'h2'),
@@ -167,12 +169,31 @@ def make_pdf(output, evidence, font_dir):
               p('P5/P6的高温暴露时长低于业务组，P5高湿暴露最少，但用水、能耗和成本需同时考虑。这是同一模型中的离线消融证据，不是可直接部署的农户处方。'),
               p('所有策略约束违规均为0，只表示本模型及本次规则下未记录违规，不证明真实设备或农业风险为0。', 'small')]
 
-    page(7, '证据链与软件验收')
+    page(7, '目标驱动筛选与无解说明')
+    story += [p('AI明确研究目标，程序检验方案是否合格', 'h2'),
+              p('DuMate将自然语言需求整理为基准、节水幅度、风险指标允许增幅、天数和优先级。模糊的“不能显著增加”先询问，不擅自设阈值。prepare冻结目标与摘要，evaluate仍复用既有参考模型。'),
+              table(['步骤', '确定性判定'], [
+                  ['硬约束', '逐项检查P0–P3的真实值与基准允许上限，并检查仿真约束违规为0。'],
+                  ['排序', '仅排序合格方案；按用户指定优先级逐项比较，不使用猜测权重。'],
+                  ['状态', '有改善则给研究候选；无合格方案或无基准改善则不推荐新方案。'],
+                  ['证据', 'decide不发HTTP；报告校验摘要、关联编号并复算筛选结果。'],
+              ], [80, usable - 80]),
+              p('两组新任务的真实执行结果', 'h2'),
+              table(['已确认演示目标', '实际结果'], [
+                  ['56天，P2基准，至少节水10%，病害积分增幅0%', 'P3满足约束；它的最终严重度与能耗仍更高，必须披露。'],
+                  ['保持上述条件，另要求最终严重度增幅0%', 'NO_FEASIBLE：四种管理策略无一同时合格，明确不推荐。'],
+              ], [usable * .55, usable * .45]),
+              p('本次仅枚举四种已有管理策略；P4–P6单列消融，不产生新控制动作或连续参数最优解。收紧条件应另建任务，不覆盖记录或静默放宽条件。'),
+              p('两组评测批次（Codex客户端真实HTTP验收）', 'small'),
+              *[p(item['mode'] + ': ' + item['evaluationId'] + ' / ' + item['status'], 'mono') for item in goals['records']],
+              p('结果是固定未校准模型内的研究候选与无解说明；未注入用户农情，没有实棚验证。目标confirmed状态不是第三方授权或签名。', 'small')]
+
+    page(8, '证据链与软件验收')
     story += [p('独立编写、独立真实验收', 'h2'),
               p('技术材料和本轮客户端由Codex独立制作，不读取或复用DuMate生成的交付部分。客户端实际调用现有服务，保存原始响应、调用键、时间、参数和结果摘要。'),
               table(['验证', '实际结果'], [
                   ['原后端', '437项测试通过，构建通过；本轮没有改动原源码、模型或配置。'],
-                  ['适配层与客户端', '27项测试通过：权限/路由/参数、状态映射、锁与重复提交、摘要、比较范围。'],
+                  ['适配层与客户端', '40项测试通过：权限/路由/参数、状态映射、锁与重复提交、摘要、比较范围。'],
                   ['真实调用', 'DeepSeek农情解析、P0–P6评测和报告均成功；真实JSON及客户端状态已保存。'],
                   ['重复调用', '相同任务成功步骤读取本机存档，不重新提交POST；原先独立seed/days重算指标逐值一致。'],
                   ['实际验证边界', '软件调用链和数据一致性；没有实棚或真实设备效果验证。'],
@@ -183,7 +204,7 @@ def make_pdf(output, evidence, font_dir):
               p('评测结果SHA256', 'small'), p(e['resultSha256'], 'mono'),
               p('这些摘要支持本机结果变更核对，不提供独立可信时间戳或第三方实棚认证。', 'small')]
 
-    page(8, '人工复核与数据来源')
+    page(9, '人工复核与数据来源')
     for text in r['humanReview']:
         story.append(p('• ' + text))
     story += [p('三种来源分别展示', 'h2'),
@@ -198,7 +219,7 @@ def make_pdf(output, evidence, font_dir):
               p(e['profile']['sourceUrl'], 'small'), p(e['profile']['paperUrl'], 'small'),
               p('本轮没有重新核验论文全文或原始数据，也没有以这些链接证明设备响应、产量或利润已实测。', 'small')]
 
-    page(9, '交付、展示与后续方向')
+    page(10, '交付、展示与后续方向')
     story += [p('本轮可审核交付', 'h2'),
               table(['材料', '状态与用途'], [
                   ['独立Skill ZIP与源码', '客户端/脚本可执行验收；安装、启用与平台加载需实机确认。'],
@@ -229,11 +250,11 @@ def make_pdf(output, evidence, font_dir):
 
     output.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(str(output), pagesize=A4, leftMargin=44, rightMargin=44, topMargin=57, bottomMargin=48,
-                            title='禾序农业研究助手 - 应用方案', author='禾序农业研究项目', pageCompression=1)
+                            title='禾序 Agent - 农业策略实验与智能决策辅助系统', author='禾序农业研究项目', pageCompression=1)
     doc.build(story, onFirstPage=frame, onLaterPages=frame)
     reader = PdfReader(str(output))
-    if len(reader.pages) != 9:
-        raise ValueError(f'Expected nine deliberately composed pages, got {len(reader.pages)}')
+    if len(reader.pages) != 10:
+        raise ValueError(f'Expected ten deliberately composed pages, got {len(reader.pages)}')
     if output.stat().st_size > 50 * 1024 * 1024:
         raise ValueError('Proposal exceeds competition size limit')
     for index, page in enumerate(reader.pages):

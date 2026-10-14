@@ -5,7 +5,7 @@ import { mkdtemp, rm, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID, createHash } from 'node:crypto';
-import { prepare, step, request, settings } from '../skill/agri-research/scripts/client.mjs';
+import { prepare, step, request, settings, main } from '../skill/agri-research/scripts/client.mjs';
 import { createReport } from '../skill/agri-research/scripts/report.mjs';
 const hash = data => createHash('sha256').update(JSON.stringify(data)).digest('hex');
 async function fixture(t, handler) {
@@ -88,4 +88,64 @@ test('report keeps exact metrics and separates business/all-seven rankings', asy
     assert.match(format, /执行方式：本机 HTTP 调用/);
     assert.match(format, /不声称已创建 Workflow、公开发布或完成实棚验证/);
   }
+});
+
+const goal = () => ({ goalText: '以P2为基准，至少节水10%，病害压力积分不增加。', confirmed: true,
+  baseline: 'P2_RULE_ENGINE', minWaterSavingPct: 10, objectives: [{metric:'waterUsedM3',direction:'min'}],
+  constraints: [{metric:'diseasePressureIntegral',maxIncreasePct:0}] });
+async function goalTask(t) {
+  const own = new URL('../docs/submission/evidence/', import.meta.url);
+  const recorded = {};
+  for (const op of ['analyze','evaluate','report']) recorded[op] = JSON.parse(await readFile(new URL(`${op}-response.json`, own), 'utf8'));
+  const calls = [];
+  const f = await fixture(t, (req, res) => {
+    const op = req.url.split('/').at(-1); calls.push(op); res.end(JSON.stringify(recorded[op]));
+  });
+  await prepare(f.outdir, '番茄温室', 20250419, 56, goal());
+  await step('analyze', f.outdir, f.config); await step('evaluate', f.outdir, f.config);
+  return { ...f, recorded, calls };
+}
+test('goal chain requires local decide, makes only three HTTP calls and report retains original matrix', async t => {
+  const f = await goalTask(t);
+  await assert.rejects(step('report', f.outdir, f.config), e => e.code === 'DEPENDENCY_MISSING');
+  assert.equal(f.calls.length, 2);
+  const d = await step('decide', f.outdir), replay = await step('decide', f.outdir);
+  assert.equal(d.result.execution, 'LOCAL_NO_HTTP'); assert.equal(replay.replay, true);
+  assert.equal(f.calls.length, 2);
+  await step('report', f.outdir, f.config);
+  assert.deepEqual(f.calls, ['analyze','evaluate','report']);
+  const r=JSON.parse(await readFile(join(f.outdir,'report-response.json'),'utf8'));
+  assert.deepEqual(r, f.recorded.report);
+  const report=await readFile(join(f.outdir,'report.md'),'utf8');
+  assert.match(report,/RECOMMENDED/); assert.match(report,/P0_TO_P3_ONLY|P0–P3/);
+  assert.ok(report.includes(d.result.data.decisionId));
+});
+test('goal change and retrofit flags stop before further calls', async t => {
+  const f=await goalTask(t), path=join(f.outdir,'task.json');
+  const task=JSON.parse(await readFile(path,'utf8')); task.experimentPlan.minWaterSavingPct=20;
+  await writeFile(path,JSON.stringify(task));
+  await assert.rejects(step('decide',f.outdir),e=>e.code==='EVIDENCE_HASH_MISMATCH');
+  await assert.rejects(main(['report','--goal-file','changed.json','--outdir',f.outdir]),e=>e.code==='INVALID_ARGUMENT');
+  assert.equal(f.calls.length,2);
+});
+test('rehashed forged selection still fails deterministic report recomputation without HTTP', async t => {
+  const f=await goalTask(t); await step('decide',f.outdir);
+  const path=join(f.outdir,'decide-response.json'), forged=JSON.parse(await readFile(path,'utf8'));
+  forged.data.selection.recommendedStrategies=['P6_PID_FULL'];
+  const {resultSha256,...data}=forged.data; forged.data.resultSha256=hash(data);
+  await writeFile(path,JSON.stringify(forged));
+  const taskPath=join(f.outdir,'task.json'),task=JSON.parse(await readFile(taskPath,'utf8'));
+  task.attempts.decide.resultSha256=forged.data.resultSha256; await writeFile(taskPath,JSON.stringify(task));
+  await assert.rejects(step('report',f.outdir,f.config),e=>e.code==='EVIDENCE_MISMATCH');
+  await assert.rejects(step('decide',f.outdir),e=>e.code==='EVIDENCE_MISMATCH');
+  assert.equal(f.calls.length,2);
+});
+test('rehashed wrong evaluation seed cannot enter decision chain', async t => {
+  const f=await goalTask(t), path=join(f.outdir,'evaluate-response.json');
+  const e=JSON.parse(await readFile(path,'utf8')); e.data.seed++;
+  const {resultSha256,...data}=e.data; e.data.resultSha256=hash(data); await writeFile(path,JSON.stringify(e));
+  const taskPath=join(f.outdir,'task.json'),task=JSON.parse(await readFile(taskPath,'utf8'));
+  task.attempts.evaluate.resultSha256=e.data.resultSha256; await writeFile(taskPath,JSON.stringify(task));
+  await assert.rejects(step('decide',f.outdir),x=>x.code==='EVIDENCE_MISMATCH');
+  assert.equal(f.calls.length,2);
 });

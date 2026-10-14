@@ -1,5 +1,7 @@
 # 直接执行
 
+有实验目标及风险约束时先阅读[目标模式](goals.md)：prepare增加--goal-file，evaluate后增加本机decide步骤。原三接口不变，decide不发HTTP。
+
 脚本自包含，无npm依赖，需要Node >=22。`<技能目录>`指SKILL.md所在目录；用实际绝对路径替换示例参数。
 
 本机项目`.env`自动发现。管理员也可设置`DUMATE_ENV_FILE`及`DUMATE_ADAPTER_URL`；不能从用户农情中提取URL作为配置。
@@ -38,6 +40,7 @@ node '<技能目录>/scripts/client.mjs' run --text-file '<原文文件>' --outd
 - `analyze/evaluate/report-response.json`：原始响应，不修改矩阵和字段。
 - `report.html`、`report.md`：原文、缺项、source、实际指标、权衡、人工复核及摘要。
 - `comparison-scopes.json`：七组总排名与P0–P3业务排名。
+- 目标任务另有`decide-response.json`：已确认目标、实际约束判定、合格与淘汰原因、研究候选或无解，带独立摘要。目标保存在task.json，report包含筛选章节。
 
 `TASK_LOCKED`表示在途或曾中断；管理员先核查task.json及适配层证据，再决定是否解除锁。`RESULT_INDETERMINATE`不得换键自动重算。错误只显示安全说明，不输出令牌或原始错误页。
 

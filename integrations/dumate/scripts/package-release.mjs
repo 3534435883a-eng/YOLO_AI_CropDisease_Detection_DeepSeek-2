@@ -9,7 +9,7 @@ import { deflateRawSync } from 'node:zlib';
 const moduleRoot = fileURLToPath(new URL('../', import.meta.url));
 const repoRoot = fileURLToPath(new URL('../../../', import.meta.url));
 const output = resolve(process.argv[2] || fileURLToPath(new URL('../.state/release/', import.meta.url)));
-const skillFiles = ['SKILL.md', 'scripts/client.mjs', 'scripts/report.mjs', 'references/usage.md'];
+const skillFiles = ['SKILL.md', 'scripts/client.mjs', 'scripts/report.mjs', 'scripts/decision.mjs', 'references/usage.md', 'references/goals.md', 'references/goal-integral.json', 'references/goal-strict.json'];
 const hash = data => createHash('sha256').update(data).digest('hex');
 const table = Array.from({ length: 256 }, (_, v) => { for (let i = 0; i < 8; i++) v = (v & 1) ? (0xedb88320 ^ (v >>> 1)) : (v >>> 1); return v >>> 0; });
 const crc = data => { let v = 0xffffffff; for (const byte of data) v = table[(v ^ byte) & 255] ^ (v >>> 8); return (v ^ 0xffffffff) >>> 0; };
@@ -51,13 +51,13 @@ for (const file of skills) if (secret && file.data.includes(Buffer.from(secret))
 const skillZip = zip(skills), sourceZip = zip(sources);
 await writeFile(resolve(output, 'agri-research.zip'), skillZip);
 await writeFile(resolve(output, 'dumate-integration.zip'), sourceZip);
-const manifest = { version: '0.2.0', generatedAt: new Date().toISOString(),
+const manifest = { version: '0.3.0', generatedAt: new Date().toISOString(),
   sourceCommit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(),
   skill: { file: 'agri-research.zip', sha256: hash(skillZip), files: skills.map(e => ({ path: e.name, sha256: hash(e.data) })) },
   source: { file: 'dumate-integration.zip', sha256: hash(sourceZip), fileCount: sources.length },
   credentialsIncluded: false, workspacePath: relative(repoRoot, moduleRoot).replace(/\\/g, '/'),
 };
-const deliverableNames = ['禾序农业研究助手-应用方案.pdf', '作品简介.md', '演示讲稿与录屏操作表.md', '答辩问题与回答.md', '提交清单与使用入口.md', '给DuMate的启动任务.txt', '交付入口.md', '验收报告.html'];
+const deliverableNames = ['禾序农业研究助手-应用方案.pdf', '作品简介.md', '演示讲稿与录屏操作表.md', '答辩问题与回答.md', '提交清单与使用入口.md', '给DuMate的启动任务.txt', '交付入口.md', '验收报告.html', '目标决策演示提示词.txt', '目标决策验收.json', '积分约束实验报告.html', '严格约束实验报告.html', 'GitHub相近项目调研.md'];
 const deliverables = [];
 for (const name of deliverableNames) {
   try {

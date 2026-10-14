@@ -1,5 +1,7 @@
 # DuMate 农业研究最小适配层
 
+最新作品名称为“禾序 Agent——基于 DuMate 的农业策略实验与智能决策辅助系统”。Skill新增[实验目标理解与多指标决策模式](skill/agri-research/references/goals.md)：在prepare冻结目标，evaluate后运行本机decide，再生成含逐项约束判断的报告。对外仍是三接口，原模型不变。设计见[目标模式实施记录](docs/experiment-goals.md)，真实两组结果见`docs/submission/goal-evidence/acceptance.json`，开源调研见[GitHub相近项目](docs/github-related-projects.md)。
+
 ## 可直接执行的Skill
 
 本模块现在提供完整Skill目录`skill/agri-research/`，包含自包含Node客户端和报告生成器，零npm依赖。ZIP安装可包含全部脚本；没有Workflow节点也能以本机HTTP方式执行。
