@@ -1,0 +1,28 @@
+{
+  "scope": "ALL_SEVEN_STRATEGIES",
+  "lowestDiseaseIntegral": {
+    "value": 2590174.2,
+    "strategies": [
+      "P6_PID_FULL"
+    ]
+  },
+  "highestCost": {
+    "value": 5177.493,
+    "strategies": [
+      "P6_PID_FULL"
+    ]
+  },
+  "lowestFinalSeverity": {
+    "value": 45.7914,
+    "strategies": [
+      "P4_PID_PROPORTIONAL"
+    ]
+  },
+  "businessLowestDiseaseIntegral": {
+    "scope": "P0_TO_P3_ONLY",
+    "value": 2802420.9,
+    "strategies": [
+      "P3_AGENT"
+    ]
+  }
+}

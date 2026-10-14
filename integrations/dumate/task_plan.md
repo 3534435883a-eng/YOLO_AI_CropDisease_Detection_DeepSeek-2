@@ -55,3 +55,17 @@
 ## 平台侧待办
 
 当前账号节点能力尚未确认，也未获得可操作的DuMate管理会话。API/Skill材料可先审核；平台安装、从DuMate真实执行、官方分享链接和录屏需要在该账号中完成。不得把本地E2E替代为平台成功证明。
+
+## 独立完善交付（2026-10-14）
+
+用户授权由Codex独立完善项目与参赛材料，并明确不读取或复用DuMate生成的部分。后续以仓库和本适配层为基线，在同一功能分支实施；不操作`.dumate/`和DuMate制作的交付目录。
+
+**设计：** 用自包含Node客户端将三个能力封装为可安装Skill；从本机受控配置读取凭证，任务UUID和每步调用状态持久化，逐步调用并保存原始响应，自动生成带比较范围的报告。增加独立启动/检查入口和按显式文件清单打包脚本。正式方案PDF、简介、讲稿、录屏操作表、答辩问题和审核清单都由Codex生成。平台分享与真实DuMate界面录屏按实际情况记录，不用脚本烟测替代。
+
+新增/修改文件：`skill/agri-research/SKILL.md`、`skill/agri-research/scripts/client.mjs`、`skill/agri-research/scripts/report.mjs`、`skill/agri-research/references/usage.md`、`test/skill-client.test.mjs`、`scripts/start-adapter.ps1`、`scripts/package-release.mjs`、`docs/submission/`、运行与状态文档。原Spring Boot、仿真算法、知识库、UI和现有API保持原样。
+
+- [x] 编写有固定三路径、总超时、输入校验、任务锁和稳定调用键的客户端及可复用Skill。
+- [x] 完成客户端故障测试，运行原适配层测试，并通过新客户端做独立真实链路验收。
+- [x] 制作正式PDF及其他参赛文本，渲染逐页检查。
+- [x] 按清单生成不含凭证的Skill ZIP及完整交付包，检查可移植执行。
+- [ ] 更新现有草稿PR和用户交付说明，列明平台上仍需用户完成的实际动作。

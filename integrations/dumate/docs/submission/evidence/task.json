@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "taskId": "51547a05-9e68-43a4-84a4-cd24d4464dc1",
+  "createdAt": "2026-10-14T12:16:07.873Z",
+  "text": "我种植番茄，温室面积600平方米，目前坐果期，温度30℃，空气湿度88%，土壤含水率62%，下部叶片有少量黄斑，尚未确诊病害。请比较节水、能耗、病害风险和收益的权衡，仅做农业研究与虚拟仿真，不操作真实设备。",
+  "seed": 20250419,
+  "days": 56,
+  "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+  "attempts": {
+    "analyze": {
+      "key": "51547a05-9e68-43a4-84a4-cd24d4464dc1-analyze",
+      "inputSha256": "34571dfc98479d6ac0b74ec1c2198e037fb6476798ec65021cf4a9a4418c7b14",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T12:16:07.881Z",
+      "requestId": "ead5e2d9-f35d-48b5-92f3-7e9724ef36e7",
+      "resultSha256": "d4365280471ce78654b29a4eaad20b475f0df532e8f96907fa43f73dc1114c4c",
+      "finishedAt": "2026-10-14T12:16:11.603Z"
+    },
+    "evaluate": {
+      "key": "51547a05-9e68-43a4-84a4-cd24d4464dc1-evaluate",
+      "inputSha256": "808b0fac99ca2075ae93a91280961bd98b88b6a39805f042e32a137dfbfe6794",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T12:16:11.610Z",
+      "requestId": "f3ebc5ed-8843-4309-aee5-41940685439d",
+      "resultSha256": "d66441f50a4c60d9d714ebc7d7847032b39eed45e7c02d2cb8e199f4d85beb70",
+      "finishedAt": "2026-10-14T12:16:12.084Z"
+    },
+    "report": {
+      "key": "51547a05-9e68-43a4-84a4-cd24d4464dc1-report",
+      "inputSha256": "d4b6945323653b8fd175504bdd56edd2321f8cfacc7646a6e22f39c0ec429358",
+      "state": "SUCCEEDED",
+      "startedAt": "2026-10-14T12:16:12.091Z",
+      "requestId": "9d587524-5af9-41b1-ab97-abcd752af6c2",
+      "resultSha256": "bdffb543f5b24adfb548c701ab073847421f3465b7f8ebc2b13b05f748e97003",
+      "finishedAt": "2026-10-14T12:16:12.117Z"
+    }
+  }
+}

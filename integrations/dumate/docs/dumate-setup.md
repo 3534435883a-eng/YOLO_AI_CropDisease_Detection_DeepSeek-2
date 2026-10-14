@@ -2,6 +2,14 @@
 
 状态：本地真实API链路已验证；当前用户账号的Workflow第三方API节点权限尚未确认。以下是配置指南，不是已发布的DuMate作品，也不是官方可导入的Workflow DSL。
 
+## 已完成的直接执行方案
+
+现在`skill/agri-research/`内含可执行Node脚本及报告生成器，可以安装完整ZIP后由DuMate逐步执行，不要求预先注册三个平台工具。脚本固定调用三个本层路径，自动读取本机受控配置，持久化任务UUID和步骤状态，并保存真实响应。
+
+优先API节点的方案仍可选择，但用户提供的比赛介绍并未规定必须采用Workflow/MCP。Skill为鼓励项。原生Skill加本机HTTP脚本是本轮已验收的技术执行方式，安装启用状态、真实DuMate任务运行和分享需要由实机界面确认。
+
+操作见Skill的`references/usage.md`以及`docs/submission/提交清单与使用入口.md`。安装ZIP才能包含脚本；只安装最初的文字SKILL.md不会获得脚本。
+
 ## 先确认节点与网络
 
 在比赛专属DuMate账号中查看Workflow是否可增加第三方API/HTTP节点，是否能设置Bearer密钥、JSON体、稳定调用键，以及至少75秒调用超时。若支持，优先按下表封装成Skill。账号权限、节点名称与变量选择器以实机为准；不要因为[DuMate对外OpenAPI](https://cloud.baidu.com/doc/Dumate/s/ymu8cfo0x)存在，就认定这个账号支持HTTP Workflow节点。
@@ -40,7 +48,7 @@
 
 ## Skill与语言解释
 
-`../skill/agri-research/SKILL.md`是随交付提供的技能。官方[技能管理文档](https://cloud.baidu.com/doc/Dumate/s/5mmydgic3)说明可安装URL、zip/md；在账号内安装文件后，需把上面的三个已配置调用能力绑定给技能。本轮没有执行安装。只安装文字说明不会自动部署API或建立节点。
+`../skill/agri-research/SKILL.md`是随交付提供的技能。官方[技能管理文档](https://cloud.baidu.com/doc/Dumate/s/5mmydgic3)说明可安装URL、zip/md；API节点方案需要在账号中配置调用能力，原生Skill方案使用自带脚本即可。本轮没有通过界面执行安装。仅安装文字说明不会自动部署API或建立节点。
 
 给结束处的语言解释节点以下规则：
 

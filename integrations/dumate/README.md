@@ -1,5 +1,23 @@
 # DuMate 农业研究最小适配层
 
+## 可直接执行的Skill
+
+本模块现在提供完整Skill目录`skill/agri-research/`，包含自包含Node客户端和报告生成器，零npm依赖。ZIP安装可包含全部脚本；没有Workflow节点也能以本机HTTP方式执行。
+
+```powershell
+cd 'E:\domate match\integrations\dumate'
+./scripts/start-adapter.ps1
+node skill/agri-research/scripts/client.mjs check
+node skill/agri-research/scripts/client.mjs prepare --text-file '<用户原文UTF-8文件>' --outdir '<新任务目录>' --seed 20250419 --days 56
+node skill/agri-research/scripts/client.mjs analyze --outdir '<任务目录>'
+node skill/agri-research/scripts/client.mjs evaluate --outdir '<任务目录>'
+node skill/agri-research/scripts/client.mjs report --outdir '<任务目录>'
+```
+
+客户端自动发现本机项目`.env`，也支持管理员设置`DUMATE_ENV_FILE`和`DUMATE_ADAPTER_URL`；不会打印或打包令牌。任务状态、调用键、原始JSON和HTML/Markdown均保存到指定任务目录。成功步骤重复执行只读本机存档，失败/中断不自动重放。普通用户演示使用逐步命令，技术验收可用`run`。
+
+正式参赛文本及独立验收见[交付入口](docs/submission/提交清单与使用入口.md)。PDF可用`scripts/build-submission.py`基于独立真实响应重建；打包用`scripts/package-release.mjs`，只包括显式Skill文件及Git认可的模块文件，不复制私有状态目录。
+
 仅复用原有农情解析、环境/知识状态和P0–P6仿真接口；原Spring Boot、Vue、知识库与算法均无改动。对外只有三个带Bearer鉴权的POST能力，不提供用户、文件目录或设备管理接口。
 
 | 能力 | 路径 | 输入 | 主要输出 |
