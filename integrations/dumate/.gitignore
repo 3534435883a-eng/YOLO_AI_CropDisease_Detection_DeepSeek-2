@@ -1,0 +1,4 @@
+.state/
+.env
+node_modules/
+*.local

@@ -1,0 +1,22 @@
+请使用本机的“禾序 Agent”技能完成真实农业策略实验与决策辅助任务。
+
+先阅读：E:/domate match/integrations/dumate/skill/agri-research/SKILL.md
+执行脚本：E:/domate match/integrations/dumate/skill/agri-research/scripts/client.mjs
+执行方法：技能目录中的references/usage.md。
+目标模式：技能目录中的references/goals.md。
+
+当前本机农业后端9999和适配层9998已验收。客户端自动读取适配层.env，仅用于请求头；不要显示配置内容或密钥。先运行client.mjs check。若服务不可用，可以运行E:/domate match/integrations/dumate/scripts/start-adapter.ps1检查/启动适配层；不要停止已有服务、修改原算法或提交Git。
+
+我的农情：番茄温室面积600平方米，目前坐果期，温度30℃，空气湿度88%，土壤含水率62%，下部叶片有少量黄斑，尚未确诊病害。希望了解节水、能耗、病害风险及模拟收益的权衡，只做研究与虚拟仿真，不操作真实设备。
+
+实验目标已确认：固定番茄参考场景，seed=20250419，days=56；基准P2_RULE_ENGINE；最低节水10%；diseasePressureIntegral和finalSeverityTotal允许增幅均为0%；objectives只含waterUsedM3方向min。请将这些条件和完整原始目标写入目标JSON，confirmed=true；不得放宽约束。
+
+请先展示你的任务计划。把上述农情原文写入UTF-8文件，在E:/domate match/integrations/dumate/.state/下创建新的独立任务目录。用prepare --goal-file冻结目标，按analyze、evaluate、decide、report逐步执行。decide为本机确定性筛选，不发HTTP。每一步读取真实结果再进入下一步，失败或结果不确定时保持原任务并报告，不自动换键重发。
+
+展示带原文的字段、缺项、风险线索和环境source，然后列出七组模拟指标。解释P3与P2之间的用水、能耗、亏损、病害积分及最终严重度的取舍。注意：P3病害积分最低仅限P0–P3；七组中P6病害积分最低且成本最高；P0仍有模型成本，不能说零投入。
+
+只筛选P0–P3作为管理候选，显示每项约束的实际值、上限和通过/淘汰原因；P4–P6单列消融。按decide真实状态说明有研究候选、无合格方案或无改善；无解时明确不推荐，不能自行编造赢家。交付decide-response.json及报告内目标筛选章节。
+
+明确本轮评测是固定番茄参考场景，没有注入我的农情；M3是历史回放；设备响应为模型仿真；P3不调用LLM；本次没有实棚验证。知识状态不是RAG检索证据，症状不是诊断。
+
+交付客户端实际生成的report.html、report.md、原始JSON与任务记录，列出analysisId、evaluationId、batchId、seed/days和摘要。结束时说明采用本机HTTP执行，不声称已创建Workflow或公开发布。报告和文件路径仅在本机交付，不泄露密钥。

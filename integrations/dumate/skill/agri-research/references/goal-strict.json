@@ -1,0 +1,11 @@
+{
+  "goalText": "研究番茄固定参考场景，模拟56天，以P2规则调控为基准，至少节水10%，病害压力积分和最终严重度均不得增加，按用水最少优先。无合格方案就不推荐，不放宽条件。",
+  "confirmed": true,
+  "baseline": "P2_RULE_ENGINE",
+  "minWaterSavingPct": 10,
+  "objectives": [{ "metric": "waterUsedM3", "direction": "min" }],
+  "constraints": [
+    { "metric": "diseasePressureIntegral", "maxIncreasePct": 0 },
+    { "metric": "finalSeverityTotal", "maxIncreasePct": 0 }
+  ]
+}

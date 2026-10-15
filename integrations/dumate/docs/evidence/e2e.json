@@ -1,0 +1,1308 @@
+{
+  "execution": "REAL_HTTP_E2E",
+  "startedAt": "2026-10-14T10:55:10.422Z",
+  "demoInputIsMeasured": false,
+  "calls": [
+    {
+      "operation": "analyze",
+      "input": {
+        "text": "我种植番茄，温室面积600平方米，目前坐果期，温度30℃，空气湿度88%，土壤含水率62%，下部叶片有少量黄斑，尚未确诊病害。希望比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备。"
+      },
+      "httpStatus": 200,
+      "result": {
+        "ok": true,
+        "requestId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+        "data": {
+          "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+          "draft": {
+            "fields": [
+              {
+                "key": "crop",
+                "label": "作物",
+                "unit": null,
+                "value": "番茄",
+                "source": "PARSED",
+                "rawText": "我种植番茄"
+              },
+              {
+                "key": "facilityType",
+                "label": "设施类型",
+                "unit": null,
+                "value": "温室",
+                "source": "PARSED",
+                "rawText": "温室面积600平方米"
+              },
+              {
+                "key": "areaM2",
+                "label": "面积",
+                "unit": "m²",
+                "value": 600,
+                "source": "PARSED",
+                "rawText": "温室面积600平方米"
+              },
+              {
+                "key": "growthStage",
+                "label": "当前生育期",
+                "unit": null,
+                "value": "坐果期",
+                "source": "PARSED",
+                "rawText": "目前坐果期"
+              },
+              {
+                "key": "temperatureC",
+                "label": "温度",
+                "unit": "℃",
+                "value": 30,
+                "source": "PARSED",
+                "rawText": "温度30℃"
+              },
+              {
+                "key": "humidityPct",
+                "label": "空气湿度",
+                "unit": "%",
+                "value": 88,
+                "source": "PARSED",
+                "rawText": "空气湿度88%"
+              },
+              {
+                "key": "soilMoisturePct",
+                "label": "土壤含水率",
+                "unit": "%",
+                "value": 62,
+                "source": "PARSED",
+                "rawText": "土壤含水率62%"
+              },
+              {
+                "key": "symptoms",
+                "label": "田间症状描述",
+                "unit": null,
+                "value": "下部叶片有少量黄斑",
+                "source": "PARSED",
+                "rawText": "下部叶片有少量黄斑"
+              },
+              {
+                "key": "detectedDisease",
+                "label": "已确诊病虫害",
+                "unit": null,
+                "value": "尚未确诊病害",
+                "source": "PARSED",
+                "rawText": "尚未确诊病害"
+              },
+              {
+                "key": "goal",
+                "label": "生产目标",
+                "unit": null,
+                "value": "比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备",
+                "source": "PARSED",
+                "rawText": "希望比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备"
+              }
+            ],
+            "missing": [
+              "品种",
+              "定植日期",
+              "栽培方式",
+              "CO₂ 浓度",
+              "光照",
+              "水汽压亏缺",
+              "灌溉方式与频次",
+              "施肥方案",
+              "近期农事操作",
+              "发生程度",
+              "目标上市期",
+              "预算"
+            ],
+            "conflicts": [],
+            "notes": []
+          },
+          "riskClues": [
+            {
+              "field": "temperatureC",
+              "value": 30,
+              "evidence": "温度30℃",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "humidityPct",
+              "value": 88,
+              "evidence": "空气湿度88%",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "symptoms",
+              "value": "下部叶片有少量黄斑",
+              "evidence": "下部叶片有少量黄斑",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "detectedDisease",
+              "value": "尚未确诊病害",
+              "evidence": "尚未确诊病害",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            }
+          ],
+          "environment": {
+            "location": "成都（演示用模拟地）",
+            "temperatureC": 24,
+            "humidityPct": 78,
+            "observedAt": "2026-10-14 18:55:11",
+            "source": "SIMULATED_LOCATION",
+            "sourceLabel": "演示用模拟地（非实测）",
+            "note": "未配置实时数据源（需要 apiUrl / appId / appSecret / cityId 四项齐全）。本行数值为**演示用固定档案，不是当地实测**，不得当作观测数据引用。",
+            "unavailableFields": [
+              "光照/PPFD：天气数据源不提供，本接口不编造该字段"
+            ]
+          },
+          "knowledge": {
+            "chunkCount": 495,
+            "vectorCount": 495,
+            "sourceCount": 41,
+            "indexLoadedAtMillis": 1791974346781,
+            "embeddingAvailable": false,
+            "embeddingProbeAgeMillis": 0,
+            "embeddingProbeTtlMillis": 30000,
+            "indexVectorSearchAvailable": true
+          },
+          "warnings": [],
+          "requiresHumanReview": true,
+          "boundaries": [
+            "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+            "温室设备响应为模型仿真，未控制或验证真实设备。",
+            "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+            "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+            "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+            "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+          ],
+          "trace": {
+            "evidenceId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+            "inputSha256": "7119f2862d28c53f510c87e383f034ab31f255162c1fd183ce27d54e7dd44572",
+            "calls": [
+              {
+                "operation": "parse",
+                "method": "POST",
+                "path": "/ai/agri/plan/situation/parse",
+                "requestedAt": "2026-10-14T10:55:10.453Z",
+                "elapsedMs": 1455,
+                "requestSha256": "db77c3eacf7d9df11c8921a064af79f53732802c194922cc30936d79f30d15ad",
+                "responseSha256": "0d11305f6b15d550ba28b111d869e4e879d2d18adbb85780ef57b27538bb6163",
+                "resultCode": "0"
+              },
+              {
+                "operation": "environment",
+                "method": "GET",
+                "path": "/ai/agri/environment/current",
+                "requestedAt": "2026-10-14T10:55:11.909Z",
+                "elapsedMs": 3,
+                "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "responseSha256": "d104c8213edc2ebb90908ffec8753108f6c84c4b92f3a2eba7aed53e707812cc",
+                "resultCode": "0"
+              },
+              {
+                "operation": "knowledge",
+                "method": "GET",
+                "path": "/ai/knowledge/status",
+                "requestedAt": "2026-10-14T10:55:11.912Z",
+                "elapsedMs": 2045,
+                "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "responseSha256": "2378bfb1f86f2f3dbb0eb8bba89c9486869023538f5435ea6ff22d3ef9a87f2c",
+                "resultCode": "0"
+              }
+            ]
+          },
+          "resultSha256": "f38629d3fe6c9a30d2a0a72e9ab1b710b86ac19e4d7d5e0ba3ae848617f4c8cc"
+        }
+      }
+    },
+    {
+      "operation": "evaluate",
+      "input": {
+        "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+        "seed": 20250419,
+        "days": 56,
+        "acknowledgeReferenceScenario": true
+      },
+      "httpStatus": 200,
+      "result": {
+        "ok": true,
+        "requestId": "0f350745-2487-44f6-8549-fc028cdfb330",
+        "data": {
+          "evaluationId": "0f350745-2487-44f6-8549-fc028cdfb330",
+          "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+          "batchId": "0f350745-2487-44f6-8549-fc028cdfb330",
+          "seed": 20250419,
+          "days": 56,
+          "elapsedMillis": 359,
+          "profile": {
+            "profileId": "HORTI_M3_TOMATO",
+            "displayName": "Horti-M3 番茄场景",
+            "startDate": "2025-04-19",
+            "endDate": "2025-06-13",
+            "days": 56,
+            "sourceStatus": "SIMULATED_UNCALIBRATED",
+            "sourceUrl": "https://doi.org/10.5281/zenodo.17217565",
+            "paperUrl": "https://www.nature.com/articles/s41597-026-07074-w",
+            "calibrated": false,
+            "cohortScope": "CK/广辉201 仅为参数参考标签；面积和株数为全部试验小区规模，不是 CK 单处理样本汇总",
+            "weatherStatus": "SYNTHETIC_WITH_STRESS_WINDOWS",
+            "initialPhenologyStatus": "ASSUMED_UNCALIBRATED",
+            "assumptions": [
+              "未导入公开原始环境/表型数据；当前结果为确定性模拟",
+              "多跨屋架、设备容量、控制响应与环境轨迹为示意假设",
+              "根区有效深度 0.25 m 为水分模型假设，不是数据集给定值",
+              "模型 PPFD 为代理量；论文 lux 字段未转换为实测 PPFD"
+            ],
+            "plantCount": 840,
+            "greenhouseFootprintM2": 1600
+          },
+          "labels": {
+            "P0_NONE": "不做调控",
+            "P1_FIXED_MANUAL": "人工定时管理",
+            "P2_RULE_ENGINE": "规则自动调控",
+            "P3_AGENT": "前瞻择优调控（不调用LLM）",
+            "P4_PID_PROPORTIONAL": "离线消融：仅P",
+            "P5_PID_PI": "离线消融：P+I",
+            "P6_PID_FULL": "离线消融：P+I+D"
+          },
+          "units": {
+            "marketableYieldKg": "kg",
+            "waterUsedM3": "m³",
+            "energyKWh": "kWh",
+            "costYuan": "元",
+            "profitYuan": "元",
+            "highTemperatureMinutes": "分钟",
+            "highHumidityMinutes": "分钟",
+            "diseasePressureIntegral": "模型积分",
+            "constraintViolations": "次",
+            "finalSeverityTotal": "模型严重度"
+          },
+          "outcomes": {
+            "P0_NONE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 0,
+              "energyKWh": 0,
+              "costYuan": 1456,
+              "profitYuan": -1456,
+              "highTemperatureMinutes": 15720,
+              "highHumidityMinutes": 39450,
+              "diseasePressureIntegral": 3521150.4,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 89.5323
+            },
+            "P1_FIXED_MANUAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 26.88,
+              "energyKWh": 878.592,
+              "costYuan": 1924.2906,
+              "profitYuan": -1924.2906,
+              "highTemperatureMinutes": 15060,
+              "highHumidityMinutes": 39720,
+              "diseasePressureIntegral": 3317827.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.9915
+            },
+            "P2_RULE_ENGINE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.36,
+              "energyKWh": 3449.68,
+              "costYuan": 3553.5043,
+              "profitYuan": -3553.5043,
+              "highTemperatureMinutes": 14340,
+              "highHumidityMinutes": 22050,
+              "diseasePressureIntegral": 2937264,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 50.7914
+            },
+            "P3_AGENT": {
+              "marketableYieldKg": 10.3282,
+              "waterUsedM3": 7.92,
+              "energyKWh": 5862.08,
+              "costYuan": 4113.1032,
+              "profitYuan": -4051.6506,
+              "highTemperatureMinutes": 21570,
+              "highHumidityMinutes": 35490,
+              "diseasePressureIntegral": 2802420.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 77.1906
+            },
+            "P4_PID_PROPORTIONAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.12,
+              "energyKWh": 5384.9729,
+              "costYuan": 4369.4664,
+              "profitYuan": -4369.4664,
+              "highTemperatureMinutes": 13380,
+              "highHumidityMinutes": 6990,
+              "diseasePressureIntegral": 2613726,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 45.7914
+            },
+            "P5_PID_PI": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7250.0947,
+              "costYuan": 5109.9017,
+              "profitYuan": -5109.9017,
+              "highTemperatureMinutes": 8760,
+              "highHumidityMinutes": 1440,
+              "diseasePressureIntegral": 2600559.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            },
+            "P6_PID_FULL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7347.5522,
+              "costYuan": 5177.493,
+              "profitYuan": -5177.493,
+              "highTemperatureMinutes": 8730,
+              "highHumidityMinutes": 1890,
+              "diseasePressureIntegral": 2590174.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            }
+          },
+          "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+          "boundaries": [
+            "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+            "温室设备响应为模型仿真，未控制或验证真实设备。",
+            "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+            "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+            "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+            "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+          ],
+          "trace": {
+            "evidenceId": "0f350745-2487-44f6-8549-fc028cdfb330",
+            "inputSha256": "799fa819ad2426f9dcc82e856274b5198a540ced66ec5503cc0458befd21d2ad",
+            "calls": [
+              {
+                "operation": "run",
+                "method": "POST",
+                "path": "/eval/runs",
+                "requestedAt": "2026-10-14T10:55:13.983Z",
+                "elapsedMs": 373,
+                "requestSha256": "f5b4ee3d942d6bd63dbbe3efcad2809d1813e8e36481a47e85febbbdd0184ec4",
+                "responseSha256": "538d66c18a580347a2d9ffa74b18dcbbaddfbafaee363577f94c38f22ef0afdf",
+                "resultCode": "0"
+              },
+              {
+                "operation": "matrix",
+                "method": "GET",
+                "path": "/eval/0f350745-2487-44f6-8549-fc028cdfb330/matrix",
+                "requestedAt": "2026-10-14T10:55:14.357Z",
+                "elapsedMs": 3,
+                "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "responseSha256": "957a86b7f091ee80e6abe45568b84915eb379cd76202277e1f8b8f995371b951",
+                "resultCode": "0"
+              }
+            ]
+          },
+          "resultSha256": "8be321bd9fb4c972bb673784a5934f298dd05188f35fb4403947531937cb0d85"
+        }
+      }
+    },
+    {
+      "operation": "evaluate",
+      "input": {
+        "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+        "seed": 20250419,
+        "days": 56,
+        "acknowledgeReferenceScenario": true
+      },
+      "httpStatus": 200,
+      "result": {
+        "ok": true,
+        "requestId": "0f350745-2487-44f6-8549-fc028cdfb330",
+        "data": {
+          "evaluationId": "0f350745-2487-44f6-8549-fc028cdfb330",
+          "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+          "batchId": "0f350745-2487-44f6-8549-fc028cdfb330",
+          "seed": 20250419,
+          "days": 56,
+          "elapsedMillis": 359,
+          "profile": {
+            "profileId": "HORTI_M3_TOMATO",
+            "displayName": "Horti-M3 番茄场景",
+            "startDate": "2025-04-19",
+            "endDate": "2025-06-13",
+            "days": 56,
+            "sourceStatus": "SIMULATED_UNCALIBRATED",
+            "sourceUrl": "https://doi.org/10.5281/zenodo.17217565",
+            "paperUrl": "https://www.nature.com/articles/s41597-026-07074-w",
+            "calibrated": false,
+            "cohortScope": "CK/广辉201 仅为参数参考标签；面积和株数为全部试验小区规模，不是 CK 单处理样本汇总",
+            "weatherStatus": "SYNTHETIC_WITH_STRESS_WINDOWS",
+            "initialPhenologyStatus": "ASSUMED_UNCALIBRATED",
+            "assumptions": [
+              "未导入公开原始环境/表型数据；当前结果为确定性模拟",
+              "多跨屋架、设备容量、控制响应与环境轨迹为示意假设",
+              "根区有效深度 0.25 m 为水分模型假设，不是数据集给定值",
+              "模型 PPFD 为代理量；论文 lux 字段未转换为实测 PPFD"
+            ],
+            "plantCount": 840,
+            "greenhouseFootprintM2": 1600
+          },
+          "labels": {
+            "P0_NONE": "不做调控",
+            "P1_FIXED_MANUAL": "人工定时管理",
+            "P2_RULE_ENGINE": "规则自动调控",
+            "P3_AGENT": "前瞻择优调控（不调用LLM）",
+            "P4_PID_PROPORTIONAL": "离线消融：仅P",
+            "P5_PID_PI": "离线消融：P+I",
+            "P6_PID_FULL": "离线消融：P+I+D"
+          },
+          "units": {
+            "marketableYieldKg": "kg",
+            "waterUsedM3": "m³",
+            "energyKWh": "kWh",
+            "costYuan": "元",
+            "profitYuan": "元",
+            "highTemperatureMinutes": "分钟",
+            "highHumidityMinutes": "分钟",
+            "diseasePressureIntegral": "模型积分",
+            "constraintViolations": "次",
+            "finalSeverityTotal": "模型严重度"
+          },
+          "outcomes": {
+            "P0_NONE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 0,
+              "energyKWh": 0,
+              "costYuan": 1456,
+              "profitYuan": -1456,
+              "highTemperatureMinutes": 15720,
+              "highHumidityMinutes": 39450,
+              "diseasePressureIntegral": 3521150.4,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 89.5323
+            },
+            "P1_FIXED_MANUAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 26.88,
+              "energyKWh": 878.592,
+              "costYuan": 1924.2906,
+              "profitYuan": -1924.2906,
+              "highTemperatureMinutes": 15060,
+              "highHumidityMinutes": 39720,
+              "diseasePressureIntegral": 3317827.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.9915
+            },
+            "P2_RULE_ENGINE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.36,
+              "energyKWh": 3449.68,
+              "costYuan": 3553.5043,
+              "profitYuan": -3553.5043,
+              "highTemperatureMinutes": 14340,
+              "highHumidityMinutes": 22050,
+              "diseasePressureIntegral": 2937264,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 50.7914
+            },
+            "P3_AGENT": {
+              "marketableYieldKg": 10.3282,
+              "waterUsedM3": 7.92,
+              "energyKWh": 5862.08,
+              "costYuan": 4113.1032,
+              "profitYuan": -4051.6506,
+              "highTemperatureMinutes": 21570,
+              "highHumidityMinutes": 35490,
+              "diseasePressureIntegral": 2802420.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 77.1906
+            },
+            "P4_PID_PROPORTIONAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.12,
+              "energyKWh": 5384.9729,
+              "costYuan": 4369.4664,
+              "profitYuan": -4369.4664,
+              "highTemperatureMinutes": 13380,
+              "highHumidityMinutes": 6990,
+              "diseasePressureIntegral": 2613726,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 45.7914
+            },
+            "P5_PID_PI": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7250.0947,
+              "costYuan": 5109.9017,
+              "profitYuan": -5109.9017,
+              "highTemperatureMinutes": 8760,
+              "highHumidityMinutes": 1440,
+              "diseasePressureIntegral": 2600559.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            },
+            "P6_PID_FULL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7347.5522,
+              "costYuan": 5177.493,
+              "profitYuan": -5177.493,
+              "highTemperatureMinutes": 8730,
+              "highHumidityMinutes": 1890,
+              "diseasePressureIntegral": 2590174.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            }
+          },
+          "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+          "boundaries": [
+            "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+            "温室设备响应为模型仿真，未控制或验证真实设备。",
+            "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+            "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+            "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+            "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+          ],
+          "trace": {
+            "evidenceId": "0f350745-2487-44f6-8549-fc028cdfb330",
+            "inputSha256": "799fa819ad2426f9dcc82e856274b5198a540ced66ec5503cc0458befd21d2ad",
+            "calls": [
+              {
+                "operation": "run",
+                "method": "POST",
+                "path": "/eval/runs",
+                "requestedAt": "2026-10-14T10:55:13.983Z",
+                "elapsedMs": 373,
+                "requestSha256": "f5b4ee3d942d6bd63dbbe3efcad2809d1813e8e36481a47e85febbbdd0184ec4",
+                "responseSha256": "538d66c18a580347a2d9ffa74b18dcbbaddfbafaee363577f94c38f22ef0afdf",
+                "resultCode": "0"
+              },
+              {
+                "operation": "matrix",
+                "method": "GET",
+                "path": "/eval/0f350745-2487-44f6-8549-fc028cdfb330/matrix",
+                "requestedAt": "2026-10-14T10:55:14.357Z",
+                "elapsedMs": 3,
+                "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "responseSha256": "957a86b7f091ee80e6abe45568b84915eb379cd76202277e1f8b8f995371b951",
+                "resultCode": "0"
+              }
+            ]
+          },
+          "resultSha256": "8be321bd9fb4c972bb673784a5934f298dd05188f35fb4403947531937cb0d85"
+        }
+      }
+    },
+    {
+      "operation": "evaluate",
+      "input": {
+        "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+        "seed": 20250419,
+        "days": 56,
+        "acknowledgeReferenceScenario": true
+      },
+      "httpStatus": 200,
+      "result": {
+        "ok": true,
+        "requestId": "e93688ac-5205-4d1b-9df5-5bacced54053",
+        "data": {
+          "evaluationId": "e93688ac-5205-4d1b-9df5-5bacced54053",
+          "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+          "batchId": "e93688ac-5205-4d1b-9df5-5bacced54053",
+          "seed": 20250419,
+          "days": 56,
+          "elapsedMillis": 332,
+          "profile": {
+            "profileId": "HORTI_M3_TOMATO",
+            "displayName": "Horti-M3 番茄场景",
+            "startDate": "2025-04-19",
+            "endDate": "2025-06-13",
+            "days": 56,
+            "sourceStatus": "SIMULATED_UNCALIBRATED",
+            "sourceUrl": "https://doi.org/10.5281/zenodo.17217565",
+            "paperUrl": "https://www.nature.com/articles/s41597-026-07074-w",
+            "calibrated": false,
+            "cohortScope": "CK/广辉201 仅为参数参考标签；面积和株数为全部试验小区规模，不是 CK 单处理样本汇总",
+            "weatherStatus": "SYNTHETIC_WITH_STRESS_WINDOWS",
+            "initialPhenologyStatus": "ASSUMED_UNCALIBRATED",
+            "assumptions": [
+              "未导入公开原始环境/表型数据；当前结果为确定性模拟",
+              "多跨屋架、设备容量、控制响应与环境轨迹为示意假设",
+              "根区有效深度 0.25 m 为水分模型假设，不是数据集给定值",
+              "模型 PPFD 为代理量；论文 lux 字段未转换为实测 PPFD"
+            ],
+            "plantCount": 840,
+            "greenhouseFootprintM2": 1600
+          },
+          "labels": {
+            "P0_NONE": "不做调控",
+            "P1_FIXED_MANUAL": "人工定时管理",
+            "P2_RULE_ENGINE": "规则自动调控",
+            "P3_AGENT": "前瞻择优调控（不调用LLM）",
+            "P4_PID_PROPORTIONAL": "离线消融：仅P",
+            "P5_PID_PI": "离线消融：P+I",
+            "P6_PID_FULL": "离线消融：P+I+D"
+          },
+          "units": {
+            "marketableYieldKg": "kg",
+            "waterUsedM3": "m³",
+            "energyKWh": "kWh",
+            "costYuan": "元",
+            "profitYuan": "元",
+            "highTemperatureMinutes": "分钟",
+            "highHumidityMinutes": "分钟",
+            "diseasePressureIntegral": "模型积分",
+            "constraintViolations": "次",
+            "finalSeverityTotal": "模型严重度"
+          },
+          "outcomes": {
+            "P0_NONE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 0,
+              "energyKWh": 0,
+              "costYuan": 1456,
+              "profitYuan": -1456,
+              "highTemperatureMinutes": 15720,
+              "highHumidityMinutes": 39450,
+              "diseasePressureIntegral": 3521150.4,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 89.5323
+            },
+            "P1_FIXED_MANUAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 26.88,
+              "energyKWh": 878.592,
+              "costYuan": 1924.2906,
+              "profitYuan": -1924.2906,
+              "highTemperatureMinutes": 15060,
+              "highHumidityMinutes": 39720,
+              "diseasePressureIntegral": 3317827.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.9915
+            },
+            "P2_RULE_ENGINE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.36,
+              "energyKWh": 3449.68,
+              "costYuan": 3553.5043,
+              "profitYuan": -3553.5043,
+              "highTemperatureMinutes": 14340,
+              "highHumidityMinutes": 22050,
+              "diseasePressureIntegral": 2937264,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 50.7914
+            },
+            "P3_AGENT": {
+              "marketableYieldKg": 10.3282,
+              "waterUsedM3": 7.92,
+              "energyKWh": 5862.08,
+              "costYuan": 4113.1032,
+              "profitYuan": -4051.6506,
+              "highTemperatureMinutes": 21570,
+              "highHumidityMinutes": 35490,
+              "diseasePressureIntegral": 2802420.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 77.1906
+            },
+            "P4_PID_PROPORTIONAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.12,
+              "energyKWh": 5384.9729,
+              "costYuan": 4369.4664,
+              "profitYuan": -4369.4664,
+              "highTemperatureMinutes": 13380,
+              "highHumidityMinutes": 6990,
+              "diseasePressureIntegral": 2613726,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 45.7914
+            },
+            "P5_PID_PI": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7250.0947,
+              "costYuan": 5109.9017,
+              "profitYuan": -5109.9017,
+              "highTemperatureMinutes": 8760,
+              "highHumidityMinutes": 1440,
+              "diseasePressureIntegral": 2600559.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            },
+            "P6_PID_FULL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7347.5522,
+              "costYuan": 5177.493,
+              "profitYuan": -5177.493,
+              "highTemperatureMinutes": 8730,
+              "highHumidityMinutes": 1890,
+              "diseasePressureIntegral": 2590174.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            }
+          },
+          "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+          "boundaries": [
+            "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+            "温室设备响应为模型仿真，未控制或验证真实设备。",
+            "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+            "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+            "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+            "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+          ],
+          "trace": {
+            "evidenceId": "e93688ac-5205-4d1b-9df5-5bacced54053",
+            "inputSha256": "799fa819ad2426f9dcc82e856274b5198a540ced66ec5503cc0458befd21d2ad",
+            "calls": [
+              {
+                "operation": "run",
+                "method": "POST",
+                "path": "/eval/runs",
+                "requestedAt": "2026-10-14T10:55:14.380Z",
+                "elapsedMs": 340,
+                "requestSha256": "5c2fb3c7e6c54592eaf728d8360165f187dad58fc7d4d641524ddc1b6dcf49ae",
+                "responseSha256": "a6e9b2f56c7c34e8df0ef1e00cc91974fafc468a584abc7ff481d62a78ca0e73",
+                "resultCode": "0"
+              },
+              {
+                "operation": "matrix",
+                "method": "GET",
+                "path": "/eval/e93688ac-5205-4d1b-9df5-5bacced54053/matrix",
+                "requestedAt": "2026-10-14T10:55:14.721Z",
+                "elapsedMs": 2,
+                "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "responseSha256": "7e3d8fa0def5d8f2f4eb80b63f5b92c32fe8496ecec57a089d7b9c1c29ec134c",
+                "resultCode": "0"
+              }
+            ]
+          },
+          "resultSha256": "b05dbf08e7d5e943a6ed3e859e25d9931e807fc2183b799ccf58a2e7925ee836"
+        }
+      }
+    },
+    {
+      "operation": "report",
+      "input": {
+        "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+        "evaluationId": "0f350745-2487-44f6-8549-fc028cdfb330"
+      },
+      "httpStatus": 200,
+      "result": {
+        "ok": true,
+        "requestId": "e7e312fb-ab60-4b76-b35d-819ba59fac73",
+        "data": {
+          "reportId": "e7e312fb-ab60-4b76-b35d-819ba59fac73",
+          "analysisId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+          "evaluationId": "0f350745-2487-44f6-8549-fc028cdfb330",
+          "experiment": {
+            "batchId": "0f350745-2487-44f6-8549-fc028cdfb330",
+            "seed": 20250419,
+            "days": 56,
+            "profile": {
+              "profileId": "HORTI_M3_TOMATO",
+              "displayName": "Horti-M3 番茄场景",
+              "startDate": "2025-04-19",
+              "endDate": "2025-06-13",
+              "days": 56,
+              "sourceStatus": "SIMULATED_UNCALIBRATED",
+              "sourceUrl": "https://doi.org/10.5281/zenodo.17217565",
+              "paperUrl": "https://www.nature.com/articles/s41597-026-07074-w",
+              "calibrated": false,
+              "cohortScope": "CK/广辉201 仅为参数参考标签；面积和株数为全部试验小区规模，不是 CK 单处理样本汇总",
+              "weatherStatus": "SYNTHETIC_WITH_STRESS_WINDOWS",
+              "initialPhenologyStatus": "ASSUMED_UNCALIBRATED",
+              "assumptions": [
+                "未导入公开原始环境/表型数据；当前结果为确定性模拟",
+                "多跨屋架、设备容量、控制响应与环境轨迹为示意假设",
+                "根区有效深度 0.25 m 为水分模型假设，不是数据集给定值",
+                "模型 PPFD 为代理量；论文 lux 字段未转换为实测 PPFD"
+              ],
+              "plantCount": 840,
+              "greenhouseFootprintM2": 1600
+            },
+            "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED"
+          },
+          "riskClues": [
+            {
+              "field": "temperatureC",
+              "value": 30,
+              "evidence": "温度30℃",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "humidityPct",
+              "value": 88,
+              "evidence": "空气湿度88%",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "symptoms",
+              "value": "下部叶片有少量黄斑",
+              "evidence": "下部叶片有少量黄斑",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            },
+            {
+              "field": "detectedDisease",
+              "value": "尚未确诊病害",
+              "evidence": "尚未确诊病害",
+              "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+            }
+          ],
+          "draft": {
+            "fields": [
+              {
+                "key": "crop",
+                "label": "作物",
+                "unit": null,
+                "value": "番茄",
+                "source": "PARSED",
+                "rawText": "我种植番茄"
+              },
+              {
+                "key": "facilityType",
+                "label": "设施类型",
+                "unit": null,
+                "value": "温室",
+                "source": "PARSED",
+                "rawText": "温室面积600平方米"
+              },
+              {
+                "key": "areaM2",
+                "label": "面积",
+                "unit": "m²",
+                "value": 600,
+                "source": "PARSED",
+                "rawText": "温室面积600平方米"
+              },
+              {
+                "key": "growthStage",
+                "label": "当前生育期",
+                "unit": null,
+                "value": "坐果期",
+                "source": "PARSED",
+                "rawText": "目前坐果期"
+              },
+              {
+                "key": "temperatureC",
+                "label": "温度",
+                "unit": "℃",
+                "value": 30,
+                "source": "PARSED",
+                "rawText": "温度30℃"
+              },
+              {
+                "key": "humidityPct",
+                "label": "空气湿度",
+                "unit": "%",
+                "value": 88,
+                "source": "PARSED",
+                "rawText": "空气湿度88%"
+              },
+              {
+                "key": "soilMoisturePct",
+                "label": "土壤含水率",
+                "unit": "%",
+                "value": 62,
+                "source": "PARSED",
+                "rawText": "土壤含水率62%"
+              },
+              {
+                "key": "symptoms",
+                "label": "田间症状描述",
+                "unit": null,
+                "value": "下部叶片有少量黄斑",
+                "source": "PARSED",
+                "rawText": "下部叶片有少量黄斑"
+              },
+              {
+                "key": "detectedDisease",
+                "label": "已确诊病虫害",
+                "unit": null,
+                "value": "尚未确诊病害",
+                "source": "PARSED",
+                "rawText": "尚未确诊病害"
+              },
+              {
+                "key": "goal",
+                "label": "生产目标",
+                "unit": null,
+                "value": "比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备",
+                "source": "PARSED",
+                "rawText": "希望比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备"
+              }
+            ],
+            "missing": [
+              "品种",
+              "定植日期",
+              "栽培方式",
+              "CO₂ 浓度",
+              "光照",
+              "水汽压亏缺",
+              "灌溉方式与频次",
+              "施肥方案",
+              "近期农事操作",
+              "发生程度",
+              "目标上市期",
+              "预算"
+            ],
+            "conflicts": [],
+            "notes": []
+          },
+          "environment": {
+            "location": "成都（演示用模拟地）",
+            "temperatureC": 24,
+            "humidityPct": 78,
+            "observedAt": "2026-10-14 18:55:11",
+            "source": "SIMULATED_LOCATION",
+            "sourceLabel": "演示用模拟地（非实测）",
+            "note": "未配置实时数据源（需要 apiUrl / appId / appSecret / cityId 四项齐全）。本行数值为**演示用固定档案，不是当地实测**，不得当作观测数据引用。",
+            "unavailableFields": [
+              "光照/PPFD：天气数据源不提供，本接口不编造该字段"
+            ]
+          },
+          "knowledge": {
+            "chunkCount": 495,
+            "vectorCount": 495,
+            "sourceCount": 41,
+            "indexLoadedAtMillis": 1791974346781,
+            "embeddingAvailable": false,
+            "embeddingProbeAgeMillis": 0,
+            "embeddingProbeTtlMillis": 30000,
+            "indexVectorSearchAvailable": true
+          },
+          "warnings": [],
+          "matrix": {
+            "P0_NONE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 0,
+              "energyKWh": 0,
+              "costYuan": 1456,
+              "profitYuan": -1456,
+              "highTemperatureMinutes": 15720,
+              "highHumidityMinutes": 39450,
+              "diseasePressureIntegral": 3521150.4,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 89.5323
+            },
+            "P1_FIXED_MANUAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 26.88,
+              "energyKWh": 878.592,
+              "costYuan": 1924.2906,
+              "profitYuan": -1924.2906,
+              "highTemperatureMinutes": 15060,
+              "highHumidityMinutes": 39720,
+              "diseasePressureIntegral": 3317827.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.9915
+            },
+            "P2_RULE_ENGINE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.36,
+              "energyKWh": 3449.68,
+              "costYuan": 3553.5043,
+              "profitYuan": -3553.5043,
+              "highTemperatureMinutes": 14340,
+              "highHumidityMinutes": 22050,
+              "diseasePressureIntegral": 2937264,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 50.7914
+            },
+            "P3_AGENT": {
+              "marketableYieldKg": 10.3282,
+              "waterUsedM3": 7.92,
+              "energyKWh": 5862.08,
+              "costYuan": 4113.1032,
+              "profitYuan": -4051.6506,
+              "highTemperatureMinutes": 21570,
+              "highHumidityMinutes": 35490,
+              "diseasePressureIntegral": 2802420.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 77.1906
+            },
+            "P4_PID_PROPORTIONAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 66.12,
+              "energyKWh": 5384.9729,
+              "costYuan": 4369.4664,
+              "profitYuan": -4369.4664,
+              "highTemperatureMinutes": 13380,
+              "highHumidityMinutes": 6990,
+              "diseasePressureIntegral": 2613726,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 45.7914
+            },
+            "P5_PID_PI": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7250.0947,
+              "costYuan": 5109.9017,
+              "profitYuan": -5109.9017,
+              "highTemperatureMinutes": 8760,
+              "highHumidityMinutes": 1440,
+              "diseasePressureIntegral": 2600559.9,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            },
+            "P6_PID_FULL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 65.64,
+              "energyKWh": 7347.5522,
+              "costYuan": 5177.493,
+              "profitYuan": -5177.493,
+              "highTemperatureMinutes": 8730,
+              "highHumidityMinutes": 1890,
+              "diseasePressureIntegral": 2590174.2,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 52.0397
+            }
+          },
+          "labels": {
+            "P0_NONE": "不做调控",
+            "P1_FIXED_MANUAL": "人工定时管理",
+            "P2_RULE_ENGINE": "规则自动调控",
+            "P3_AGENT": "前瞻择优调控（不调用LLM）",
+            "P4_PID_PROPORTIONAL": "离线消融：仅P",
+            "P5_PID_PI": "离线消融：P+I",
+            "P6_PID_FULL": "离线消融：P+I+D"
+          },
+          "units": {
+            "marketableYieldKg": "kg",
+            "waterUsedM3": "m³",
+            "energyKWh": "kWh",
+            "costYuan": "元",
+            "profitYuan": "元",
+            "highTemperatureMinutes": "分钟",
+            "highHumidityMinutes": "分钟",
+            "diseasePressureIntegral": "模型积分",
+            "constraintViolations": "次",
+            "finalSeverityTotal": "模型严重度"
+          },
+          "leaders": {
+            "profitYuan": {
+              "direction": "max",
+              "value": -1456,
+              "strategies": [
+                "P0_NONE"
+              ]
+            },
+            "marketableYieldKg": {
+              "direction": "max",
+              "value": 10.3282,
+              "strategies": [
+                "P3_AGENT"
+              ]
+            },
+            "waterUsedM3": {
+              "direction": "min",
+              "value": 0,
+              "strategies": [
+                "P0_NONE"
+              ]
+            },
+            "energyKWh": {
+              "direction": "min",
+              "value": 0,
+              "strategies": [
+                "P0_NONE"
+              ]
+            },
+            "diseasePressureIntegral": {
+              "direction": "min",
+              "value": 2802420.9,
+              "strategies": [
+                "P3_AGENT"
+              ]
+            },
+            "constraintViolations": {
+              "direction": "min",
+              "value": 0,
+              "strategies": [
+                "P0_NONE",
+                "P1_FIXED_MANUAL",
+                "P2_RULE_ENGINE",
+                "P3_AGENT"
+              ]
+            }
+          },
+          "comparisonToRule": {
+            "P0_NONE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": -66.36,
+              "energyKWh": -3449.68,
+              "costYuan": -2097.5043,
+              "profitYuan": 2097.5043,
+              "highTemperatureMinutes": 1380,
+              "highHumidityMinutes": 17400,
+              "diseasePressureIntegral": 583886.3999999999,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 38.7409
+            },
+            "P1_FIXED_MANUAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": -39.480000000000004,
+              "energyKWh": -2571.0879999999997,
+              "costYuan": -1629.2137,
+              "profitYuan": 1629.2137,
+              "highTemperatureMinutes": 720,
+              "highHumidityMinutes": 17670,
+              "diseasePressureIntegral": 380563.2000000002,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 2.200099999999999
+            },
+            "P2_RULE_ENGINE": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": 0,
+              "energyKWh": 0,
+              "costYuan": 0,
+              "profitYuan": 0,
+              "highTemperatureMinutes": 0,
+              "highHumidityMinutes": 0,
+              "diseasePressureIntegral": 0,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 0
+            },
+            "P3_AGENT": {
+              "marketableYieldKg": 10.3282,
+              "waterUsedM3": -58.44,
+              "energyKWh": 2412.4,
+              "costYuan": 559.5988999999995,
+              "profitYuan": -498.1462999999999,
+              "highTemperatureMinutes": 7230,
+              "highHumidityMinutes": 13440,
+              "diseasePressureIntegral": -134843.1000000001,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 26.3992
+            },
+            "P4_PID_PROPORTIONAL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": -0.23999999999999488,
+              "energyKWh": 1935.2929,
+              "costYuan": 815.9621000000002,
+              "profitYuan": -815.9621000000002,
+              "highTemperatureMinutes": -960,
+              "highHumidityMinutes": -15060,
+              "diseasePressureIntegral": -323538,
+              "constraintViolations": 0,
+              "finalSeverityTotal": -5
+            },
+            "P5_PID_PI": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": -0.7199999999999989,
+              "energyKWh": 3800.4147,
+              "costYuan": 1556.3974000000003,
+              "profitYuan": -1556.3974000000003,
+              "highTemperatureMinutes": -5580,
+              "highHumidityMinutes": -20610,
+              "diseasePressureIntegral": -336704.1000000001,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 1.2483000000000004
+            },
+            "P6_PID_FULL": {
+              "marketableYieldKg": 0,
+              "waterUsedM3": -0.7199999999999989,
+              "energyKWh": 3897.8722000000002,
+              "costYuan": 1623.9887000000003,
+              "profitYuan": -1623.9887000000003,
+              "highTemperatureMinutes": -5610,
+              "highHumidityMinutes": -20160,
+              "diseasePressureIntegral": -347089.7999999998,
+              "constraintViolations": 0,
+              "finalSeverityTotal": 1.2483000000000004
+            }
+          },
+          "tradeoffExplanation": "相对P2，P3模拟用水差为-58.44m³，能耗差为2412.4kWh，利润差为-498.1463元，病害压力积分差为-134843.1，最终模型严重度差为26.3992。差值小于0表示该指标减少，大于0表示增加；这些指标的优劣方向不同。",
+          "economicCaveat": "本次P0–P3模拟利润均为负值；利润较高只代表模拟亏损较小，不代表盈利。",
+          "evidence": [
+            {
+              "evidenceId": "cc06ade6-7f54-4ea7-b47c-83144fbb24e8",
+              "inputSha256": "7119f2862d28c53f510c87e383f034ab31f255162c1fd183ce27d54e7dd44572",
+              "calls": [
+                {
+                  "operation": "parse",
+                  "method": "POST",
+                  "path": "/ai/agri/plan/situation/parse",
+                  "requestedAt": "2026-10-14T10:55:10.453Z",
+                  "elapsedMs": 1455,
+                  "requestSha256": "db77c3eacf7d9df11c8921a064af79f53732802c194922cc30936d79f30d15ad",
+                  "responseSha256": "0d11305f6b15d550ba28b111d869e4e879d2d18adbb85780ef57b27538bb6163",
+                  "resultCode": "0"
+                },
+                {
+                  "operation": "environment",
+                  "method": "GET",
+                  "path": "/ai/agri/environment/current",
+                  "requestedAt": "2026-10-14T10:55:11.909Z",
+                  "elapsedMs": 3,
+                  "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                  "responseSha256": "d104c8213edc2ebb90908ffec8753108f6c84c4b92f3a2eba7aed53e707812cc",
+                  "resultCode": "0"
+                },
+                {
+                  "operation": "knowledge",
+                  "method": "GET",
+                  "path": "/ai/knowledge/status",
+                  "requestedAt": "2026-10-14T10:55:11.912Z",
+                  "elapsedMs": 2045,
+                  "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                  "responseSha256": "2378bfb1f86f2f3dbb0eb8bba89c9486869023538f5435ea6ff22d3ef9a87f2c",
+                  "resultCode": "0"
+                }
+              ]
+            },
+            {
+              "evidenceId": "0f350745-2487-44f6-8549-fc028cdfb330",
+              "inputSha256": "799fa819ad2426f9dcc82e856274b5198a540ced66ec5503cc0458befd21d2ad",
+              "calls": [
+                {
+                  "operation": "run",
+                  "method": "POST",
+                  "path": "/eval/runs",
+                  "requestedAt": "2026-10-14T10:55:13.983Z",
+                  "elapsedMs": 373,
+                  "requestSha256": "f5b4ee3d942d6bd63dbbe3efcad2809d1813e8e36481a47e85febbbdd0184ec4",
+                  "responseSha256": "538d66c18a580347a2d9ffa74b18dcbbaddfbafaee363577f94c38f22ef0afdf",
+                  "resultCode": "0"
+                },
+                {
+                  "operation": "matrix",
+                  "method": "GET",
+                  "path": "/eval/0f350745-2487-44f6-8549-fc028cdfb330/matrix",
+                  "requestedAt": "2026-10-14T10:55:14.357Z",
+                  "elapsedMs": 3,
+                  "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                  "responseSha256": "957a86b7f091ee80e6abe45568b84915eb379cd76202277e1f8b8f995371b951",
+                  "resultCode": "0"
+                }
+              ]
+            }
+          ],
+          "evidenceResultHashes": [
+            "f38629d3fe6c9a30d2a0a72e9ab1b710b86ac19e4d7d5e0ba3ae848617f4c8cc",
+            "8be321bd9fb4c972bb673784a5934f298dd05188f35fb4403947531937cb0d85"
+          ],
+          "humanReview": [
+            "逐条核对解析字段、原文依据、缺项和冲突；用户症状与确诊声明不是模型诊断。",
+            "本轮固定场景对照未使用用户温湿度、面积或病害状态；不得宣传为该用户实棚的最优处方。",
+            "P0–P3作为业务策略比较；P4–P6是控制项消融，不能混为真实农户可直接部署方案。",
+            "结合产量、成本、用水、病害压力和约束违规共同复核；单指标第一不表示全面最优。",
+            "核对环境 source、知识库快照时间及警告；天气服务的OBSERVED也不等于棚内传感器实测。",
+            "仿真缺少实棚校准验证；设备操作、用药和经营安排必须由负责人另行核查。"
+          ],
+          "boundaries": [
+            "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+            "温室设备响应为模型仿真，未控制或验证真实设备。",
+            "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+            "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+            "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+            "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+          ],
+          "markdown": "# 农业策略对照实验说明\n\n报告 e7e312fb-ab60-4b76-b35d-819ba59fac73；批次 0f350745-2487-44f6-8549-fc028cdfb330；seed=20250419；days=56。\n\n## 数据与实验边界\n\n- M3 是公开历史观测的顺序回放，不是当前实棚传感器流。\n- 温室设备响应为模型仿真，未控制或验证真实设备。\n- P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。\n- P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。\n- 模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。\n- 知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。\n\n## 农情草稿（用户陈述，尚待人工复核）\n\n| 字段 | 抽取值 | 输入原文依据 |\n| --- | --- | --- |\n| 作物 | 番茄 | 我种植番茄 |\n| 设施类型 | 温室 | 温室面积600平方米 |\n| 面积 | 600 | 温室面积600平方米 |\n| 当前生育期 | 坐果期 | 目前坐果期 |\n| 温度 | 30 | 温度30℃ |\n| 空气湿度 | 88 | 空气湿度88% |\n| 土壤含水率 | 62 | 土壤含水率62% |\n| 田间症状描述 | 下部叶片有少量黄斑 | 下部叶片有少量黄斑 |\n| 已确诊病虫害 | 尚未确诊病害 | 尚未确诊病害 |\n| 生产目标 | 比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备 | 希望比较节水、病害风险和收益之间的权衡，仅做农业研究与虚拟仿真，不操作真实设备 |\n\n缺项：品种、定植日期、栽培方式、CO₂ 浓度、光照、水汽压亏缺、灌溉方式与频次、施肥方案、近期农事操作、发生程度、目标上市期、预算。\n冲突：无返回冲突。\n解析说明：无额外说明。\n\n环境来源：SIMULATED\\_LOCATION；时间：2026-10-14 18:55:11。\n知识状态：块数495，来源数41；未执行RAG检索。\n工具警告：无。\n\n## 实际工具指标\n\n| 策略 | 模拟可售产量 kg | 模拟用水 m³ | 模拟利润 元 | 病害压力模型积分 |\n| --- | ---: | ---: | ---: | ---: |\n| P0_NONE | 0 | 0 | -1456 | 3521150.4 |\n| P1_FIXED_MANUAL | 0 | 26.88 | -1924.2906 | 3317827.2 |\n| P2_RULE_ENGINE | 0 | 66.36 | -3553.5043 | 2937264 |\n| P3_AGENT | 10.3282 | 7.92 | -4051.6506 | 2802420.9 |\n| P4_PID_PROPORTIONAL | 0 | 66.12 | -4369.4664 | 2613726 |\n| P5_PID_PI | 0 | 65.64 | -5109.9017 | 2600559.9 |\n| P6_PID_FULL | 0 | 65.64 | -5177.493 | 2590174.2 |\n\n## 权衡\n\n相对P2，P3模拟用水差为-58.44m³，能耗差为2412.4kWh，利润差为-498.1463元，病害压力积分差为-134843.1，最终模型严重度差为26.3992。差值小于0表示该指标减少，大于0表示增加；这些指标的优劣方向不同。\n本次P0–P3模拟利润均为负值；利润较高只代表模拟亏损较小，不代表盈利。\n结构化 leaders 列出不同指标的并列领先策略；comparisonToRule 是相对 P2 的原值差。没有加权总分或全面最优结论。\n\n## 人工复核\n\n- 逐条核对解析字段、原文依据、缺项和冲突；用户症状与确诊声明不是模型诊断。\n- 本轮固定场景对照未使用用户温湿度、面积或病害状态；不得宣传为该用户实棚的最优处方。\n- P0–P3作为业务策略比较；P4–P6是控制项消融，不能混为真实农户可直接部署方案。\n- 结合产量、成本、用水、病害压力和约束违规共同复核；单指标第一不表示全面最优。\n- 核对环境 source、知识库快照时间及警告；天气服务的OBSERVED也不等于棚内传感器实测。\n- 仿真缺少实棚校准验证；设备操作、用药和经营安排必须由负责人另行核查。\n\n农情证据 cc06ade6-7f54-4ea7-b47c-83144fbb24e8，结果摘要 f38629d3fe6c9a30d2a0a72e9ab1b710b86ac19e4d7d5e0ba3ae848617f4c8cc。\n评测证据 0f350745-2487-44f6-8549-fc028cdfb330，结果摘要 8be321bd9fb4c972bb673784a5934f298dd05188f35fb4403947531937cb0d85。",
+          "reportMethod": "DETERMINISTIC_TOOL_RESULTS_TEMPLATE",
+          "fieldValidation": "NOT_PERFORMED",
+          "trace": {
+            "evidenceId": "e7e312fb-ab60-4b76-b35d-819ba59fac73",
+            "inputSha256": "9446851ad03bcbfdc6db41b0c2bbe68467a635088a791bb91b31a26bb03d4a6a",
+            "calls": []
+          },
+          "resultSha256": "857e74b0b7700f805c97d1e7ce2eaa3d4b6265e609131ce91adfb11dafec4498"
+        }
+      }
+    }
+  ],
+  "passed": true,
+  "completedAt": "2026-10-14T10:55:14.753Z"
+}

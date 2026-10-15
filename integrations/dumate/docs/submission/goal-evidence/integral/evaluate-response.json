@@ -1,0 +1,177 @@
+{
+  "ok": true,
+  "requestId": "44c42b4b-723c-4eb9-88d1-ebc6fa5ba86f",
+  "data": {
+    "evaluationId": "44c42b4b-723c-4eb9-88d1-ebc6fa5ba86f",
+    "analysisId": "5ccfd384-f089-47ed-bdca-62777ad5ca76",
+    "batchId": "44c42b4b-723c-4eb9-88d1-ebc6fa5ba86f",
+    "seed": 20250419,
+    "days": 56,
+    "elapsedMillis": 398,
+    "profile": {
+      "profileId": "HORTI_M3_TOMATO",
+      "displayName": "Horti-M3 番茄场景",
+      "startDate": "2025-04-19",
+      "endDate": "2025-06-13",
+      "days": 56,
+      "sourceStatus": "SIMULATED_UNCALIBRATED",
+      "sourceUrl": "https://doi.org/10.5281/zenodo.17217565",
+      "paperUrl": "https://www.nature.com/articles/s41597-026-07074-w",
+      "calibrated": false,
+      "cohortScope": "CK/广辉201 仅为参数参考标签；面积和株数为全部试验小区规模，不是 CK 单处理样本汇总",
+      "weatherStatus": "SYNTHETIC_WITH_STRESS_WINDOWS",
+      "initialPhenologyStatus": "ASSUMED_UNCALIBRATED",
+      "assumptions": [
+        "未导入公开原始环境/表型数据；当前结果为确定性模拟",
+        "多跨屋架、设备容量、控制响应与环境轨迹为示意假设",
+        "根区有效深度 0.25 m 为水分模型假设，不是数据集给定值",
+        "模型 PPFD 为代理量；论文 lux 字段未转换为实测 PPFD"
+      ],
+      "plantCount": 840,
+      "greenhouseFootprintM2": 1600
+    },
+    "labels": {
+      "P0_NONE": "不做调控",
+      "P1_FIXED_MANUAL": "人工定时管理",
+      "P2_RULE_ENGINE": "规则自动调控",
+      "P3_AGENT": "前瞻择优调控（不调用LLM）",
+      "P4_PID_PROPORTIONAL": "离线消融：仅P",
+      "P5_PID_PI": "离线消融：P+I",
+      "P6_PID_FULL": "离线消融：P+I+D"
+    },
+    "units": {
+      "marketableYieldKg": "kg",
+      "waterUsedM3": "m³",
+      "energyKWh": "kWh",
+      "costYuan": "元",
+      "profitYuan": "元",
+      "highTemperatureMinutes": "分钟",
+      "highHumidityMinutes": "分钟",
+      "diseasePressureIntegral": "模型积分",
+      "constraintViolations": "次",
+      "finalSeverityTotal": "模型严重度"
+    },
+    "outcomes": {
+      "P0_NONE": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 0,
+        "energyKWh": 0,
+        "costYuan": 1456,
+        "profitYuan": -1456,
+        "highTemperatureMinutes": 15720,
+        "highHumidityMinutes": 39450,
+        "diseasePressureIntegral": 3521150.4,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 89.5323
+      },
+      "P1_FIXED_MANUAL": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 26.88,
+        "energyKWh": 878.592,
+        "costYuan": 1924.2906,
+        "profitYuan": -1924.2906,
+        "highTemperatureMinutes": 15060,
+        "highHumidityMinutes": 39720,
+        "diseasePressureIntegral": 3317827.2,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 52.9915
+      },
+      "P2_RULE_ENGINE": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 66.36,
+        "energyKWh": 3449.68,
+        "costYuan": 3553.5043,
+        "profitYuan": -3553.5043,
+        "highTemperatureMinutes": 14340,
+        "highHumidityMinutes": 22050,
+        "diseasePressureIntegral": 2937264,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 50.7914
+      },
+      "P3_AGENT": {
+        "marketableYieldKg": 10.3282,
+        "waterUsedM3": 7.92,
+        "energyKWh": 5862.08,
+        "costYuan": 4113.1032,
+        "profitYuan": -4051.6506,
+        "highTemperatureMinutes": 21570,
+        "highHumidityMinutes": 35490,
+        "diseasePressureIntegral": 2802420.9,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 77.1906
+      },
+      "P4_PID_PROPORTIONAL": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 66.12,
+        "energyKWh": 5384.9729,
+        "costYuan": 4369.4664,
+        "profitYuan": -4369.4664,
+        "highTemperatureMinutes": 13380,
+        "highHumidityMinutes": 6990,
+        "diseasePressureIntegral": 2613726,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 45.7914
+      },
+      "P5_PID_PI": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 65.64,
+        "energyKWh": 7250.0947,
+        "costYuan": 5109.9017,
+        "profitYuan": -5109.9017,
+        "highTemperatureMinutes": 8760,
+        "highHumidityMinutes": 1440,
+        "diseasePressureIntegral": 2600559.9,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 52.0397
+      },
+      "P6_PID_FULL": {
+        "marketableYieldKg": 0,
+        "waterUsedM3": 65.64,
+        "energyKWh": 7347.5522,
+        "costYuan": 5177.493,
+        "profitYuan": -5177.493,
+        "highTemperatureMinutes": 8730,
+        "highHumidityMinutes": 1890,
+        "diseasePressureIntegral": 2590174.2,
+        "constraintViolations": 0,
+        "finalSeverityTotal": 52.0397
+      }
+    },
+    "scenarioBinding": "REFERENCE_ONLY_NOT_USER_CONDITIONED",
+    "boundaries": [
+      "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+      "温室设备响应为模型仿真，未控制或验证真实设备。",
+      "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+      "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+      "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+      "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+    ],
+    "trace": {
+      "evidenceId": "44c42b4b-723c-4eb9-88d1-ebc6fa5ba86f",
+      "inputSha256": "ddb883fd29a50665bc302ff506fb59db0cab30302c8742eb5b5a2d2849853584",
+      "calls": [
+        {
+          "operation": "run",
+          "method": "POST",
+          "path": "/eval/runs",
+          "requestedAt": "2026-10-14T13:40:54.421Z",
+          "elapsedMs": 407,
+          "requestSha256": "6a514e65e9b599a4b10e586e4f9a533bd2548658021f346f2afc3681682788d3",
+          "responseSha256": "3dbc40b7fb335ccbab3eb75ce5bd19c3466314a2abf637c16811298a47b0f2aa",
+          "resultCode": "0"
+        },
+        {
+          "operation": "matrix",
+          "method": "GET",
+          "path": "/eval/44c42b4b-723c-4eb9-88d1-ebc6fa5ba86f/matrix",
+          "requestedAt": "2026-10-14T13:40:54.829Z",
+          "elapsedMs": 2,
+          "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "responseSha256": "106e7f9e044d43732b395590b6bec79e1c6f4ed35c9031e7a189bd4e55fd88a3",
+          "resultCode": "0"
+        }
+      ]
+    },
+    "resultSha256": "02a05def382b6269c8ddff9487ed97d2b93e492831b8b7f96e9acb2c3d766eb1"
+  }
+}

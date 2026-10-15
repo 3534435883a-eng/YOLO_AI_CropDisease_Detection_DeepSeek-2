@@ -1,0 +1,189 @@
+{
+  "ok": true,
+  "requestId": "5ccfd384-f089-47ed-bdca-62777ad5ca76",
+  "data": {
+    "analysisId": "5ccfd384-f089-47ed-bdca-62777ad5ca76",
+    "draft": {
+      "fields": [
+        {
+          "key": "crop",
+          "label": "作物",
+          "unit": null,
+          "value": "番茄",
+          "source": "PARSED",
+          "rawText": "我种植番茄"
+        },
+        {
+          "key": "facilityType",
+          "label": "设施类型",
+          "unit": null,
+          "value": "温室",
+          "source": "PARSED",
+          "rawText": "温室面积600平方米"
+        },
+        {
+          "key": "areaM2",
+          "label": "面积",
+          "unit": "m²",
+          "value": 600,
+          "source": "PARSED",
+          "rawText": "温室面积600平方米"
+        },
+        {
+          "key": "growthStage",
+          "label": "当前生育期",
+          "unit": null,
+          "value": "坐果期",
+          "source": "PARSED",
+          "rawText": "目前坐果期"
+        },
+        {
+          "key": "temperatureC",
+          "label": "温度",
+          "unit": "℃",
+          "value": 30,
+          "source": "PARSED",
+          "rawText": "温度30℃"
+        },
+        {
+          "key": "humidityPct",
+          "label": "空气湿度",
+          "unit": "%",
+          "value": 88,
+          "source": "PARSED",
+          "rawText": "空气湿度88%"
+        },
+        {
+          "key": "soilMoisturePct",
+          "label": "土壤含水率",
+          "unit": "%",
+          "value": 62,
+          "source": "PARSED",
+          "rawText": "土壤含水率62%"
+        },
+        {
+          "key": "symptoms",
+          "label": "田间症状描述",
+          "unit": null,
+          "value": "下部叶片有少量黄斑",
+          "source": "PARSED",
+          "rawText": "下部叶片有少量黄斑"
+        },
+        {
+          "key": "goal",
+          "label": "生产目标",
+          "unit": null,
+          "value": "比较节水、能耗、病害风险和收益的权衡，仅做农业研究与虚拟仿真，不操作真实设备",
+          "source": "PARSED",
+          "rawText": "请比较节水、能耗、病害风险和收益的权衡，仅做农业研究与虚拟仿真，不操作真实设备"
+        }
+      ],
+      "missing": [
+        "品种",
+        "定植日期",
+        "栽培方式",
+        "CO₂ 浓度",
+        "光照",
+        "水汽压亏缺",
+        "灌溉方式与频次",
+        "施肥方案",
+        "近期农事操作",
+        "已确诊病虫害",
+        "发生程度",
+        "目标上市期",
+        "预算"
+      ],
+      "conflicts": [],
+      "notes": []
+    },
+    "riskClues": [
+      {
+        "field": "temperatureC",
+        "value": 30,
+        "evidence": "温度30℃",
+        "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+      },
+      {
+        "field": "humidityPct",
+        "value": 88,
+        "evidence": "空气湿度88%",
+        "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+      },
+      {
+        "field": "symptoms",
+        "value": "下部叶片有少量黄斑",
+        "evidence": "下部叶片有少量黄斑",
+        "interpretation": "待人工复核的风险线索，不构成诊断或阈值判定"
+      }
+    ],
+    "environment": {
+      "location": "成都（演示用模拟地）",
+      "temperatureC": 24,
+      "humidityPct": 78,
+      "observedAt": "2026-10-14 21:40:52",
+      "source": "SIMULATED_LOCATION",
+      "sourceLabel": "演示用模拟地（非实测）",
+      "note": "未配置实时数据源（需要 apiUrl / appId / appSecret / cityId 四项齐全）。本行数值为**演示用固定档案，不是当地实测**，不得当作观测数据引用。",
+      "unavailableFields": [
+        "光照/PPFD：天气数据源不提供，本接口不编造该字段"
+      ]
+    },
+    "knowledge": {
+      "chunkCount": 495,
+      "vectorCount": 495,
+      "sourceCount": 41,
+      "indexLoadedAtMillis": 1791974346781,
+      "embeddingAvailable": false,
+      "embeddingProbeAgeMillis": 0,
+      "embeddingProbeTtlMillis": 30000,
+      "indexVectorSearchAvailable": true
+    },
+    "warnings": [],
+    "requiresHumanReview": true,
+    "boundaries": [
+      "M3 是公开历史观测的顺序回放，不是当前实棚传感器流。",
+      "温室设备响应为模型仿真，未控制或验证真实设备。",
+      "P3 前瞻择优使用候选动作短程仿真，不等于 LLM 决策。",
+      "P0–P6 为固定参考场景、合成天气及假设参数的确定性仿真；未注入本次用户农情。",
+      "模拟产量、利润和病害指标不能作为实棚验证结果或实际收益承诺。",
+      "知识库状态查询仅证明可用性与登记状态，不代表本报告执行了知识检索或获得文献结论。"
+    ],
+    "trace": {
+      "evidenceId": "5ccfd384-f089-47ed-bdca-62777ad5ca76",
+      "inputSha256": "cca66602e5b4563406cc42c0fe7dbcefb32a91c152df552b7f5e9cace413e703",
+      "calls": [
+        {
+          "operation": "parse",
+          "method": "POST",
+          "path": "/ai/agri/plan/situation/parse",
+          "requestedAt": "2026-10-14T13:40:50.845Z",
+          "elapsedMs": 1514,
+          "requestSha256": "34571dfc98479d6ac0b74ec1c2198e037fb6476798ec65021cf4a9a4418c7b14",
+          "responseSha256": "ec1e2bab3476854d04d3f6eb596011080634a0d86d96098f3d667d7972f79ebd",
+          "resultCode": "0"
+        },
+        {
+          "operation": "environment",
+          "method": "GET",
+          "path": "/ai/agri/environment/current",
+          "requestedAt": "2026-10-14T13:40:52.359Z",
+          "elapsedMs": 3,
+          "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "responseSha256": "f06f1e4ac156b06bc112a0905658126bd4d0c2a65092ae43c38258b701c9744b",
+          "resultCode": "0"
+        },
+        {
+          "operation": "knowledge",
+          "method": "GET",
+          "path": "/ai/knowledge/status",
+          "requestedAt": "2026-10-14T13:40:52.362Z",
+          "elapsedMs": 2014,
+          "requestSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+          "responseSha256": "2378bfb1f86f2f3dbb0eb8bba89c9486869023538f5435ea6ff22d3ef9a87f2c",
+          "resultCode": "0"
+        }
+      ]
+    },
+    "resultSha256": "111009ece2b23db709623b1b954c921b210e63e2c26ddff8c43582a215bac147"
+  }
+}
