@@ -44,3 +44,13 @@ API节点/工具 → 本层Bearer与校验 → 原农情解析/环境/知识状�
 - [DuMate技能管理官方文档](https://cloud.baidu.com/doc/Dumate/s/5mmydgic3)：支持URL、zip/md安装技能。本轮交付md技能，未执行账号安装。
 - [DuMate OpenAPI官方文档](https://cloud.baidu.com/doc/Dumate/s/ymu8cfo0x)：它是外部调用DuMate会话的接口，不能据此证明某账号存在第三方HTTP Workflow节点。
 - 技能开发指南页面多次获取超时，未以猜测补全其详情。账号节点能力用户回复“尚未确认”；所有Workflow配置明确为条件性手动指南，不假称可直接导入的官方DSL。
+
+## 2026-10-15 情境驱动审计
+
+- 用户明确：大棚模型用本项目现有模型；重点是图像、本地知识、规划和按对话人实际情况追问，不要固定全流程。
+- Flask有predictImg与9份既有权重。原Spring /flask/predict传URL/权重并写识别记录，Flask输出图还调用/files/upload；不能原样公开这条任意URL/权重接口。5000当前未监听，不能把图像新Skill记作端到端成功。Python312具备torch/ultralytics/flask/cv2，但尚未运行本轮识别。
+- KnowledgeSearchTool复用KnowledgeRetriever及CitationFormatter，支持query/crop/topN、引文、低分和降级标记；没有独立只读HTTP检索入口。status不是检索。VisionExplainTool复用已核验类别映射；不匹配/无映射会返回明确终态，不可猜病名。
+- 农业规划POST /ai/agri/plan/deduce接收situation/question/seed/days/taskId/simulationRunId/requestId并返回SSE，默认预算240秒，有界线程池2+队列8。未关联任务时会计算参考基线；关联FarmTask上下文时明确不计算固定旧场景评测。需要流式转译/异步任务与独立超时审计。
+- FarmTaskController /agent/tasks已提供创建、读取、补充事实、证据、对话、观测、动作及报告；应只复用所需资料和证据能力，不外放动作状态/设备控制。FarmTaskService可在同一任务关联M3当前状态和来源边界。
+- AgentChat会通过模型自主选工具，allowSimulationActions=false不等于强制只调用knowledge.search。不能把它作为安全的任意工具代理；优先增加窄只读桥直连知识Tool。
+- 现适配层仍只开放analyze/evaluate/report，decide是本机选择；旧40项测试不覆盖拟新增视觉、检索、规划与动态会话。
